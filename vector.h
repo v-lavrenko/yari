@@ -32,11 +32,11 @@ typedef struct {
   char data [0];
 } vec_t; // total size=64bit
 
-#define vect(d) ((vec_t *) ((char *) (d) - sizeof (vec_t)))
+#define vect(d) ((vec_t *) ((char *) (d) - sizeof(vec_t)))
 #define len(d) (vect(d)->count)
 #define vesize(d) (vect(d)->esize)
-#define vlimit(v) ((v)->limit ? (1u << (v)->limit) : (v)->count)
-#define vsizeof(v) ((off_t) (sizeof(vec_t) + vlimit(v) * (v)->esize))
+#define vlimit(v) ((v)->limit ? (1lu << (v)->limit) : (v)->count)
+#define vsizeof(v) ((off_t)vlimit(v) * (v)->esize + (off_t)sizeof(vec_t))
 #define vresize(d,n) ((n) < vlimit(vect(d)) ? d : resize_vec(d,n))
 
 /*
