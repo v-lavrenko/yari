@@ -110,12 +110,14 @@ void hrehash (hash_t *h) {
 }
 
 uint has_key (hash_t *h, char *key) {
+  if (!h || !key) return 0;
   uint code = murmur3 (key, strlen(key));
   uint *slot = href (h, key, code);
   return *slot;
 }
 
 uint key2id (hash_t *h, char *key) {
+  if (!h || !key) return 0;
   uint code = murmur3 (key, strlen(key));
   uint *slot = href (h, key, code);
   if (*slot || h->access[0] == 'r') return *slot; // key already in table
