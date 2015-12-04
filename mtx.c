@@ -64,6 +64,7 @@ void mtx_load (char *M, char *RH, char *CH, char *type, char *prm) {
   char *BEG = xml ? "<DOC" : "", *END = xml ? "</DOC>" : "\n";
   assert (rcv || svm || csv || txt || xml);
   char *skip = strstr(prm,"skip"), *repl = strstr(prm,"repl");
+  char *join = strstr(prm,"join");
   char *p = getprms(prm,"p=","waa",',');
   char *pM = (p[0] == 'w') ? "w+" : (p[0] == 'a') ? "a+" : "r+";
   char *pR = (p[1] == 'w') ? "w"  : (p[1] == 'a') ? "a"  : "r";
@@ -88,6 +89,12 @@ void mtx_load (char *M, char *RH, char *CH, char *type, char *prm) {
       if (!has_vec (m, row)) put_vec (m, row, vec);
       else if (repl) put_vec (m, row, vec);
       else if (skip) ;
+      else if (join) {
+	ix_t *old = get_vec (m,row), *tmp = vec;
+	vec = vec_x_vec (vec, '+', old);
+	free_vec (tmp); free_vec (old);
+	put_vec (m, row, vec);
+      }
       else fprintf (stderr, "\nWARNING: skipping duplicate: %s\n", id);
       free (id);
       free_vec (vec);
@@ -556,6 +563,7 @@ void mtx_dot (char *_P, char *_A, char op, char *_B) {
     chop_vec (p);
     put_vec (P, id, p);
     free_vec (a); free_vec (b); free_vec (p);
+    show_progress (id, n, "rows");
   }
   free_coll (P); free_coll (A); free_coll (B);
 }
@@ -1473,8 +1481,8 @@ char *usage =
   "                          gram=4:5 ... character 4- and 5-grams instead of tokens\n"
   "                          char=1   ... character size (in bytes) for n-grams\n"
   "                          ow=5,uw=5 ... ordered/unordered pairs in a 5-word window\n"
-  "                          skip,replace ... documents with duplicate ids\n"
   "                          positions ... store word positions instead of frequencies\n"
+  "                          join,skip,replace ... documents with duplicate ids\n"
   " print:fmt M [R] [C]    - print matrix M using specified format: rcv,csv,svm,txt\n"
   "                          R,C       ... used to map row/column numbers -> string ids\n"
   "                          top=9     ... 9 biggest values per row in descending order\n"
