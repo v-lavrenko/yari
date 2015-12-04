@@ -41,12 +41,14 @@ void dump_raw_ret (char *C, char *RH) {
 
 void dump_raw (char *C, char *RH, char *id) {
   coll_t *c = open_coll (C, "r");
-  hash_t *h = open_hash (RH, "r");
+  hash_t *h = *RH ? open_hash (RH, "r") : NULL;
   uint no = id ? getprm(id,"no=",0) : 0;
   uint i = no ? no : *id ? key2id(h,id) : 1;
   uint n = *id ? i : nvecs(c);
   //printf ("%s %s %d %d\n", C, RH, i, n);
-  for (; i <= n; ++i) printf ("%s\n", (char*)get_chunk(c,i));
+  for (; i <= n; ++i) 
+    if (has_vec (c,i))
+      printf ("%s\n", (char*)get_chunk(c,i));
   free_coll(c); free_hash(h);
 }
 
@@ -70,6 +72,31 @@ void load_raw (char *C, char *RH) { //
   fprintf (stderr, "[%.0fs] %d strings\n", vtime(), nvecs(c));
   free_coll (c); free_hash (rh); 
 }
+
+void load_json (char *C, char *RH) { // 
+  uint done = 0, skip = 0, dups = 0;
+  char *json = malloc(1<<24);
+  coll_t *c = open_coll (C, "w");
+  hash_t *rh = open_hash (RH, "r");
+  while (fgets (json, 1<<24, stdin)) { // assume one-per-line
+    uint sz = strlen (json);
+    if (json[sz-1] == '\n') json[sz-1] = 0;
+    char *docid = json_value (json, "docid"); assert (docid);
+    uint id = key2id (rh, docid);
+    free(docid);
+    if (!id) { ++skip; continue; }
+    if (has_vec (c,id)) { ++dups; continue; }
+    put_chunk (c, id, json, sz);
+    if (!(++done%20000)) {
+      if (done%1000000) fprintf (stderr, ".");
+      else fprintf (stderr, "[%.0fs] %d strings\n", vtime(), done); 
+    }
+  }
+  free_coll (c); free_hash (rh); free(json);
+  fprintf (stderr, "[%.0fs] OK: %d, skip: %d, dups: %d\n", 
+	   vtime(), done, skip, dups);
+}
+
 
 ix_t *do_qry (char *QRY, char *DICT, char *prm) {
   hash_t *dict = open_hash (DICT, "r");
@@ -1037,6 +1064,7 @@ char *usage =
   "  -rs 1                       - set random seed to 1\n"
   "  -dump XML HASH [id]         - dump strings from collection XML\n"
   "  -load XML HASH              - stdin -> collection XML indexed by HASH\n"
+  "  -json JSON HASH             - stdin -> collection JSON indexed by HASH\n"
   "  -stat XML HASH              - stats (cf,df) from collection XML -> stdout\n"
   "  -dmap XML HASH              - stdin: qryid docid, stdout: qryid XML[docid]\n"
   "  -qry 'query' DICT stem=L    - parse query\n"
@@ -1063,13 +1091,14 @@ char *usage =
 
 int main (int argc, char *argv[]) {
   char *QRY, *DICT, *INVL, *DOCS, *XML, *RNDR, *RELS, *RETS, *SIMS, *OUT, *ORDER, *PAIRS, *RANKS;
-  if (argc < 4) return fprintf (stderr, "%s", usage); 
+  if (argc < 3) return fprintf (stderr, "%s", usage); 
   ix_t *qry = NULL, *ret = NULL;
   vtime();
   while (++argv && --argc) {
     if (!strcmp (a(0), "-m")) MAP_SIZE = ((ulong) atoi (a(1))) << 20;
     if (!strcmp (a(0), "-rs")) srandom (atoi(a(1)));
     if (!strcmp (a(0), "-load")) load_raw (a(1), a(2));
+    if (!strcmp (a(0), "-json")) load_json (a(1), a(2));
     if (!strcmp (a(0), "-dump")) dump_raw (a(1), a(2), a(3));
     if (!strcmp (a(0), "-dmap")) dump_raw_ret (a(1), a(2));
     if (!strcmp (a(0), "-stat")) do_stats (a(1), a(2));
