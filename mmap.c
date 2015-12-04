@@ -22,7 +22,7 @@
 #define _GNU_SOURCE // necessary for safe_mremap
 #include "mmap.h"
 
-off_t MAP_SIZE = 1<<26;
+off_t MAP_SIZE = 1<<30;
 
 mmap_t *open_mmap (char *path, char *access, off_t size) {
   mmap_t *M = safe_calloc (sizeof (mmap_t));
@@ -30,7 +30,8 @@ mmap_t *open_mmap (char *path, char *access, off_t size) {
   M->file = safe_open (path, access);
   M->flen = safe_lseek (M->file, 0, SEEK_END);
   M->offs = 0;
-  M->size = size ? page_align (size,'>') : MAP_SIZE;
+  if (!size) size = MAX(M->flen,1<<30);
+  M->size = page_align (size,'>');
   if (M->flen < M->size) {
     if (*access == 'r') M->size = page_align (M->flen,'>');
     else M->flen = safe_truncate (M->file, M->size); }
@@ -217,8 +218,6 @@ inline off_t page_align (off_t offs, char side) {
   off_t ceil = (floor < offs) ? floor + psize : floor;
   return side == '>' ? ceil : floor;
 }
-
-// inline it_t float2it (float x) { it_t X = {int(x), (x-int(x))
 
 void *safe_malloc (size_t size) {
   void *buf = malloc (size);
