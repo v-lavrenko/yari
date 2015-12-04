@@ -59,7 +59,7 @@ int main (int argc, char *argv[]) {
       vec_t *vec = vect (get_vec (c, i));
       //printf ("%d <- %d -> %d : %ld\n", 
       //      c->prev[i], i, c->next[i], c->offs[i]);
-      printf ("%6d <- %6d -> %6d : %10ld : %10ld = %2d x %6d > %6d\n", 
+      printf ("%6d <- %6d -> %6d : %10ld : %10ld = %2d x %6lu > %6u\n", 
 	      c->prev[i], i, c->next[i], (ulong)(c->offs[i]), 
 	      (ulong)(vsizeof(vec)), vec->esize, vlimit(vec), vec->count);
       free_vec (vec->data);
@@ -67,7 +67,19 @@ int main (int argc, char *argv[]) {
     free_coll (c);
     return 0;
   }
+
+  if (!strcmp(argv[1],"-dump0")) {
+    coll_t *c = open_coll (argv[2], "r");
+    uint i = 0;
+    fprintf (stderr, "%s: %d vecs, flen: %ld\n", argv[2], nvecs(c), (ulong)(c->vecs->flen));
+    for (i = 0; i <= nvecs(c); ++i) 
+      printf ("%6d : %10ld\n", i, (ulong)(c->offs[i]));
+    free_coll (c);
+    return 0;
+  }
   
+  return 0;
+
   //char spinner[] = "|/-\\";
   char *NAME = argv[1];
   uint nr = (1<<atoi(argv[2]))-1, nni = atoi(argv[3]), r;
