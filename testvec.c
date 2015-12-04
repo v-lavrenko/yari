@@ -22,9 +22,19 @@
 #include <math.h>
 #include "vector.h"
 
+void test_resize() {
+  void *v = open_vec ("XXX", "w", 4);
+  v = resize_vec (v,  536870911);
+  v = resize_vec (v, 1073741823);
+  v = resize_vec (v, 2147483647);
+  v = resize_vec (v, 4294967295);
+  free_vec (v);
+}
+
 int main (int argc, char *argv[]) {
   unsigned i, n, j = 1;
   unsigned *a;
+  //test_resize(); return 0;
   char *FILE_NAME = "tryvec.mmap";
   if (argc < 2) { fprintf (stderr, "Usage: %s n\n", *argv); return -1;}
   n = 1 << atoi (argv[1]);
