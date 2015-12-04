@@ -250,7 +250,7 @@ inline void put_vec (coll_t *c, uint id, void *vec) {
 }
 
 inline void *map_vec (coll_t *c, uint id, uint n, uint sz) {
-  off_t size = sizeof(vec_t) + ((off_t) n) * sz;
+  off_t size = (off_t)sizeof(vec_t) + ((off_t) n) * sz;
   vec_t *vec = map_chunk (c, id, size);
   vec->count = n;  
   vec->limit = 0;
@@ -273,7 +273,7 @@ void defrag_coll (char *SRC, char *TRG) {
   for (id = 1; id <= nvecs(S); ++id) {
     vec_t *src = get_chunk(S,id);
     if (!src) continue;
-    off_t size = sizeof(vec_t) + src->count * src->esize;
+    off_t size = (off_t)sizeof(vec_t) + (off_t) src->count * src->esize;
     put_chunk (T,id,src,size);
   }
   free_coll (S);
