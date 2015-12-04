@@ -114,6 +114,14 @@ char *extract_between (char *buf, char *A, char *B){
   return result;
 }
 
+char *json_value (char *json, char *key) {
+  char *val = strstr (json, key);
+  if (!val) return NULL;
+  val += strlen(key);
+  if (*val == '"') ++val;
+  return extract_between (val, "\"", "\"");
+}
+
 char *next_token (char **text, char *ws) {
   if (!ws) ws = default_ws; 
   char *beg = *text + strspn (*text, ws); // skip whitespace
