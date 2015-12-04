@@ -1,0 +1,4 @@
+# v vector prints the header of the vector
+define v
+print * ((vec_t*) ( (char*) ($arg0) - sizeof(vec_t) ) )
+end

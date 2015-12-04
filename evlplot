@@ -1,0 +1,212 @@
+#!/usr/bin/tcsh -f
+
+set tmpskel  = /tmp/ev$$
+set plotfile = $tmpskel.plot
+
+if ( $#argv == 0 ) then
+    echo "Usage: evlplot [-r] [eps fname] [avg] ['"title1"'] evl1 ['"ttl2"'] evl2 ..."
+    echo "Underscores in title get turned into spaces"
+    exit 1
+endif
+
+set eps = 0
+set epscolor = ""
+set get_recall = 0
+
+if ( "$1" == "-r") then
+    shift
+    set get_recall = 1
+endif
+
+if ($1 == "pdf") then
+    shift
+    set eps = 1
+    set epsfile = $1
+    set epscolor = ""
+    shift
+endif
+
+if ($1 == "epsc") then
+    shift
+    set eps = 1
+    set epsfile = $1
+    set epscolor = "color"
+    shift
+endif
+
+if ($1 == "avg") then
+    shift
+    goto plot_avg_precision
+endif
+
+
+echo "Building evaluation information...."
+@ cnt = 0
+foreach f ($argv)
+    if ("$f" =~ \"*) continue
+    @ cnt++
+
+    if ("$f" =~ \#*) then
+	set ff = `echo "$f" | sed 's/^#//'`
+	touch $tmpskel.$cnt
+	foreach pct (0.00 0.10 0.20 0.30 0.40 0.50 0.60 0.70 0.80 0.90 1.00)
+	    echo "$pct       $ff" >> $tmpskel.$cnt
+	end
+    else
+
+	if ($get_recall) then
+#	    ~allan/Teval/trec_eval -a $f \
+	    trec_eval -a $f \
+	        | gawk '{if ($0=="Recall:") {x=1;next}; if (x==1) print}' \
+		| gawk '{if (/^Av.*all 11 recall points/) exit; print}' \
+		| gawk '/^   at .* docs/ {$1=""; $3=""; print}' \
+		> $tmpskel.$cnt
+	else
+#	    ~allan/Teval/trec_eval $f \
+	    trec_eval $f \
+		| gawk '/^    at [01]\./ {$1=$3=""; print}' \
+		> $tmpskel.$cnt
+	endif
+
+    endif
+
+end
+
+
+echo "Building plot..."
+@ cnt = 0
+echo "" > $plotfile
+if ($eps) then
+    echo "set terminal pdfcairo $epscolor font "'"Helvetica 24"' >> $plotfile
+    echo 'set output "'$epsfile'"'     >> $plotfile
+#    echo "set terminal postscript eps $epscolor"'"Helvetica" 24' >> $plotfile
+#    echo 'set output "'$epsfile'"'     >> $plotfile
+endif
+if ($get_recall) then
+    echo 'set title "Recall graph"' >> $plotfile
+    echo 'set xlabel "Number retrieved"' >> $plotfile
+    echo 'set ylabel "Recall"' >> $plotfile
+else
+    echo 'set title "11-pt Recall/Precision graph"' >> $plotfile
+    echo 'set xlabel "Recall"' >> $plotfile
+    echo 'set ylabel "Precision"' >> $plotfile
+endif
+echo "set style data linesp" >> $plotfile
+set comma = ""
+set plot  = "plot "
+set title = ()
+foreach f ($argv)
+    if ("$f" =~ \"*) then
+	set title = `echo $f | sed -e 's/_/ /g'`
+	continue
+    endif
+    @ cnt++
+
+    echo $comma >> $plotfile
+    if ($#title == 0) then
+	echo -n $plot '"'$tmpskel.$cnt'"' t '"'$f'"' >> $plotfile
+    else
+	echo -n $plot '"'$tmpskel.$cnt'"' t $title >> $plotfile
+    endif
+    set comma = ', \'
+    set plot  = "   "
+    set title = ()
+end
+echo "" >> $plotfile
+if (! $eps) then
+    echo 'pause -1 "Press return to continue"' >> $plotfile
+endif
+
+gnuplot $plotfile
+if ($eps) then
+    echo "EPS of graph is in $epsfile"
+endif
+
+/bin/rm -f ${tmpskel}*
+exit
+
+
+
+#+
+# Plot the average precision value
+#-
+plot_avg_precision:
+
+if ( $#argv == 0 ) then
+    echo "Usage: evlplot avg evlfile1 [evlfile2]..."
+    exit 1
+endif
+
+echo "Building evaluation information...."
+set comma = ""
+set overline = ()
+set tics = ()
+@ cnt = 0
+foreach f ($argv)
+    @ cnt++
+
+    ~allan/Teval/trec_eval $f \
+	| gawk -v N=$cnt 'NF==1 && \!/Prec/ {printf( "%d %f\n", N, $1 )}' \
+	> $tmpskel.$cnt
+    set tics  = ($tics$comma '"'$f'"' $cnt)
+    set comma = ","
+
+    set vals = (`cat $tmpskel.$cnt`)
+    set overline = ($overline $vals[2])
+end
+
+
+
+echo "Building plot..."
+echo "" > $plotfile
+echo 'set title "Average precision graph"' >> $plotfile
+echo 'set xlabel "Run name"' >> $plotfile
+echo 'set ylabel "Precision"' >> $plotfile
+echo set xtics "($tics)" >> $plotfile
+@ cnt++
+echo "set xrange [0:$cnt]" >> $plotfile
+set comma = ""
+set plot  = "p "
+
+touch $tmpskel.0
+#foreach elt ($overline)
+#    echo $elt >> $tmpskel.0
+#end
+
+@ cnt = 0
+foreach f ($argv)
+    @ cnt++
+
+    cat $tmpskel.$cnt >> $tmpskel.0
+    echo $comma >> $plotfile
+# This is........ plot "XXX"       title "xxx"   with impulses
+    echo -n $plot '"'$tmpskel.$cnt'"' t '"'$f'"' w i >> $plotfile
+
+    @ modcnt = $cnt % 108
+    if ($modcnt != 0) then
+        set comma = ', \'
+        set plot  = "   "
+    else
+        set comma = ""
+        set plot  = "replot "
+        echo "" >> $plotfile
+    endif
+end
+
+echo $comma >> $plotfile
+echo $plot '"'$tmpskel.0'"' t '"'curve'"' w linesp >> $plotfile
+
+echo 'pause -1 "Press return to continue"' >> $plotfile
+
+#echo "--------" $plotfile
+#cat $plotfile
+#echo "--------"
+
+gnuplot $plotfile
+
+/bin/rm -f ${tmpskel}*
+
+
+
+
+

@@ -1,0 +1,1 @@
+find . -name coll.offs | sed 's/.coll.offs//'
