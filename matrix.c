@@ -77,8 +77,9 @@ uint jix_is_sorted (jix_t *vec) {
 
 jix_t *scan_jix (FILE *in, uint num, hash_t *rows, hash_t *cols) {
   jix_t *buf = new_vec (num, sizeof(jix_t));
-  jix_t *b = buf, *end = buf + len(buf);
-  char line[1000], row[1000], col[1000]; float value;
+  jix_t *b = buf, *end = buf + len(buf); 
+  char line[1000], row[1000], col[1000]; 
+  uint skip = 0; float value;
   while (fgets (line, 999, in)) {
     //fprintf (stderr, line);
     if (*line == '#') { // comments and signals start with a #
@@ -92,13 +93,15 @@ jix_t *scan_jix (FILE *in, uint num, hash_t *rows, hash_t *cols) {
     b->j = rows ? key2id (rows, row) : atol(row); // row id -> integer
     b->i = cols ? key2id (cols, col) : atol(col); // column id -> integer
     b->x = value; // store the value of cell at (row,col)
-    //if (b->i && b->j && b->x) ++b; // skip zero values
-    if (b->i && b->j) ++b; // keep zero values
-    else fprintf (stderr, "skipping [%d,%d,%.2f]: [%s,%s] %s", b->j, b->i, b->x, row, col, line);
+    if      (!b->j) { if (++skip<9) fprintf (stderr, "skipping row [%s] %s", row, line); }
+    else if (!b->i) { if (++skip<9) fprintf (stderr, "skipping col [%s] %s", col, line); }
+    else ++b; // keep zero values
+    //else if (b->x) ++b; // skip zero values
     if (b >= end) break;
   }
   resize_vec (buf, b - buf);
   sort_vec (buf, cmp_jix); // rsort?
+  if (skip) fprintf (stderr, "skipped %d posts, ", skip);
   return buf;
 }
 
@@ -471,7 +474,7 @@ void scan_mtx (coll_t *rows, coll_t *cols, hash_t *rh, hash_t *ch) {
     if (cols) transpose_jix (buf);
     if (cols) append_jix (cols, buf);
     fprintf (stderr, "[%.0fs] added %d cells -> %d rows, %d cols\n", 
-	    vtime(), len(buf), (rh?nkeys(rh):0), (ch?nkeys(ch):0)); 
+	     vtime(), len(buf), num_rows(rows), num_cols(rows)); 
     free_vec (buf);
   }
   if (rows) sort_vecs (rows); 
@@ -2000,6 +2003,27 @@ void disjoin (ix_t *X, ix_t *Y) {
     else             { y->i = z->i; y->x = z->y; ++y; }
   assert (x < X+len(X) && y < Y+len(Y));
   free_vec (Z);
+}
+
+void filter_and (ix_t *V, ix_t *F) {
+  ix_t *v = V, *f = F, *endV = V + len(V), *endF = F + len(F);
+  while (v < endV && f < endF) {
+    if      (v->i >  f->i) { ++f; } // f but not v => ignore
+    else if (v->i <  f->i) { v->i = 0;  ++v; } // v not in f => skip
+    else if (v->i == f->i) { ++v; ++f; } // v in f => keep it
+  } // keep remaining elements in V (they're not in F)
+  len(V) = v-V; // drop remaining elements in V (if any)
+  chop_vec (V);
+}
+
+void filter_not (ix_t *V, ix_t *F) {
+  ix_t *v = V, *f = F, *endV = V + len(V), *endF = F + len(F);
+  while (v < endV && f < endF) {
+    if      (v->i >  f->i) { ++f; } // f but not v => ignore
+    else if (v->i <  f->i) { ++v; } // v not in f => keep
+    else if (v->i == f->i) { v->i = 0; ++v; ++f; } // v in f => skip
+  } // keep remaining elements in V (they're not in F)
+  chop_vec (V);
 }
 
 void vec_mul_vec (ix_t *V, ix_t *F) {
