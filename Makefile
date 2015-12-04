@@ -1,9 +1,9 @@
 f64=-D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE 
 LIB=-lm -lpthread
 
-opt ?= -g # -g # make opt=-O3 (optimised) or opt=-pg (profile)
+opt ?= -g # make opt=-O3 (optimised) or opt=-pg (profile)
 
-CC=/usr/local/bin/gcc-4.5 -m64 $(opt) -W -Wall -I . -o $@ $(f64) -fopenmp
+CC=gcc -m64 $(opt) -W -Wall -Wno-unused-result -I . -o $@ $(f64) -fopenmp
 
 exe = testmmap testvec testcoll testhash mtx stem plug hl bio
 
