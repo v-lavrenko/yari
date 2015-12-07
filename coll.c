@@ -175,12 +175,23 @@ static inline void mov_chunk (coll_t *c, uint id, off_t sz) { // NEVER call dire
 }
 
 // return pointer to chunk linked by id, or NULL
-inline void *get_chunk (coll_t *c, uint id) {
+inline void *get_chunk_old (coll_t *c, uint id) {
   if (!c->path) return get_chunk_inmem(c,id);
   if (!has_vec(c,id)) return NULL;
   uint next = c->next ? c->next[id] : (id+1) % len(c->offs);
   off_t size = c->offs[next] - c->offs[id];
   return move_mmap (c->vecs, c->offs[id], size); 
+}
+
+// return a copy of chunk linked by id, or NULL => must be freed
+inline void *get_chunk (coll_t *c, uint id) {
+  if (!c->path) return get_chunk_inmem(c,id);
+  if (!has_vec(c,id)) return NULL;
+  uint next = c->next ? c->next[id] : (id+1) % len(c->offs);
+  off_t size = c->offs[next] - c->offs[id];
+  char *chunk = safe_malloc (size);
+  safe_pread (c->vecs->file, chunk, size, c->offs[id]);
+  return chunk;
 }
 
 inline static void *map_chunk (coll_t *c, uint id, off_t size) {
@@ -189,24 +200,40 @@ inline static void *map_chunk (coll_t *c, uint id, off_t size) {
   return move_mmap (c->vecs, c->offs[id], size);
 }
 
-inline void put_chunk (coll_t *c, uint id, void *src, off_t size) {
+inline void put_chunk_old (coll_t *c, uint id, void *src, off_t size) {
   if (!c->path) return put_chunk_inmem (c,id,src,size);
   void *trg = map_chunk (c, id, size);
   memcpy (trg, src, size);
 }
 
-vec_t nullvec = {0, 0, 0, 0};
-
-inline void *get_vec_ro (coll_t *c, uint id) {
-  vec_t *hdr = get_chunk (c, id);
-  return hdr ? hdr->data : (&nullvec)->data;
+inline void put_chunk (coll_t *c, uint id, void *chunk, off_t size) {
+  if (!c->path) return put_chunk_inmem (c,id,chunk,size);
+  mov_chunk (c, id, size);
+  safe_pwrite (c->vecs->file, chunk, size, c->offs[id]);
 }
 
-inline void *get_vec (coll_t *c, uint id) {
+vec_t nullvec = {0, 0, 0, 0};
+
+inline void *get_vec_old (coll_t *c, uint id) {
   vec_t *hdr = get_chunk (c, id);
   return hdr ? copy_vec (hdr->data) : new_vec (0, 0);
 }
 
+inline void *get_vec (coll_t *c, uint id) {
+  vec_t *hdr = get_chunk (c, id);
+  if (!hdr) return new_vec (0,0);
+  hdr->file = 0; // TODO: FIX THIS!
+  return hdr->data;
+}
+
+/* redundant: new get_vec() will always copy */
+inline void *get_vec_ro (coll_t *c, uint id) {
+  vec_t *hdr = get_chunk (c, id);
+  return hdr ? hdr->data : (&nullvec)->data;
+}
+/**/
+
+/* redundant: new get_vec() will always pread */
 inline void *get_vec_mp (coll_t *c, uint id) { // thread-safe
   if (!has_vec(c,id)) return new_vec (0, sizeof(ix_t));
   if (!c->path) { // in-memory
@@ -225,11 +252,14 @@ inline void *get_vec_mp (coll_t *c, uint id) { // thread-safe
   vec->file = 0; // vector in memory
   return vec->data;
 }
+/**/
 
+/**/
 inline void *get_or_new_vec (coll_t *c, uint id, uint esize) {
   vec_t *hdr = get_chunk (c, id);
   return hdr ? copy_vec (hdr->data) : new_vec (0, esize);
 }
+/**/
 
 inline void del_vec (coll_t *c, uint id) { del_chunk (c, id); }
 
@@ -238,7 +268,8 @@ static inline void update_dims (coll_t *c, uint id, ix_t *V, uint n, uint sz) {
   if (sz == sizeof(ix_t) && n && V[n-1].i > c->cdim) c->cdim = V[n-1].i;
 }
 
-inline void put_vec (coll_t *c, uint id, void *vec) {
+/**/
+inline void put_vec_old (coll_t *c, uint id, void *vec) {
   if (!vec || !len(vec)) return del_vec (c,id);
   vec_t *src = vect(vec);
   update_dims (c, id, vec, src->count, src->esize);
@@ -248,8 +279,20 @@ inline void put_vec (coll_t *c, uint id, void *vec) {
   memcpy (trg, src, size);
   trg->file = 2; // should be 2 for vectors in a collection
 }
+/**/
 
-inline void *map_vec (coll_t *c, uint id, uint n, uint sz) {
+inline void put_vec (coll_t *c, uint id, void *vec) {
+  if (!vec || !len(vec)) return del_vec (c,id);
+  vec_t *src = vect(vec);
+  off_t size = sizeof(vec_t) + src->count * src->esize;
+  uint file = src->file; // TODO: FIX THIS
+  src->file = 2; // should be 2 for vectors in a collection
+  put_chunk (c, id, src, size);
+  update_dims (c, id, vec, src->count, src->esize);
+  src->file = file;
+}
+
+inline void *map_vec (coll_t *c, uint id, uint n, uint sz) { // TODO : remove this (used by transpose only)
   off_t size = (off_t)sizeof(vec_t) + ((off_t) n) * sz;
   vec_t *vec = map_chunk (c, id, size);
   vec->count = n;  

@@ -24,13 +24,14 @@
 #ifndef COLL
 #define COLL
 
-#define COLL_VERSION 20130808
+#define COLL_VERSION 20130808 
 
+// TODO: replace vecs with int fd + bump VERSION
 typedef struct {
   off_t  *offs; // offs[id] = offset of id'th vector in vecs (or pointer)
   uint   *prev; // prev[id] = vec that precedes id in vecs, 0 if id is 1st
   uint   *next; // next[id] = vec that follows id in vecs, 0 if id is last
-  mmap_t *vecs; // window containing memory-mapped vectors
+  mmap_t *vecs; // window containing vectors 
   char   *path; // path where the matrix exists on disk
   char *access; // r,w,a
   uint version; 
