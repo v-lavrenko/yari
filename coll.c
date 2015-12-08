@@ -188,10 +188,14 @@ inline void *get_chunk (coll_t *c, uint id) {
   if (!c->path) return get_chunk_inmem(c,id);
   if (!has_vec(c,id)) return NULL;
   uint next = c->next ? c->next[id] : (id+1) % len(c->offs);
-  off_t size = c->offs[next] - c->offs[id];
-  char *chunk = safe_malloc (size);
-  safe_pread (c->vecs->file, chunk, size, c->offs[id]);
-  return chunk;
+  off_t offs = c->offs[id], size = c->offs[next] - offs;
+  char *trg = safe_malloc (size);
+  mmap_t *M = c->vecs;
+  if (offs >= M->offs && (offs+size) <= (M->offs + M->size)) { 
+    char *src = M->data + (offs - M->offs); // inside mmap
+    memcpy (trg, src, size);
+  } else safe_pread (M->file, trg, size, offs); // outside
+  return trg;
 }
 
 inline static void *map_chunk (coll_t *c, uint id, off_t size) {

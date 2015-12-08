@@ -22,7 +22,7 @@
 #define _GNU_SOURCE // necessary for safe_mremap
 #include "mmap.h"
 
-off_t MAP_SIZE = 1<<30;
+off_t MAP_SIZE = 1<<28;
 
 mmap_t *open_mmap (char *path, char *access, off_t size) {
   mmap_t *M = safe_calloc (sizeof (mmap_t));
@@ -30,8 +30,7 @@ mmap_t *open_mmap (char *path, char *access, off_t size) {
   M->file = safe_open (path, access);
   M->flen = safe_lseek (M->file, 0, SEEK_END);
   M->offs = 0;
-  if (!size) size = MAX(M->flen,1<<30);
-  M->size = page_align (size,'>');
+  M->size = page_align ((size?size:MAP_SIZE),'>');
   if (M->flen < M->size) {
     if (*access == 'r') M->size = page_align (M->flen,'>');
     else M->flen = safe_truncate (M->file, M->size); }
@@ -132,16 +131,13 @@ void unmap_region (void *region, off_t offs, off_t size) {
   munmap (region - (offs-beg), end-beg);
 }
 
-inline void grow_mmap (mmap_t *map, off_t size) {
-  if (map->flen < size) { // expand underlying file
-    map->flen = next_pow2 (size);
-    safe_truncate (map->file, map->flen); 
-  }
-  if (map->size < map->flen) {
-    if (map->data) munmap (map->data, map->size); // release old map
-    map->size = map->flen;
-    map->data = safe_mmap (map->file, map->offs, map->size, map->mode);
-  }
+void grow_mmap (mmap_t *M) {
+  //ulong LIMIT = physical_memory();
+  if (M->size >= M->flen) return;
+  if (M->data) munmap (M->data, M->size); // release old map
+  M->offs = 0;
+  M->size = page_align (M->flen, '>');
+  M->data = safe_mmap (M->file, M->offs, M->size, M->mode);
 }
 
 ////////////////////////////////////////////////////////////

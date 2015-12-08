@@ -60,17 +60,15 @@ hash_t *open_hash (char *_path, char *_access) {
   hash_t *h = safe_calloc (sizeof (hash_t));
   h->access = access;
   h->path = path;
-  h->keys = open_coll (path, access); expect_random_access (h->keys->vecs,1<<20);
+  h->keys = open_coll (path, access); 
   h->code = open_vec (cat(path,"/hash.code"), access, sizeof(uint));
   h->indx = open_vec (cat(path,"/hash.indx"), access, sizeof(uint));
   if (0 == len(h->indx)) h->indx = resize_vec (h->indx, 1023);
-  //h->data = open_mmap (path, access, 0); grow_mmap (h->data, 0);
   return h;
 }
 
 void free_hash (hash_t *h) {
   if (!h) return;
-  //free_mmap (h->data);
   free_coll (h->keys);
   free_vec  (h->code);
   free_vec  (h->indx);
