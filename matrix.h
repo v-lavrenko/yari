@@ -82,6 +82,7 @@ ix_t *rand_vec_exp (uint n); // exponential distribution
 ix_t *rand_vec_log (uint n); // logistic distribution
 ix_t *rand_vec_sphere (uint n); // uniformly over a unit sphere
 ix_t *rand_vec_simplex (uint n); // uniformly over a multinomial simplex
+ix_t *rand_vec_sparse (uint n, uint k) ; // [0,1] for k random positions
 
 void scan_mtx (coll_t *rows, coll_t *cols, hash_t *rh, hash_t *ch) ;
 ix_t *parse_vec_svm (char *str, char **id) ;

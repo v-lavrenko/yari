@@ -59,7 +59,7 @@ mmap_t *open_mmap (char *path, char *access, off_t size) ;
 void free_mmap (mmap_t *M) ;
 void write_mmap (mmap_t *map, char *path) ;
 void *move_mmap (mmap_t *map, off_t beg, off_t end) ;
-void expand_mmap (mmap_t *map, off_t size) ;
+void grow_mmap_file (mmap_t *map, off_t size) ;
 void *mmap_region (int fd, off_t offs, off_t size, char *access) ;
 void unmap_region (void *region, off_t offs, off_t size);
 void expect_random_access (mmap_t *M, off_t size) ;
