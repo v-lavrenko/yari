@@ -378,6 +378,19 @@ ix_t *rand_vec_simplex (uint n) {
   return vec;
 }
 
+ix_t *rand_vec_sparse (uint n, uint k) {
+  ix_t *vec = new_vec (0, sizeof(ix_t)), new = {0,0};
+  while (len(vec) < k) {
+    uint r = random();
+    new.i = 1 + r % n;
+    new.x = (float)r / RAND_MAX;
+    vec = append_vec (vec, &new);
+  }
+  sort_vec (vec, cmp_ix_i);
+  uniq_vec (vec);
+  return vec;
+}
+
 void rand_mtx (coll_t *M, uint r, uint c) {
   for (; r > 0; --r) {
     ix_t *vec = rand_vec (c);
@@ -1286,8 +1299,8 @@ void transpose_mtx (coll_t *rows, coll_t *cols) {
   uint *df = len_cols (rows), nw = len(df), nd = num_rows(rows);
   ulong np = sumi(df), pm = physical_memory(), done = 0, M = 1<<20;
   ulong BS = MIN(np+1,pm/2/sizeof(ix_t));
-  ix_t *buf = new_vec (BS, sizeof(ix_t));
-  uint *beg = new_vec (nw, sizeof(uint));
+  ix_t *buf = new_vec (BS, sizeof(ix_t)); // calloc (BS, sizeof(ix_t));
+  uint *beg = new_vec (nw, sizeof(uint)); // calloc (nw, sizeof(uint));
   fprintf (stderr, "computed df [%d x %d], will buffer %ldMB\n", 
 	   nd, nw-1, BS*sizeof(ix_t)/M);
   uint v=1, w=1, used=0, i=0;
@@ -1321,6 +1334,7 @@ void transpose_mtx (coll_t *rows, coll_t *cols) {
   }
   fprintf (stderr, " done [%.0fs]\n", vtime());
   free_vec (buf); free_vec (beg); free_vec (df);
+  //free (buf); free (beg); free_vec (df);
 }
 
 coll_t *transpose (coll_t *M) {

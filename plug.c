@@ -52,9 +52,9 @@ void dump_raw (char *C, char *RH, char *id) {
   free_coll(c); free_hash(h);
 }
 
-void load_raw (char *C, char *RH) { // 
+void load_raw (char *C, char *RH) { 
   uint done = 0;
-  char buf[1<<24]; 
+  char *buf = malloc (1<<24);
   coll_t *c = open_coll (C, "w");
   hash_t *rh = open_hash (RH, "r");
   while (read_doc (stdin, buf, 1<<24, "<DOC", "</DOC>")) {
@@ -70,7 +70,7 @@ void load_raw (char *C, char *RH) { //
     }
   }
   fprintf (stderr, "[%.0fs] %d strings\n", vtime(), nvecs(c));
-  free_coll (c); free_hash (rh); 
+  free_coll (c); free_hash (rh); free (buf);
 }
 
 void load_json (char *C, char *RH) { // 

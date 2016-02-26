@@ -21,23 +21,45 @@
 
 #include <math.h>
 #include "mmap.h"
+#include <pthread.h>
 
-void test_random_access (char *path, char *prm) {
+ulong myrand (ulong prev) { return prev * 1103515245 + 12345; }
+
+double mstime() {
+  struct timespec tp;
+  clock_gettime (CLOCK_MONOTONIC, &tp);
+  return 1000.*tp.tv_sec + tp.tv_nsec/1E6;
+}
+
+void detach (void *(*handle) (void *), void *arg) {
+  pthread_t t = 0;
+  if (pthread_create (&t, NULL, handle, arg)) assert (0);
+  if (pthread_detach (t)) assert (0);
+}
+
+uint threads = 0;
+void *test_random_access (void *prm) {
+  char *path = getprms (prm,"path=","RND",',');
   char *_mmap = strstr (prm,"mmap");
   char *_read = strstr (prm,"read");
+  char *_MMAP = strstr (prm,"MMAP");
   char *pre = strstr (prm,"pre");
-  uint seed = getprm (prm, "seed=", 1);
   uint size = getprm (prm, "size=", 10000);
   uint n    = getprm (prm, "n=", 10000);
   int fd = safe_open (path, "r");
   off_t flen = safe_lseek (fd, 0, SEEK_END);
-  char *prealloc = malloc (size);
+  uint thread = ++threads;
+  off_t offs = getprm (prm, "seed=", clock()) + thread;
+  char *prealloc = malloc (size), *MAP = NULL;
   ulong sum = 0;
-  vtime();
-  srand(seed);
+  double start = mstime();
   while (--n > 0) {
-    off_t offs = rand() % (flen - size);
-    if (_mmap) {
+    offs = myrand(offs) % (flen - size);
+    if (_MMAP) { // entire file memory-mapped
+      if (!MAP) MAP = safe_mmap (fd, 0, page_align (flen, '>'), "r");
+      char *chunk = MAP + offs, *p;
+      for (p = chunk; p < chunk + size; ++p) sum += *p;
+    } else if (_mmap) {
       off_t beg = page_align (offs, '<'), end = page_align (offs+size, '>');
       char *ptr = safe_mmap (fd, beg, end-beg, "r");
       char *chunk = ptr + (offs - beg), *p;
@@ -48,19 +70,30 @@ void test_random_access (char *path, char *prm) {
       safe_pread (fd, chunk, size, offs);
       for (p = chunk; p < chunk + size; ++p) sum += *p;
       if (!pre) free (chunk);
-    }
+    } 
   }
-  printf ("%.2f %lx %s\n", vtime(), sum, prm);
-  free (prealloc);
+  if (MAP) munmap (MAP, page_align (flen, '>'));
+  double lag = (mstime() - start);
+  fprintf (stderr, "%.0fms %lx %s tread:%d\n", lag, sum, (char*)prm, thread);
+  free (prealloc); 
   close (fd);
+  return NULL;
 }
 
-
 int main (int argc, char *argv[]) {
-  if (argc > 2) test_random_access (argv[1], argv[2]);
-  else printf ("usage: %s path [mmap/read,prealloc,n=1000,size=1000,seed=1]\n", argv[0]);
+  if (argc > 1) {
+    //pthread_t t = 1;
+    //if (pthread_create (&t, NULL, test_random_access, argv[1])) assert (0);
+    //if (pthread_detach (t)) assert (0);
+    uint n = 10;
+    while (--n > 0) detach (test_random_access, (void*)strdup(argv[1]));
+    test_random_access (argv[1]);
+    sleep(10);
+  }
+  else printf ("usage: %s [path=F,mmap/read,prealloc,n=1000,size=1000,seed=1]\n", argv[0]);
   return 0;
-  
+
+/*
   if (argc < 2) { fprintf (stderr, "Usage: %s n\n", *argv); return -1;}
   ulong N = (1ul << atoi (argv[1])), M = 1<<28, sz = sizeof(ulong), iter = 0;
   char *NAME = (argc > 2) ? argv[2] : "trymmap.mmap";
@@ -85,4 +118,5 @@ int main (int argc, char *argv[]) {
   }
   
   return 1;
+*/
 }

@@ -179,7 +179,7 @@ void mtx_weigh (char *TRG, char *prm, char *SRC, char *STATS) {
   char *smx = strstr(prm,"softmax"), *rnk = strstr(prm,"ranks");
   char *R01 = strstr(prm,"range01"), *r01 = strstr(prm,"row01");
   char *Sgn = strstr(prm,"sgn"), *Abs = strstr(prm,"abs");
-  char *Sum = strstr(prm,"sum"), *Sm2 = strstr(prm,"sum2");
+  char *Sum = strstr(prm,"sum"), *Sm2 = strstr(prm,"sum2"), *Sm0 = strstr(prm,"sum0");
   char *Min = strstr(prm,"min"), *Max = strstr(prm,"max");
   char *Exp = strstr(prm,"exp"), *Log = strstr(prm,"log");
   char *inq = strstr(prm,"inq"), *idf = strstr(prm,"idf");
@@ -205,6 +205,7 @@ void mtx_weigh (char *TRG, char *prm, char *SRC, char *STATS) {
   if (l2p || lse) Log = 0; // 'logSexp' and 'log2p' contain 'log'
   if (lse) Exp = 0; // 'logSexp' contains 'exp'
   if (Sm2) Sum = 0; // 'sum2' contains 'sum'
+  if (Sm0) Sum = 0; // 'sum0' contains 'sum'
   if (smx) Max = 0; // 'softmax' contains 'max'
   
   stats_t *stats = NULL; 
@@ -243,7 +244,7 @@ void mtx_weigh (char *TRG, char *prm, char *SRC, char *STATS) {
   coll_t *trg = open_coll (TRG,"w+");// : src;
   
   trg->rdim = src->rdim;
-  trg->cdim = (Max || Min || Sm2 || Sum || lse) ? 1 : smh ? (L*k) : src->cdim;
+  trg->cdim = (Max || Min || Sm0 || Sm2 || Sum || lse) ? 1 : smh ? (L*k) : src->cdim;
   
   xy_t range = R01 ? mrange (src) : (xy_t){0,0};
   float *FS = mtx_feature_select (src, prm);
@@ -302,6 +303,7 @@ void mtx_weigh (char *TRG, char *prm, char *SRC, char *STATS) {
     if      (lsh) { vec = bits2codes (tmp=vec, L);     free_vec (tmp); }
     if      (Max) { vec->i=1; vec->x = max(vec)->x;      len(vec)=1; }
     else if (Min) { vec->i=1; vec->x = min(vec)->x;      len(vec)=1; }
+    else if (Sm0) { vec->i=1; vec->x = sump(0,vec);      len(vec)=1; }
     else if (Sm2) { vec->i=1; vec->x = sum2(vec);        len(vec)=1; }
     else if (Sum) { vec->i=1; vec->x = sum(vec);         len(vec)=1; }
     else if (lse) { vec->i=1; vec->x = log_sum_exp(vec); len(vec)=1; }
@@ -762,6 +764,7 @@ void mtx_rnd (char *RND, char *prm, char *_R, char *_C) {
   char *sphere = strstr(prm,"sphere"),   *std = strstr(prm,"std");
   char *simplex = strstr(prm,"simplex"), *exp = strstr(prm,"exp");
   char *ones = strstr(prm,"ones"),       *log = strstr(prm,"log");
+  uint top = getprm(prm,"top=",0);
   uint R = parse_dim(_R), C = parse_dim(_C), r;
   fprintf (stderr, "%s = %d x %d %s\n", RND, R, C, (ones?ones:"random"));
   coll_t *rnd = open_coll (RND, "w+"); 
@@ -775,9 +778,11 @@ void mtx_rnd (char *RND, char *prm, char *_R, char *_C) {
     else if     (exp) vec = rand_vec_exp (C);
     else if     (log) vec = rand_vec_log (C);
     else if    (ones) vec = const_vec (C, 1);
+    else if     (top) vec = rand_vec_sparse (C, top);
     else              vec = rand_vec_uni (C, lo, hi);
     put_vec (rnd, r, vec);
     free_vec (vec);
+    show_progress (r, R, "rows");
   }
   free_coll (rnd);
 }
@@ -1532,7 +1537,7 @@ char *usage =
   "                         acos/atan - arc cosine / arc tangent of each cell\n"
   "                           sgn/abs - sign / absolute value of each cell\n"
   "                           max/min - max or min of each row (B is rows x 1)\n"
-  "                          sum/sum2 - sum or sum of squares for each row\n"
+  "                     sum/sum2/sum0 - sum of values / squared / non-zero for each row\n"
   "                           logSexp - log-sum-exp value of each row\n"
   "                             log2p - converts log P(q|d) into posterior P(d|q)\n"
   "                           softmax - exp(x) / SUM_row exp(x) for each x in row\n"
@@ -1549,6 +1554,7 @@ char *usage =
   "                                log       - logistic distribution\n"  
   "                                sphere    - uniformly over unit sphere\n"
   "                                simplex   - uniformly over unit simplex\n"
+  "                                top=K     - U[0,1] over K random dimensions\n"
   " I = eye R              - identity matrix with rows R (R can be hash or matrix)\n"
   " I = diag A [i]         - extract diagonal from A (or put row A[i] onto diagonal)\n"
   " T = triu A             - extract part of A above the diagonal (tril = below)\n"

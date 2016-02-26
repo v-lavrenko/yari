@@ -22,7 +22,7 @@
 #define _GNU_SOURCE // necessary for safe_mremap
 #include "mmap.h"
 
-off_t MAP_SIZE = 1<<28;
+off_t MAP_SIZE = 1<<30;
 
 mmap_t *open_mmap (char *path, char *access, off_t size) {
   mmap_t *M = safe_calloc (sizeof (mmap_t));
@@ -30,7 +30,8 @@ mmap_t *open_mmap (char *path, char *access, off_t size) {
   M->file = safe_open (path, access);
   M->flen = safe_lseek (M->file, 0, SEEK_END);
   M->offs = 0;
-  M->size = page_align ((size?size:MAP_SIZE),'>');
+  if (!size) size = MAX(M->flen,1<<30);
+  M->size = page_align (size,'>');
   if (M->flen < M->size) {
     if (*access == 'r') M->size = page_align (M->flen,'>');
     else M->flen = safe_truncate (M->file, M->size); }
@@ -72,17 +73,27 @@ void write_mmap (mmap_t *map, char *path) {
 
 off_t MMAP_MOVES = 0;
 
+void *move_mmap (mmap_t *M, off_t offs, off_t size) {
+  if (offs >= M->offs && (offs+size) <= (M->offs + M->size))
+    return M->data + (offs - M->offs); // region already in map
+  if (offs+size > M->flen) assert (0 && "move_mmap: offs+size > flen");
+  if (M->data) munmap (M->data, M->size); // release old map
+  M->data = safe_mmap (M->file, 0, (M->size=M->flen), M->mode);
+  MMAP_MOVES += 1; // += M->size;
+  return M->data + offs;
+}
+
 // checks whether the region [offs..+size] is available from map
 // if not -- shifts map to include the region, 
 // making sure the mapping aligns on a page boundary
 // if random-access: uses pread() outside of main map
-void *move_mmap (mmap_t *M, off_t offs, off_t size) {
+void *move_mmap_old (mmap_t *M, off_t offs, off_t size) {
   if (offs >= M->offs && (offs+size) <= (M->offs + M->size))
     return M->data + (offs - M->offs); // region already in map
   if (M->next) return move_mmap (M->next, offs, size);
   if (0) fprintf (stderr, "[%'lu %'lu] outside map(%d) [%'lu %'lu]\n", 
-  	  (ulong)offs, (ulong)(offs+size), M->file,
-  	  (ulong)(M->offs), (ulong)(M->offs + M->size));
+		  (ulong)offs, (ulong)(offs+size), M->file,
+		  (ulong)(M->offs), (ulong)(M->offs + M->size));
   assert (offs+size <= M->flen);
   if (M->data) munmap (M->data, M->size); // release old map
   off_t beg = page_align (offs, '<'), end = page_align (offs+size, '>');
@@ -95,7 +106,7 @@ void *move_mmap (mmap_t *M, off_t offs, off_t size) {
   return M->data + (offs - M->offs); 
 }
 
-inline void *move_mmap_old (mmap_t *map, off_t offs, off_t size) {
+inline void *move_mmap_older (mmap_t *map, off_t offs, off_t size) {
   off_t beg = offs, end = offs+size;
   if (beg < map->offs || end > (map->offs+map->size)){
     assert (beg < end && end < map->flen && end-beg < map->size);
@@ -111,13 +122,6 @@ inline void *move_mmap_old (mmap_t *map, off_t offs, off_t size) {
   return map->data + (beg - map->offs);
 }
 
-void expand_mmap (mmap_t *map, off_t size) {
-  if (map->flen > size) return; // enough space
-  map->flen = next_pow2 (size); // page_align (2 * size, '>');
-  safe_truncate (map->file, map->flen); // expand file
-  if (map->next) map->next->flen = map->flen; // update overflow map
-}
-
 // map region beg..end from file (align boundaries properly)
 void *mmap_region (int fd, off_t offs, off_t size, char *access) {
   off_t beg = page_align (offs,'<'), end = page_align (offs+size,'>');
@@ -131,13 +135,20 @@ void unmap_region (void *region, off_t offs, off_t size) {
   munmap (region - (offs-beg), end-beg);
 }
 
-void grow_mmap (mmap_t *M) {
-  //ulong LIMIT = physical_memory();
-  if (M->size >= M->flen) return;
-  if (M->data) munmap (M->data, M->size); // release old map
-  M->offs = 0;
-  M->size = page_align (M->flen, '>');
-  M->data = safe_mmap (M->file, M->offs, M->size, M->mode);
+void grow_mmap_file (mmap_t *map, off_t size) {
+  if (map->flen > size) return; // enough space
+  map->flen = next_pow2 (size); // page_align (2 * size, '>');
+  safe_truncate (map->file, map->flen); // expand file
+  if (map->next) map->next->flen = map->flen; // update overflow map
+}
+
+void grow_mmap (mmap_t *map, off_t size) {
+  grow_mmap_file (map, size);
+  if (map->size >= map->flen) return;
+  if (map->data) munmap (map->data, map->size); // release old map
+  map->size = map->flen;
+  map->data = safe_mmap (map->file, 0, map->size, map->mode);
+  MMAP_MOVES += 1; // += M->size;
 }
 
 ////////////////////////////////////////////////////////////

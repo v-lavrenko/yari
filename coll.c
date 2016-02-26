@@ -171,11 +171,11 @@ static inline void mov_chunk (coll_t *c, uint id, off_t sz) { // NEVER call dire
   }
   c->offs[id] = c->offs[0];              // old end of heap => our offset
   c->offs[0] += align8(sz);              // new end of heap 
-  expand_mmap (c->vecs, c->offs[0]);     // make sure file is big enough
+  grow_mmap_file (c->vecs, c->offs[0]);  // make sure file is big enough
 }
 
 // return pointer to chunk linked by id, or NULL
-inline void *get_chunk_old (coll_t *c, uint id) {
+inline void *get_chunk (coll_t *c, uint id) {
   if (!c->path) return get_chunk_inmem(c,id);
   if (!has_vec(c,id)) return NULL;
   uint next = c->next ? c->next[id] : (id+1) % len(c->offs);
@@ -184,7 +184,7 @@ inline void *get_chunk_old (coll_t *c, uint id) {
 }
 
 // return a copy of chunk linked by id, or NULL => must be freed
-inline void *get_chunk (coll_t *c, uint id) {
+inline void *get_chunk_pread (coll_t *c, uint id) {
   if (!c->path) return get_chunk_inmem(c,id);
   if (!has_vec(c,id)) return NULL;
   uint next = c->next ? c->next[id] : (id+1) % len(c->offs);
@@ -204,13 +204,14 @@ inline static void *map_chunk (coll_t *c, uint id, off_t size) {
   return move_mmap (c->vecs, c->offs[id], size);
 }
 
-inline void put_chunk_old (coll_t *c, uint id, void *src, off_t size) {
+inline void put_chunk (coll_t *c, uint id, void *src, off_t size) {
   if (!c->path) return put_chunk_inmem (c,id,src,size);
-  void *trg = map_chunk (c, id, size);
+  mov_chunk (c, id, size);
+  void *trg = move_mmap (c->vecs, c->offs[id], size); 
   memcpy (trg, src, size);
 }
 
-inline void put_chunk (coll_t *c, uint id, void *chunk, off_t size) {
+inline void put_chunk_pwrite (coll_t *c, uint id, void *chunk, off_t size) {
   if (!c->path) return put_chunk_inmem (c,id,chunk,size);
   mov_chunk (c, id, size);
   safe_pwrite (c->vecs->file, chunk, size, c->offs[id]);
@@ -218,12 +219,12 @@ inline void put_chunk (coll_t *c, uint id, void *chunk, off_t size) {
 
 vec_t nullvec = {0, 0, 0, 0};
 
-inline void *get_vec_old (coll_t *c, uint id) {
+inline void *get_vec (coll_t *c, uint id) {
   vec_t *hdr = get_chunk (c, id);
   return hdr ? copy_vec (hdr->data) : new_vec (0, 0);
 }
 
-inline void *get_vec (coll_t *c, uint id) {
+inline void *get_vec_read (coll_t *c, uint id) {
   vec_t *hdr = get_chunk (c, id);
   if (!hdr) return new_vec (0,0);
   hdr->file = 0; // TODO: FIX THIS!
@@ -273,7 +274,7 @@ static inline void update_dims (coll_t *c, uint id, ix_t *V, uint n, uint sz) {
 }
 
 /**/
-inline void put_vec_old (coll_t *c, uint id, void *vec) {
+inline void put_vec (coll_t *c, uint id, void *vec) {
   if (!vec || !len(vec)) return del_vec (c,id);
   vec_t *src = vect(vec);
   update_dims (c, id, vec, src->count, src->esize);
@@ -285,7 +286,7 @@ inline void put_vec_old (coll_t *c, uint id, void *vec) {
 }
 /**/
 
-inline void put_vec (coll_t *c, uint id, void *vec) {
+inline void put_vec_write (coll_t *c, uint id, void *vec) {
   if (!vec || !len(vec)) return del_vec (c,id);
   vec_t *src = vect(vec);
   off_t size = sizeof(vec_t) + src->count * src->esize;
