@@ -663,6 +663,7 @@ float *sum_rows (coll_t *rows, float p) {
   while (++id <= nr) {
     ix_t *vec = get_vec_ro (rows,id);
     X[id] = sump (p, vec);
+    if (0==id%100) show_progress (id,nr,"rows (col:sum)");
   }
   return X;
 }
@@ -687,6 +688,7 @@ float *sum_cols (coll_t *rows, float p) {
     else if (p == 0) while (++r<end) X[r->i] += (r->x != 0);
     else if (p ==.5) while (++r<end) X[r->i] += sqrt(r->x);
     else             while (++r<end) X[r->i] += powf (r->x, p);
+    if (0==id%100) show_progress (id,nr,"rows (col:sum)");
   }
   return X;
 }
@@ -748,13 +750,27 @@ double max_maxs (coll_t *c) {
   return X;
 }
 
-jix_t *max_rows (coll_t *rows, int lo) {
+jix_t *max_rows (coll_t *rows) {
   uint id, nr = num_rows(rows);
   jix_t *M = new_vec (0, sizeof(jix_t));
   for (id = 1; id <= nr; ++id) {
     ix_t *row = get_vec_ro (rows, id);
     if (len(row)) { 
-      ix_t *r = lo ? min(row) : max(row);
+      ix_t *r = max(row);
+      jix_t new = {id, r->i, r->x};
+      M = append_vec (M, &new);
+    }
+  }
+  return M;
+}
+
+jix_t *min_rows (coll_t *rows) {
+  uint id, nr = num_rows(rows);
+  jix_t *M = new_vec (0, sizeof(jix_t));
+  for (id = 1; id <= nr; ++id) {
+    ix_t *row = get_vec_ro (rows, id);
+    if (len(row)) { 
+      ix_t *r = min(row);
       jix_t new = {id, r->i, r->x};
       M = append_vec (M, &new);
     }

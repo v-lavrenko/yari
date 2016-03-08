@@ -117,7 +117,8 @@ double sum_sums (coll_t *rows, float p) ;
 xy_t mrange (coll_t *m) ;
 
 jix_t *ix2jix (uint j, ix_t *ix) ;
-jix_t *max_rows (coll_t *rows, int lo) ;
+jix_t *max_rows (coll_t *rows) ;
+jix_t *min_rows (coll_t *rows) ;
 jix_t *max_cols (coll_t *rows) ;
 jix_t *min_cols (coll_t *rows) ;
 void m_range (coll_t *m, int top, float *_min, float *_max) ;

@@ -225,7 +225,7 @@ inline void *get_vec (coll_t *c, uint id) {
 }
 
 inline void *get_vec_read (coll_t *c, uint id) {
-  vec_t *hdr = get_chunk (c, id);
+  vec_t *hdr = get_chunk_pread (c, id);
   if (!hdr) return new_vec (0,0);
   hdr->file = 0; // TODO: FIX THIS!
   return hdr->data;
@@ -292,7 +292,7 @@ inline void put_vec_write (coll_t *c, uint id, void *vec) {
   off_t size = sizeof(vec_t) + src->count * src->esize;
   uint file = src->file; // TODO: FIX THIS
   src->file = 2; // should be 2 for vectors in a collection
-  put_chunk (c, id, src, size);
+  put_chunk_pwrite (c, id, src, size);
   update_dims (c, id, vec, src->count, src->esize);
   src->file = file;
 }

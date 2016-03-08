@@ -277,7 +277,7 @@ void dump_fasta (char *SEQS, char *_rows, char *_cols) {
 void dump_align (char *_SEQS, char *_POSS) {
   coll_t *SEQS = open_coll (_SEQS, "r+");  //
   coll_t *POSS = open_coll (_POSS, "r+");  //
-  jix_t *P = max_rows (POSS, 0), *L=P, *p; // [{seq,pos,wt} ]
+  jix_t *P = max_rows (POSS), *L=P, *p; // [{seq,pos,wt} ]
   for (p = P; p < P+len(P); ++p) if (p->i < L->i) L = p; // leftmost sequence
   for (p = P; p < P+len(P); ++p) {
     char *seq = get_chunk (SEQS,p->j);

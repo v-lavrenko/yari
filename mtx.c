@@ -145,16 +145,76 @@ void mtx_print (char *prm, char *_M, char *RH, char *CH) {
   if (fmt) free(fmt);
 }  
 
+// return an injection F: B -> A, insert missing keys into A
+uint *hash_merge (char *_A, char *_B) {
+  hash_t *A = open_hash (_A, "a");
+  hash_t *B = open_hash (_B, "r");
+  uint i, nB = nvecs(B->keys), nA = nvecs(A->keys);
+  uint *F = new_vec (nB+1, sizeof(uint));
+  fprintf (stderr, "merge: %s [%d] += %s [%d]\n", _A, nA, _B, nB);
+  for (i = 1; i <= nB; ++i) { // for each key in the table
+    char *key = id2key (B,i);
+    F[i] = key2id (A,key);
+    if (0 == i%100) show_progress (i, nB, "keys merged");
+  }
+  fprintf (stderr, "done: %s [%d] \n", _A, nvecs(A->keys));
+  free_hash (A); free_hash (B);
+  return F;
+}
+
+void *get_vec_read (coll_t *c, uint id) ;
+void put_vec_write (coll_t *c, uint id, void *vec) ;
+
+// merge B [Rb x Cb] into A [Ra x Ca] mapping rows and columns as needed
+void mtx_merge (char *_A, char *_RA, char *_CA,
+		char *_B, char *_RB, char *_CB, 		
+		char *prm) {
+  char *skip = strstr(prm,"skip"), *repl = strstr(prm,"repl");
+  uint *R = hash_merge (_RA, _RB);
+  uint *C = hash_merge (_CA, _CB);
+  coll_t *A = open_coll (_A, "a+");
+  coll_t *B = open_coll (_B, "r+");
+  uint nB = num_rows(B), nA = num_rows(A), b;
+  fprintf (stderr, "merge: %s [%d x %d] += %s [%d x %d]\n", _A, nA, num_cols(A), _B, nB, num_cols(B));
+  for (b = 1; b <= nB; ++b) {
+    ix_t *V = get_vec (B,b), *v, *last = V+len(V)-1;
+    assert (b < len(R) && last->i < len(C));
+    uint a = R[b]; // map row: B[b] -> A[a]
+    for (v = V; v <= last; ++v) v->i = C[v->i]; // map column
+    sort_vec (V, cmp_ix_i);
+    chop_vec (V);
+    if (!a) {} // a has no mapping
+    else if (!has_vec (A,a)) put_vec_write (A, a, V); // no conflict
+    else if (repl) put_vec_write (A, a, V); // replace A[a] with B[b]
+    else if (skip) {} // keep A[a], drop B[b]
+    free_vec (V);
+    show_progress (b, nB, "rows merged");
+  }
+  fprintf (stderr, "done: %s [%d x %d]\n", _A, num_rows(A), num_cols(A));
+  free_coll (A); free_coll (B); free_vec (R); free_vec (C);
+}
+
 void chop_jix (jix_t *jix) ;
 void append_jix (coll_t *c, jix_t *jix) ;
-static void mtx_weigh_max (coll_t *trg, coll_t *src, int row, int lo) {
-  jix_t *M = row ? max_rows(src,lo) : lo ? min_cols(src) : max_cols(src);
+static void mtx_weigh_max (coll_t *trg, coll_t *src, char *prm) {
+  char *low = strstr(prm,"min"), *row = strstr(prm,"row");
+  jix_t *M = (row ? (low ? min_rows(src) : max_rows (src)) 
+	      :     (low ? min_cols(src) : max_cols (src)));
   chop_jix (M);
   sort_vec (M, cmp_jix);
   append_jix (trg, M);
   free_vec (M);
   trg->rdim = src->rdim;
   trg->cdim = src->cdim;
+}
+
+static void mtx_weigh_sum (coll_t *trg, coll_t *src, char *prm) {
+  char *col = strstr(prm,"colsum");
+  float p = getprm(prm,"sum,p=",1);
+  float *F = col ? sum_cols (src,p) : sum_rows (src,p);
+  ix_t *vec = full2vec (F);
+  put_vec (trg,1,vec);
+  free_vec (F); free_vec (vec);
 }
 
 static it_t parse_slice (char *slice, uint min, uint max) ;
@@ -251,10 +311,12 @@ void mtx_weigh (char *TRG, char *prm, char *SRC, char *STATS) {
   
   uint id = 0, nv = num_rows (src);
   if      (strstr(prm,"softcol")) { col_softmax (trg,src);       id = nv; }
-  else if (strstr(prm,"colmax"))  { mtx_weigh_max (trg,src,0,0); id = nv; }
-  else if (strstr(prm,"colmin"))  { mtx_weigh_max (trg,src,0,1); id = nv; }
-  else if (strstr(prm,"rowmax"))  { mtx_weigh_max (trg,src,1,0); id = nv; }
-  else if (strstr(prm,"rowmin"))  { mtx_weigh_max (trg,src,1,1); id = nv; }
+  else if (strstr(prm,"colsum") ||
+	   strstr(prm,"rowsum"))  { mtx_weigh_sum (trg,src,prm); id = nv; }
+  else if (strstr(prm,"colmax") || 
+	   strstr(prm,"colmin") || 
+	   strstr(prm,"rowmax") || 
+	   strstr(prm,"rowmin"))  { mtx_weigh_max (trg,src,prm); id = nv; }
   
   while (++id <= nv) {
     show_progress (id, nv, "vecs");
@@ -1503,6 +1565,8 @@ char *usage =
   "                               ranks  ... dump raw ranked lists per class\n"
   "                               top=K  ... truncate to top K scores per class\n"
   " transpose M            - transpose matrix M into M.T (eg docs -> inverted lists)\n"
+  " merge A R C += B S D   - merge B[SxD] into A[RxC], re-mapping the row/column ids\n"
+  "                          prm: skip,replace ... rows with duplicate ids\n"
   " B = f A [S]            - apply function f to matrix A, store results in B\n"
   "                          S: matrix for computing statistics (default: use A)\n"
   "                          f:   std - make each column zero mean, unit variance\n"
@@ -1678,6 +1742,8 @@ int main (int argc, char *argv[]) {
   else if (!strncmp(a(1), "LTR:eval", 8)) mtx_letor_eval (arg(2), arg(3), arg(4), arg(5), a(1));
   else if (!strncmp(a(1), "xval", 4))   mtx_xval (arg(2), arg(3), arg(4), arg(5), a(1));
   else if (!strncmp(a(1), "trans", 5))  mtx_transpose (arg(1), arg(2));
+  else if (!strncmp(a(1), "merge", 5) 
+	   && !strcmp (a(5),"+="))    mtx_merge (arg(2), arg(3), arg(4), arg(6), arg(7), arg(8), a(1));
   else if (!strcmp(a(2),"=") && argc > 3) {
     char tmp[1000]; 
     sprintf (tmp, "%s.%d", arg(1), getpid()); // temporary target
