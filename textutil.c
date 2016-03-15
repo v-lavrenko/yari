@@ -114,7 +114,7 @@ char *extract_between (char *buf, char *A, char *B){
   return result;
 }
 
-char *json_value (char *json, char *key) {
+char *json_value (char *json, char *key) { // { "key1": "val1", "key2": 2 }
   char *val = strstr (json, key);
   if (!val) return NULL;
   val += strlen(key);

@@ -162,6 +162,14 @@ uint *hash_merge (char *_A, char *_B) {
   return F;
 }
 
+uint len_vec (coll_t *M, uint id) { 
+  if (!has_vec(M,id)) return 0;
+  ix_t *V = get_vec(M,id); 
+  uint n = len(V); 
+  free_vec(V); 
+  return n; 
+}
+
 void *get_vec_read (coll_t *c, uint id) ;
 void put_vec_write (coll_t *c, uint id, void *vec) ;
 
@@ -169,7 +177,8 @@ void put_vec_write (coll_t *c, uint id, void *vec) ;
 void mtx_merge (char *_A, char *_RA, char *_CA,
 		char *_B, char *_RB, char *_CB, 		
 		char *prm) {
-  char *skip = strstr(prm,"skip"), *repl = strstr(prm,"repl");
+  char *skip = strstr(prm,"skip"), *repl = strstr(prm,"repl"); (void) skip;
+  char *Long = strstr(prm,"long"); //, *summ = strstr(prm,"sum");
   uint *R = hash_merge (_RA, _RB);
   uint *C = hash_merge (_CA, _CB);
   coll_t *A = open_coll (_A, "a+");
@@ -180,13 +189,14 @@ void mtx_merge (char *_A, char *_RA, char *_CA,
     ix_t *V = get_vec (B,b), *v, *last = V+len(V)-1;
     assert (b < len(R) && last->i < len(C));
     uint a = R[b]; // map row: B[b] -> A[a]
+    assert (a); // a==0 -> has no mapping, should never happen
     for (v = V; v <= last; ++v) v->i = C[v->i]; // map column
     sort_vec (V, cmp_ix_i);
     chop_vec (V);
-    if (!a) {} // a has no mapping
-    else if (!has_vec (A,a)) put_vec_write (A, a, V); // no conflict
-    else if (repl) put_vec_write (A, a, V); // replace A[a] with B[b]
-    else if (skip) {} // keep A[a], drop B[b]
+    if (!has_vec (A,a)) put_vec_write (A,a,V); // no conflict
+    else if (repl) put_vec_write (A,a,V); // replace A[a] with B[b]
+    else if (Long && len(V) > len_vec (A,a)) put_vec_write (A,a,V);
+    else {} // skip by default: keep A[a], drop B[b]
     free_vec (V);
     show_progress (b, nB, "rows merged");
   }
@@ -214,6 +224,8 @@ static void mtx_weigh_sum (coll_t *trg, coll_t *src, char *prm) {
   float *F = col ? sum_cols (src,p) : sum_rows (src,p);
   ix_t *vec = full2vec (F);
   put_vec (trg,1,vec);
+  trg->rdim = 1;
+  trg->cdim = col ? src->cdim : src->rdim;
   free_vec (F); free_vec (vec);
 }
 
@@ -1607,7 +1619,7 @@ char *usage =
   "                           softmax - exp(x) / SUM_row exp(x) for each x in row\n"
   "                           softcol - exp(x) / SUM_col exp(x) for each x in col\n"
   "                            colmax - keep only the largest cell in each column\n"
-  "                                     also: colmin,rowmax,rowmin\n"
+  "                                     also: {col,row}{min,max,sum[,p=1]}\n"
   " M = max A B            - cell-wise maximum (also min)\n"
   " M = ones R C           - matrix of ones with R rows and C columns\n"
   " M = rnd:[type] R C     - random matrix with R rows and C columns\n"

@@ -652,7 +652,7 @@ uint *len_cols (coll_t *rows) {
   for (id = 1; id <= nr; ++id) {
     ix_t *row = get_vec_ro (rows,id), *end = row + len(row), *r = row-1;
     while (++r < end) X[r->i] += 1;
-    //if (!(id%1000)) show_progress (id, nr, "docs (len_cols)");
+    if (0 == id%100) show_progress (id, nr, "rows (len_cols)");
   }
   return X;
 }
@@ -1313,19 +1313,20 @@ void transpose_mtx (coll_t *rows, coll_t *cols) {
   cols->rdim = rows->cdim;
   cols->cdim = rows->rdim;
   uint *df = len_cols (rows), nw = len(df), nd = num_rows(rows);
-  ulong np = sumi(df), pm = physical_memory(), done = 0, M = 1<<20;
+  ulong np = sumi(df), pm = physical_memory(), M = 1<<20;
   ulong BS = MIN(np+1,pm/2/sizeof(ix_t));
-  ix_t *buf = new_vec (BS, sizeof(ix_t)); // calloc (BS, sizeof(ix_t));
-  uint *beg = new_vec (nw, sizeof(uint)); // calloc (nw, sizeof(uint));
-  fprintf (stderr, "computed df [%d x %d], will buffer %ldMB\n", 
+  ix_t *buf = calloc (BS, sizeof(ix_t));
+  ulong *beg = calloc (nw, sizeof(ulong)), used = 0, done = 0;
+  fprintf (stderr, "computed df [%d x %d], will buffer %ldMB", 
 	   nd, nw-1, BS*sizeof(ix_t)/M);
-  uint v=1, w=1, used=0, i=0;
+  uint v=1, w=1, i=0;
   while (v < nw) {
     for (used = 0; w < nw; ++w) { // [v ... w) fit into buffer
       if (used + df[w] >= BS) break;
       beg[w] = used;
       used += df[w];
     }
+    fprintf (stderr, "\nfilling columns %d...%d: %ldM posts\n", v, w, used/M);
     for (i = 1; i <= nd; ++i) {
       ix_t *D = get_vec_ro (rows,i), *d;
       for (d = D; d < D+len(D); ++d) {
@@ -1336,8 +1337,9 @@ void transpose_mtx (coll_t *rows, coll_t *cols) {
 	buf[b].x = d->x;
 	++done;
       }
-      if (!(i%10000)) show_progress (done/M, np/M, "M posts");
+      show_progress (done/M, 2*np/M, "M posts");
     }
+    fprintf (stderr, "\nwriting columns %d...%d\n", v, w);
     for (; v < w; ++v) {
       //ix_t *col = new_vec (df[v], sizeof(ix_t));
       ix_t *col = map_vec (cols, v, df[v], sizeof(ix_t));
@@ -1345,12 +1347,13 @@ void transpose_mtx (coll_t *rows, coll_t *cols) {
       memcpy (col, src, df[v] * sizeof(ix_t));
       //put_vec (cols, v, col);
       //free_vec (col);
-      if (!((w-v)%10)) show_progress (done/M, np/M, "M posts");
+      done += df[v];
+      show_progress (done/M, 2*np/M, "M posts");
     }
   }
-  fprintf (stderr, " done [%.0fs]\n", vtime());
-  free_vec (buf); free_vec (beg); free_vec (df);
-  //free (buf); free (beg); free_vec (df);
+  fprintf (stderr, " [%.0fs] done: %ld of %ld\n", vtime(), done/2, np);
+  //free_vec (buf); free_vec (beg); free_vec (df);
+  free (buf); free (beg); free_vec (df);
 }
 
 coll_t *transpose (coll_t *M) {

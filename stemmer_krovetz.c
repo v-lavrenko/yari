@@ -1950,7 +1950,7 @@ int main(int argc, char *argv[]) {
     
     thestem = kstem_stem(word);
     
-    printf("%s -> %s\n", word,thestem);
+    printf("%s\n", thestem);
   } while(!feof(stdin));
   
   return(0);
