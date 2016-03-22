@@ -86,7 +86,7 @@ jix_t *scan_jix (FILE *in, uint num, hash_t *rows, hash_t *cols) {
       if (!strcmp(line,"# END\n")) break; // stop if end of block
       else continue; } // skip over comments
     if (3 != sscanf (line, "%s %s %f", row, col, &value)) {
-      fprintf (stderr, "cannot parse: %s", line); continue; }
+      fprintf (stderr, "cannot parse: %100.100s...\n", line); continue; }
     {
       //char *c; for (c = col; *c; ++c) *c = tolower ((int) *c);
     }

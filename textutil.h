@@ -22,6 +22,7 @@
 #ifndef TEXTUTIL
 #define TEXTUTIL
 
+char *endchr (char *s, char c, uint n) ; // faster strrchr
 // in str replace any occurence of chars from what[] with 'with'
 void csub (char *str, char *what, char with) ; 
 

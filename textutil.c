@@ -29,6 +29,12 @@
 
 char *default_ws = " \t\r\n~`!@#$%^&*()_-+=[]{}|\\:;\"'<>,.?/";
 
+char *endchr (char *s, char c, uint n) { // faster strrchr
+  char *p = s + n - 1; // end of string
+  while (p > s && *p != c) --p;
+  return p > s ? p : NULL;
+}
+
 // in str replace any occurence of chars from what[] with 'with'
 void csub (char *str, char *what, char with) {
   if (!what) what = default_ws;

@@ -74,18 +74,29 @@ void load_raw (char *C, char *RH) {
 }
 
 void load_json (char *C, char *RH) { // 
-  uint done = 0, skip = 0, dups = 0;
-  char *json = malloc(1<<24);
-  coll_t *c = open_coll (C, "w");
+  uint done = 0, skip = 0, dups = 0, SZ = 1<<24;  
+  char *json = malloc(SZ);
+  coll_t *c = open_coll (C, "a");
   hash_t *rh = open_hash (RH, "r");
-  while (fgets (json, 1<<24, stdin)) { // assume one-per-line
+  while (fgets (json, SZ, stdin)) { // assume one-per-line
     uint sz = strlen (json);
     if (json[sz-1] == '\n') json[sz-1] = 0;
     char *docid = json_value (json, "docid"); assert (docid);
-    uint id = key2id (rh, docid);
+    uint id = key2id (rh, docid); 
     free(docid);
     if (!id) { ++skip; continue; }
-    if (has_vec (c,id)) { ++dups; continue; }
+    char *old = get_chunk (c,id);
+    if (old) { // append old JSON to new JSON
+      uint osz = chunk_sz (c,id);
+      assert (sz + osz < SZ);
+      memcpy (json+sz, old, osz); 
+      char *close = endchr (json,'}',sz); // have: {new}{old}
+      char *open = strchr (json,'{');     // want: {new, old}
+      if (open && close) { *close=','; *open=' '; } 
+      else fprintf (stderr, "WARNING: no } { in: %s\n", json);
+      sz += osz;
+      ++dups;
+    }
     put_chunk (c, id, json, sz);
     if (!(++done%20000)) {
       if (done%1000000) fprintf (stderr, ".");
