@@ -85,19 +85,26 @@ void load_json (char *C, char *RH) { //
     uint id = key2id (rh, docid); 
     free(docid);
     if (!id) { ++skip; continue; }
-    char *old = get_chunk (c,id);
+    /*char *old = get_chunk (c,id);
     if (old) { // append old JSON to new JSON
-      uint osz = chunk_sz (c,id);
+      uint osz = strlen(old);
+      if (sz + osz >= SZ) {
+	fprintf (stderr, "ERROR: old [%d] %s\n", osz, old);
+	fprintf (stderr, "ERROR: new [%d] %s\n",  sz, json);
+      }
       assert (sz + osz < SZ);
       memcpy (json+sz, old, osz); 
+      //strcat (json, old);
+      //fprintf (stderr, "JOIN: %s\n", json);
       char *close = endchr (json,'}',sz); // have: {new}{old}
-      char *open = strchr (json,'{');     // want: {new, old}
+      char *open = strchr (json+sz,'{');     // want: {new, old}
       if (open && close) { *close=','; *open=' '; } 
       else fprintf (stderr, "WARNING: no } { in: %s\n", json);
       sz += osz;
       ++dups;
-    }
-    put_chunk (c, id, json, sz);
+    }*/
+    if (has_vec(c,id)) ++dups;
+    else put_chunk (c, id, json, sz);
     if (!(++done%20000)) {
       if (done%1000000) fprintf (stderr, ".");
       else fprintf (stderr, "[%.0fs] %d strings\n", vtime(), done); 

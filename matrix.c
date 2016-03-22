@@ -2044,7 +2044,7 @@ void filter_and (ix_t *V, ix_t *F) {
     if      (v->i >  f->i) { ++f; } // f but not v => ignore
     else if (v->i <  f->i) { v->i = 0;  ++v; } // v not in f => skip
     else if (v->i == f->i) { ++v; ++f; } // v in f => keep it
-  } // keep remaining elements in V (they're not in F)
+  } 
   len(V) = v-V; // drop remaining elements in V (if any)
   chop_vec (V);
 }
@@ -2056,6 +2056,17 @@ void filter_not (ix_t *V, ix_t *F) {
     else if (v->i <  f->i) { ++v; } // v not in f => keep
     else if (v->i == f->i) { v->i = 0; ++v; ++f; } // v in f => skip
   } // keep remaining elements in V (they're not in F)
+  chop_vec (V);
+}
+
+void filter_set (ix_t *V, ix_t *F, float def) {
+  ix_t *v = V, *f = F, *endV = V + len(V), *endF = F + len(F);
+  while (v < endV && f < endF) {
+    if      (v->i >  f->i) { ++f; } // f but not v => ignore
+    else if (v->i <  f->i) { v->x = def;  ++v; } // v not in f => default
+    else if (v->i == f->i) { v->x = f->x; ++v; ++f; } // v in f => 
+  } 
+  while (v < endV) { v->x = def; ++v; } // set remains of V to default
   chop_vec (V);
 }
 

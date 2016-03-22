@@ -232,6 +232,7 @@ ix_t *vec_add_vec (float x, ix_t *X, float y, ix_t *Y) ;
 void vec_mul_vec (ix_t *V, ix_t *F) ; // fast, sparse, in-place
 void filter_and (ix_t *V, ix_t *F) ; // in-place
 void filter_not (ix_t *V, ix_t *F) ; // in-place
+void filter_set (ix_t *V, ix_t *F, float def) ;
 void f_vec (double (*F) (double), ix_t *A) ;
 
 ix_t *vec_X_vec (ix_t *A, ix_t *B) ; // polynomial expansion
