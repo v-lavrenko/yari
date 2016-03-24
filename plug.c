@@ -26,7 +26,7 @@
 #define Inf 999999999
 
 void dump_raw_ret (char *C, char *RH) {
-  coll_t *c = open_coll (C, "r");
+  coll_t *c = open_coll (C, "r+");
   hash_t *h = open_hash (RH, "r");
   char qryid[100], docid[100], line[1000];
   while (fgets (line, 999, stdin)) {
@@ -40,7 +40,7 @@ void dump_raw_ret (char *C, char *RH) {
 }
 
 void dump_raw (char *C, char *RH, char *id) {
-  coll_t *c = open_coll (C, "r");
+  coll_t *c = open_coll (C, "r+");
   hash_t *h = *RH ? open_hash (RH, "r") : NULL;
   uint no = id ? getprm(id,"no=",0) : 0;
   uint i = no ? no : *id ? key2id(h,id) : 1;
@@ -80,31 +80,33 @@ void load_json (char *C, char *RH) { //
   hash_t *rh = open_hash (RH, "r");
   while (fgets (json, SZ, stdin)) { // assume one-per-line
     uint sz = strlen (json);
-    if (json[sz-1] == '\n') json[sz-1] = 0;
+    if (json[sz-1] == '\n') json[sz-1] = ' ';
     char *docid = json_value (json, "docid"); assert (docid);
     uint id = key2id (rh, docid); 
     free(docid);
     if (!id) { ++skip; continue; }
-    /*char *old = get_chunk (c,id);
+    char *old = get_chunk (c,id);
     if (old) { // append old JSON to new JSON
+      
       uint osz = strlen(old);
-      if (sz + osz >= SZ) {
-	fprintf (stderr, "ERROR: old [%d] %s\n", osz, old);
-	fprintf (stderr, "ERROR: new [%d] %s\n",  sz, json);
-      }
+      if (sz + osz >= SZ) fprintf (stderr, "ERROR: (old) %d + %d (new) > %d\n", osz, sz, SZ);
       assert (sz + osz < SZ);
+      
+      char *close = endchr (json,'}',sz); // have: {new}{old}
+      if (close) *close = ','; 
+      else fprintf (stderr, "WARNING: no } in: %s\n", json);
+      
+      char *open = strchr (old,'{');     // want: {new, old}
+      if (open) *open=' ';
+      else fprintf (stderr, "WARNING: no { in: %s\n", old);
+      
       memcpy (json+sz, old, osz); 
       //strcat (json, old);
-      //fprintf (stderr, "JOIN: %s\n", json);
-      char *close = endchr (json,'}',sz); // have: {new}{old}
-      char *open = strchr (json+sz,'{');     // want: {new, old}
-      if (open && close) { *close=','; *open=' '; } 
-      else fprintf (stderr, "WARNING: no } { in: %s\n", json);
       sz += osz;
       ++dups;
-    }*/
-    if (has_vec(c,id)) ++dups;
-    else put_chunk (c, id, json, sz);
+    }
+    //if (has_vec(c,id)) ++dups; else 
+    put_chunk (c, id, json, sz);
     if (!(++done%20000)) {
       if (done%1000000) fprintf (stderr, ".");
       else fprintf (stderr, "[%.0fs] %d strings\n", vtime(), done); 
@@ -114,7 +116,6 @@ void load_json (char *C, char *RH) { //
   fprintf (stderr, "[%.0fs] OK: %d, skip: %d, dups: %d\n", 
 	   vtime(), done, skip, dups);
 }
-
 
 ix_t *do_qry (char *QRY, char *DICT, char *prm) {
   hash_t *dict = open_hash (DICT, "r");
@@ -1080,7 +1081,7 @@ char *usage =
   "plug                          - optional [parameters] are in brackets\n"
   "  -m 256                      - set mmap size to 256MB\n"
   "  -rs 1                       - set random seed to 1\n"
-  "  -dump XML HASH [id]         - dump strings from collection XML\n"
+  "  -dump XML [HASH id]         - dump all [id] from collection XML\n"
   "  -load XML HASH              - stdin -> collection XML indexed by HASH\n"
   "  -json JSON HASH             - stdin -> collection JSON indexed by HASH\n"
   "  -stat XML HASH              - stats (cf,df) from collection XML -> stdout\n"
