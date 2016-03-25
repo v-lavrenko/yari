@@ -55,7 +55,7 @@ void dump_raw (char *C, char *RH, char *id) {
 void load_raw (char *C, char *RH) { 
   uint done = 0;
   char *buf = malloc (1<<24);
-  coll_t *c = open_coll (C, "w");
+  coll_t *c = open_coll (C, "w+");
   hash_t *rh = open_hash (RH, "r");
   while (read_doc (stdin, buf, 1<<24, "<DOC", "</DOC>")) {
     char *rowid = get_xml_docid (buf);
@@ -73,48 +73,39 @@ void load_raw (char *C, char *RH) {
   free_coll (c); free_hash (rh); free (buf);
 }
 
-void load_json (char *C, char *RH) { // 
-  uint done = 0, skip = 0, dups = 0, SZ = 1<<24;  
+void load_json (char *C, char *RH, char *prm) { // 
+  char *skip = strstr(prm,"skip"), *join = strstr(prm,"join");
+  uint done = 0, noid = 0, dups = 0, SZ = 1<<24;  
   char *json = malloc(SZ);
-  coll_t *c = open_coll (C, "a");
+  coll_t *c = open_coll (C, "a+");
   hash_t *rh = open_hash (RH, "r");
   while (fgets (json, SZ, stdin)) { // assume one-per-line
+    if (!(++done%20000)) {
+      if (done%1000000) fprintf (stderr, ".");
+      else fprintf (stderr, "[%.0fs] %d JSON records\n", vtime(), done); 
+    }
     uint sz = strlen (json);
-    if (json[sz-1] == '\n') json[sz-1] = ' ';
+    if (json[sz-1] == '\n') json[--sz] = '\0';
     char *docid = json_value (json, "docid"); assert (docid);
     uint id = key2id (rh, docid); 
     free(docid);
-    if (!id) { ++skip; continue; }
+    if (!id) { ++noid; continue; }
     char *old = get_chunk (c,id);
-    if (old) { // append old JSON to new JSON
-      
-      uint osz = strlen(old);
-      if (sz + osz >= SZ) fprintf (stderr, "ERROR: (old) %d + %d (new) > %d\n", osz, sz, SZ);
-      assert (sz + osz < SZ);
-      
-      char *close = endchr (json,'}',sz); // have: {new}{old}
-      if (close) *close = ','; 
-      else fprintf (stderr, "WARNING: no } in: %s\n", json);
-      
-      char *open = strchr (old,'{');     // want: {new, old}
-      if (open) *open=' ';
-      else fprintf (stderr, "WARNING: no { in: %s\n", old);
-      
-      memcpy (json+sz, old, osz); 
-      //strcat (json, old);
-      sz += osz;
+    if (old && skip) continue;
+    if (old && join) { // append old JSON to new JSON
+      char *close = endchr (json,'}',sz); if (!close) fprintf (stderr, "ERR: %s\n", json); // have: {new}{old}
+      char *open = strchr (old,'{');      if (!open)  fprintf (stderr, "ERR: %s\n", old);  // want: {new,old}
+      strncpy (close,open,SZ-(close-json));
+      *close = ',';
+      sz = strlen (json);
       ++dups;
     }
     //if (has_vec(c,id)) ++dups; else 
-    put_chunk (c, id, json, sz);
-    if (!(++done%20000)) {
-      if (done%1000000) fprintf (stderr, ".");
-      else fprintf (stderr, "[%.0fs] %d strings\n", vtime(), done); 
-    }
+    put_chunk (c, id, json, sz+1);
   }
   free_coll (c); free_hash (rh); free(json);
-  fprintf (stderr, "[%.0fs] OK: %d, skip: %d, dups: %d\n", 
-	   vtime(), done, skip, dups);
+  fprintf (stderr, "[%.0fs] OK: %d, noid: %d, dups: %d\n", 
+	   vtime(), done, noid, dups);
 }
 
 ix_t *do_qry (char *QRY, char *DICT, char *prm) {
@@ -185,7 +176,7 @@ void do_out (ix_t *rnk, char *TEXT, char *RNDR){
   ix_t *r;
   //hash_t *dict = (DICT && *DICT) ? open_hash (DICT, "r")  : NULL;
   //coll_t *docs = (DOCS && *DOCS) ? open_coll (DOCS, "r+") : NULL;
-  coll_t *text = open_coll (TEXT, "r");
+  coll_t *text = open_coll (TEXT, "r+");
   system("mkdir src");
   for (r = rnk; r < rnk + len(rnk); ++r) {
     uint rank = r-rnk+1;
@@ -1083,7 +1074,8 @@ char *usage =
   "  -rs 1                       - set random seed to 1\n"
   "  -dump XML [HASH id]         - dump all [id] from collection XML\n"
   "  -load XML HASH              - stdin -> collection XML indexed by HASH\n"
-  "  -json JSON HASH             - stdin -> collection JSON indexed by HASH\n"
+  "  -json JSON HASH [prm]       - stdin -> collection JSON indexed by HASH\n"
+  "                                prm: skip, join duplicates\n"
   "  -stat XML HASH              - stats (cf,df) from collection XML -> stdout\n"
   "  -dmap XML HASH              - stdin: qryid docid, stdout: qryid XML[docid]\n"
   "  -qry 'query' DICT stem=L    - parse query\n"
@@ -1117,7 +1109,7 @@ int main (int argc, char *argv[]) {
     if (!strcmp (a(0), "-m")) MAP_SIZE = ((ulong) atoi (a(1))) << 20;
     if (!strcmp (a(0), "-rs")) srandom (atoi(a(1)));
     if (!strcmp (a(0), "-load")) load_raw (a(1), a(2));
-    if (!strcmp (a(0), "-json")) load_json (a(1), a(2));
+    if (!strcmp (a(0), "-json")) load_json (a(1), a(2), a(3));
     if (!strcmp (a(0), "-dump")) dump_raw (a(1), a(2), a(3));
     if (!strcmp (a(0), "-dmap")) dump_raw_ret (a(1), a(2));
     if (!strcmp (a(0), "-stat")) do_stats (a(1), a(2));
