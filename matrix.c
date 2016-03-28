@@ -663,7 +663,7 @@ float *sum_rows (coll_t *rows, float p) {
   while (++id <= nr) {
     ix_t *vec = get_vec_ro (rows,id);
     X[id] = sump (p, vec);
-    if (0==id%100) show_progress (id,nr,"rows (col:sum)");
+    if (0==id%100) show_progress (id,nr,"rows (row:sum)");
   }
   return X;
 }
@@ -1326,7 +1326,7 @@ void transpose_mtx (coll_t *rows, coll_t *cols) {
       beg[w] = used;
       used += df[w];
     }
-    fprintf (stderr, "\nfilling columns %d...%d: %ldM posts\n", v, w, used/M);
+    fprintf (stderr, "\nfilling columns %d...%d: %ldM posts\n", v, w-1, used/M);
     for (i = 1; i <= nd; ++i) {
       ix_t *D = get_vec_ro (rows,i), *d;
       for (d = D; d < D+len(D); ++d) {
@@ -1339,7 +1339,7 @@ void transpose_mtx (coll_t *rows, coll_t *cols) {
       }
       show_progress (done/M, 2*np/M, "M posts");
     }
-    fprintf (stderr, "\nwriting columns %d...%d\n", v, w);
+    fprintf (stderr, "\nwriting columns %d...%d\n", v, w-1);
     for (; v < w; ++v) {
       //ix_t *col = new_vec (df[v], sizeof(ix_t));
       ix_t *col = map_vec (cols, v, df[v], sizeof(ix_t));
