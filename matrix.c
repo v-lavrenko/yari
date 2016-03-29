@@ -1315,6 +1315,7 @@ void transpose_mtx (coll_t *rows, coll_t *cols) {
   cols->cdim = rows->rdim;
   uint *df = len_cols (rows), nw = len(df), nd = num_rows(rows);
   ulong np = sumi(df), pm = physical_memory(), M = 1<<20;
+  pm = MIN(pm,(ulong)MAP_SIZE); // cap [DEBUG]
   ulong BS = MIN(np+1,pm/2/sizeof(ix_t));
   ix_t *buf = calloc (BS, sizeof(ix_t));
   ulong *beg = calloc (nw, sizeof(ulong)), used = 0, done = 0;
