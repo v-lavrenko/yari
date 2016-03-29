@@ -651,6 +651,7 @@ uint *len_cols (coll_t *rows) {
   uint *X = new_vec (nc+1, sizeof(uint));
   for (id = 1; id <= nr; ++id) {
     ix_t *row = get_vec_ro (rows,id), *end = row + len(row), *r = row-1;
+    assert (end[-1].i <= nc || end == row); // check out-of-range [DEBUG]
     while (++r < end) X[r->i] += 1;
     if (0 == id%100) show_progress (id, nr, "rows (len_cols)");
   }
@@ -1319,7 +1320,7 @@ void transpose_mtx (coll_t *rows, coll_t *cols) {
   ulong *beg = calloc (nw, sizeof(ulong)), used = 0, done = 0;
   fprintf (stderr, "computed df [%d x %d], will buffer %ldMB", 
 	   nd, nw-1, BS*sizeof(ix_t)/M);
-  uint v=1, w=1, i=0;
+  uint u=1, v=1, w=1, i=0;
   while (v < nw) {
     for (used = 0; w < nw; ++w) { // [v ... w) fit into buffer
       if (used + df[w] >= BS) break;
@@ -1335,23 +1336,25 @@ void transpose_mtx (coll_t *rows, coll_t *cols) {
 	uint b = beg[d->i]++;
 	buf[b].i = i;
 	buf[b].x = d->x;
+	assert (i && d->x); // DEBUG
 	++done;
       }
-      show_progress (done/M, 2*np/M, "M posts");
+      show_progress (i, nd, "rows");
     }
     fprintf (stderr, "\nwriting columns %d...%d\n", v, w-1);
-    for (; v < w; ++v) {
+    for (u=v; v < w; ++v) {
+      if (v>u) assert (beg[v] - df[v] == beg[v-1]);
       //ix_t *col = new_vec (df[v], sizeof(ix_t));
       ix_t *col = map_vec (cols, v, df[v], sizeof(ix_t));
       ix_t *src = buf + beg[v] - df[v];
       memcpy (col, src, df[v] * sizeof(ix_t));
       //put_vec (cols, v, col);
       //free_vec (col);
-      done += df[v];
-      show_progress (done/M, 2*np/M, "M posts");
+      done -= df[v];
+      show_progress (v-u, w-u, "cols");
     }
   }
-  fprintf (stderr, " [%.0fs] done: %ld of %ld\n", vtime(), done/2, np);
+  fprintf (stderr, " [%.0fs] leftover: %ld of %ld\n", vtime(), (long)done, np);
   //free_vec (buf); free_vec (beg); free_vec (df);
   free (buf); free (beg); free_vec (df);
 }
