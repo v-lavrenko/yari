@@ -243,6 +243,8 @@ static float *mtx_feature_select (coll_t *src, char *prm) {
   return NULL;
 }
 
+void ptrim (ix_t *vec, uint n, float p) ;
+
 void mtx_weigh (char *TRG, char *prm, char *SRC, char *STATS) {
   assert (TRG && SRC);
   char *flr = strstr(prm,"floor"), *cei = strstr(prm,"ceil");
@@ -267,7 +269,7 @@ void mtx_weigh (char *TRG, char *prm, char *SRC, char *STATS) {
   char *Acos = strstr(prm,"acos"), *Atan = strstr(prm,"atan");
   //uint top2 = getprm(prm,"top2=",0);
   float out = getprm(prm,"out=",0);
-  float thr = getprm(prm,"thresh=",0);
+  float thr = getprm(prm,"thresh=",0), trp = getprm(prm,"ptrim=",0);
   float top = getprm(prm,"top=",0),  L = getprm(prm,"L=",0);
   float   k = getprm(prm,  "k=",0),  b = getprm(prm,"b=",0);
   float rbf = getprm(prm,"rbf=",0),  sig = getprm(prm,"sig=",0);
