@@ -2042,6 +2042,25 @@ void disjoin (ix_t *X, ix_t *Y) {
   free_vec (Z);
 }
 
+char *vec2set (ix_t *vec, uint N) {
+  ix_t *v, *end = vec + len(vec);
+  if (!N && len(vec)) N = (end-1)->i;
+  else assert (N >= (end-1)->i);
+  char *set = new_vec (N+1, sizeof(char));
+  for (v = vec; v < end; ++v) if (v->x) set [v->i] = 1;
+  return set;
+}
+
+void vec_x_set (ix_t *vec, char op, char *set) {
+  assert (vec && set && (op == '*' || op == '-'));
+  uint N = len(set);
+  ix_t *u = vec, *v = vec-1, *end = vec+len(vec);
+  assert (end == vec || end[-1].i < N);
+  if (op == '*') while (++v < end) if ( set[v->i]) *u++ = *v;
+  if (op == '-') while (++v < end) if (!set[v->i]) *u++ = *v;
+  len(vec) = u - vec;
+}
+
 void filter_and (ix_t *V, ix_t *F) {
   ix_t *v = V, *f = F, *endV = V + len(V), *endF = F + len(F);
   while (v < endV && f < endF) {
