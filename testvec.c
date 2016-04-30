@@ -35,6 +35,13 @@ int main (int argc, char *argv[]) {
   unsigned i, n, j = 1;
   unsigned *a;
   //test_resize(); return 0;
+  if (argc > 2 && !strcmp(argv[1],"reset")) {
+    fprintf (stderr, "re-setting %s: ", argv[2]);
+    free_vec (open_vec (argv[2], "a", 0));
+    fprintf (stderr, "done\n");
+  }
+  return 0;
+    
   char *FILE_NAME = "tryvec.mmap";
   if (argc < 2) { fprintf (stderr, "Usage: %s n\n", *argv); return -1;}
   n = 1 << atoi (argv[1]);
