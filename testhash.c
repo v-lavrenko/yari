@@ -43,12 +43,23 @@ int main (int argc, char *argv[]) {
 	     "usage: testhash -load HASH < ids\n"
 	     "                -dump HASH > pairs\n"
 	     "                -vrfy HASH < pairs\n"
+	     "                -keys HASH > ids\n"
+	     "                -drop HASH < ids > new\n"
+	     "                -add  HASH < ids\n"
 	     "                -k2i  HASH key\n"
 	     "                -i2k  HASH id\n"
 	     "                -dbg  HASH\n"
 	     "                -rand 1-4 logN\n"
 	     );
     return 1;
+  }
+  
+  if (!strcmp(argv[1], "-keys")) {
+    hash_t *h = open_hash (argv[2], "r");
+    uint i, n = nkeys(h);
+    for (i = 1; i <= n; ++i) printf ("%s\n", id2key(h,i));
+    free_hash (h);      
+    return 0;
   }
   
   if (!strcmp(argv[1], "-dump")) {
@@ -95,6 +106,29 @@ int main (int argc, char *argv[]) {
     }
     free_hash (h);
     fprintf (stderr, "[%.1fs] %lu pairs\n", vtime(), done);
+    return 0;
+  }
+  
+  if (!strcmp(argv[1], "-drop")) {
+    hash_t *h = open_hash (argv[2], "r");
+    char key[10000];
+    while (fgets(key, 10000, stdin)) {
+      key [strlen(key)-1] = 0; // chop newline
+      if (!has_key (h, key)) printf ("%s\n", key);
+    }
+    free_hash (h);
+    return 0;
+  }
+  
+  if (!strcmp(argv[1], "-add")) {
+    hash_t *h = open_hash (argv[2], "a");
+    char key[10000]; ulong done = 0;
+    while (fgets(key, 10000, stdin)) {
+      key [strlen(key)-1] = 0; // chop newline
+      key2id (h,key);
+      if (!(++done%1000)) show_progress(done/1000,0,"K keys added");
+    }
+    free_hash (h);
     return 0;
   }
   
