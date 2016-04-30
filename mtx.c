@@ -26,6 +26,8 @@
 #include "textutil.h"
 #include "svm.h"
 
+//void mtx_reset_corrupt (char *C) { free_coll (open_coll (C,"a")); } // now in testvec
+
 void mtx_size (char *_M, char *prm) {
   coll_t *M = open_coll (_M,"r+");
   if      (strstr(prm,":r")) printf ("%u\n", num_rows(M));
@@ -243,6 +245,32 @@ static float *mtx_feature_select (coll_t *src, char *prm) {
   return NULL;
 }
 
+static void mtx2full (coll_t *trg, coll_t *src) {
+  uint i, nr = num_rows(src), nc = num_cols(src);
+  fprintf (stderr, "%s [%d x %d] mtx -> full %s\n", src->path, nr, nc, trg->path);
+  for (i=0; i<=nr; ++i) {
+    ix_t *vec = get_vec (src, i);
+    float *full = vec2full (vec, nc);
+    put_vec (trg, i, full);
+    free_vec (vec); free_vec (full);
+    show_progress (i,nr,"vecs");
+  }
+  trg->rdim = nr; trg->cdim = nc;
+}
+
+static void full2mtx (coll_t *trg, coll_t *src) {
+  uint i, nr = num_rows(src), nc = num_cols(src);
+  fprintf (stderr, "%s [%d x %d] full -> mtx %s\n", src->path, nr, nc, trg->path);
+  for (i=0; i<=nr; ++i) {
+    float *full = get_vec (src, i);
+    ix_t *vec = full2vec (full);
+    put_vec (trg, i, vec);
+    free_vec (vec); free_vec (full);
+    show_progress (i,nr,"vecs");
+  }
+  trg->rdim = nr; trg->cdim = nc;
+}
+
 void ptrim (ix_t *vec, uint n, float p) ;
 
 void mtx_weigh (char *TRG, char *prm, char *SRC, char *STATS) {
@@ -324,13 +352,15 @@ void mtx_weigh (char *TRG, char *prm, char *SRC, char *STATS) {
   float *FS = mtx_feature_select (src, prm);
   
   uint id = 0, nv = num_rows (src);
-  if      (strstr(prm,"softcol")) { col_softmax (trg,src);       id = nv; }
+  if      (strstr(prm,"mtx2full")) { mtx2full (trg,src);          id = nv; }
+  else if (strstr(prm,"full2mtx")) { full2mtx (trg,src);          id = nv; }
+  else if (strstr(prm,"softcol"))  { col_softmax (trg,src);       id = nv; }
   else if (strstr(prm,"colsum") ||
-	   strstr(prm,"rowsum"))  { mtx_weigh_sum (trg,src,prm); id = nv; }
+	   strstr(prm,"rowsum"))   { mtx_weigh_sum (trg,src,prm); id = nv; }
   else if (strstr(prm,"colmax") || 
 	   strstr(prm,"colmin") || 
 	   strstr(prm,"rowmax") || 
-	   strstr(prm,"rowmin"))  { mtx_weigh_max (trg,src,prm); id = nv; }
+	   strstr(prm,"rowmin"))   { mtx_weigh_max (trg,src,prm); id = nv; }
   
   while (++id <= nv) {
     show_progress (id, nv, "vecs");
@@ -1605,6 +1635,8 @@ char *usage =
   "                         FS:df=a:b - remove columns with frequency outside [a:b]\n"
   "                         outlier=Z - crop values outside Z standard deviations\n"
   "                              chop - remove zero entries\n"
+  "                          mtx2full - convert matrix A to collection of float[]\n"
+  "                          full2mtx - convert a collection of float[] to matrix\n"
   "                                L1 - normalize so weights add up to one\n"
   "                                L2 - normalize so that Euclidian length = 1\n"
   "                             round - to nearest integer (also: floor/ceiling)\n"
