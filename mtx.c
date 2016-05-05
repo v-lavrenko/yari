@@ -423,11 +423,12 @@ void mtx_weigh (char *TRG, char *prm, char *SRC, char *STATS) {
   //if (copy) free_coll (trg);
 }
 
-void mtx_transpose (char *prm, char *path) {
-  coll_t *M = open_coll (path, "r+");
-  coll_t *T = open_coll (cat(path,".T"), "w+");
+void mtx_transpose (char *prm, char *src, char *trg) {
+  coll_t *M = open_coll (src, "r+");
+  if (!trg) trg = cat(src,".T");
+  coll_t *T = open_coll (trg, "w+");
   float MB = M->offs[0] / (1<<20), ETA = MB/1400;
-  fprintf (stderr, "transposing %s %.0fMB, should be done in %.1f minutes\n", path, MB, ETA);
+  fprintf (stderr, "transposing %s %.0fMB, should be done in %.1f minutes\n", src, MB, ETA);
   transpose_mtx (M,T); // rdim/cdim updated here
   free_coll (T);
   free_coll (M);
@@ -1787,7 +1788,7 @@ int main (int argc, char *argv[]) {
   else if (!strncmp(a(1), "LTR:SA", 6)) mtx_letor_SA (arg(2), arg(3), arg(4), a(1));
   else if (!strncmp(a(1), "LTR:eval", 8)) mtx_letor_eval (arg(2), arg(3), arg(4), arg(5), a(1));
   else if (!strncmp(a(1), "xval", 4))   mtx_xval (arg(2), arg(3), arg(4), arg(5), a(1));
-  else if (!strncmp(a(1), "trans", 5))  mtx_transpose (arg(1), arg(2));
+  else if (!strncmp(a(1), "trans", 5))  mtx_transpose (arg(1), arg(2), NULL);
   else if (!strncmp(a(1), "merge", 5) 
 	   && !strcmp (a(5),"+="))    mtx_merge (arg(2), arg(3), arg(4), arg(6), arg(7), arg(8), a(1));
   else if (!strcmp(a(2),"=") && argc > 3) {
@@ -1824,6 +1825,7 @@ int main (int argc, char *argv[]) {
 	     !strcmp  (a(5), "-"))         mtx_add (tmp, arg(3), arg(4), arg(5)[0], arg(6), arg(7));
     else if (!strcmp  (a(3), "min") && argc == 6) mtx_dot (tmp, arg(4), 'm', arg(5));
     else if (!strcmp  (a(3), "max") && argc == 6) mtx_dot (tmp, arg(4), 'M', arg(5));
+    else if (!strcmp  (a(3), "transpose")) mtx_transpose (arg(3), arg(4), tmp);
     else if (strlen(a(4))==1 && ispunct(a(4)[0])) mtx_dot (tmp, arg(3), arg(4)[0], arg(5));
     else                                   mtx_weigh (tmp, arg(3), arg(4), arg(5));
     //else if (!strncmp (a(3), "weigh",5)) mtx_weigh (tmp, arg(3), arg(4), arg(5));
