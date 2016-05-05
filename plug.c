@@ -80,10 +80,7 @@ void load_json (char *C, char *RH, char *prm) { //
   coll_t *c = open_coll (C, "a+");
   hash_t *rh = open_hash (RH, "r");
   while (fgets (json, SZ, stdin)) { // assume one-per-line
-    if (!(++done%20000)) {
-      if (done%1000000) fprintf (stderr, ".");
-      else fprintf (stderr, "[%.0fs] %d JSON records\n", vtime(), done); 
-    }
+    if (!(++done%10000)) show_progress (done, 0, "JSON records");
     uint sz = strlen (json);
     if (json[sz-1] == '\n') json[--sz] = '\0';
     char *docid = json_value (json, "docid"); assert (docid);
@@ -106,6 +103,33 @@ void load_json (char *C, char *RH, char *prm) { //
   free_coll (c); free_hash (rh); free(json);
   fprintf (stderr, "[%.0fs] OK: %d, noid: %d, dups: %d\n", 
 	   vtime(), done, noid, dups);
+}
+
+static inline char *merge_blobs (char *buf, char *a, char *b) {
+  uint aSZ = strlen(a), bSZ = strlen(b), sz = aSZ + bSZ + 1;
+  if (len(buf) < sz) buf = resize_vec (buf, sz);
+  memcpy (buf, a, aSZ);
+  memcpy (buf+aSZ, b, bSZ);
+  buf [sz-1] = 0; // null-terminate
+  fprintf (stderr, "a[%d]:%s\nb[%d]:%s\nc[%d]:%s\n", aSZ, a, bSZ, b, sz, buf);
+  return buf;
+}
+
+void merge_colls (char *_C, char *_A, char *_B) { // C = A + B
+  char *buf = new_vec (1<<24, sizeof(char));
+  coll_t *C = open_coll (_C, "w+");
+  coll_t *A = open_coll (_A, "r+");
+  coll_t *B = open_coll (_B, "r+");
+  uint nA = nvecs(A), nB = nvecs(B), n = MAX(nA,nB), i;
+  for (i=1; i<=n; ++i) {
+    char *a = get_chunk(A,i), *b = get_chunk(B,i);
+    if (a && b) buf = merge_blobs (buf,a,b);
+    char *c = (a && b) ? buf : a ? a : b;
+    uint sz = c ? strlen(c) : 0;
+    if (c) put_chunk (C, i, c, sz+1);
+    if (!(i%10)) show_progress (i,n,"blobs merged");
+  }
+  free_coll(A); free_coll(B); free_coll(C); free_vec(buf);
 }
 
 ix_t *do_qry (char *QRY, char *DICT, char *prm) {
@@ -1076,6 +1100,7 @@ char *usage =
   "  -load XML HASH              - stdin -> collection XML indexed by HASH\n"
   "  -json JSON HASH [prm]       - stdin -> collection JSON indexed by HASH\n"
   "                                prm: skip, join duplicates\n"
+  "  -merge C A B                - C[i] = A[i] + B[i] (concatenates records)\n"
   "  -stat XML HASH              - stats (cf,df) from collection XML -> stdout\n"
   "  -dmap XML HASH              - stdin: qryid docid, stdout: qryid XML[docid]\n"
   "  -qry 'query' DICT stem=L    - parse query\n"
@@ -1110,6 +1135,7 @@ int main (int argc, char *argv[]) {
     if (!strcmp (a(0), "-rs")) srandom (atoi(a(1)));
     if (!strcmp (a(0), "-load")) load_raw (a(1), a(2));
     if (!strcmp (a(0), "-json")) load_json (a(1), a(2), a(3));
+    if (!strcmp (a(0), "-merge")) merge_colls (a(1), a(2), a(3));
     if (!strcmp (a(0), "-dump")) dump_raw (a(1), a(2), a(3));
     if (!strcmp (a(0), "-dmap")) dump_raw_ret (a(1), a(2));
     if (!strcmp (a(0), "-stat")) do_stats (a(1), a(2));
