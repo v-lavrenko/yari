@@ -1488,6 +1488,19 @@ ix_t *cols_x_vec (coll_t *cols, ix_t *vec) {
   return result;
 }
 
+ix_t *cols_x_vec_overlap (coll_t *cols, ix_t *vec) { // coordination-level match
+  ix_t *v; float *SCORE = new_vec (cols->cdim + 1, sizeof(float)); // safe
+  for (v = vec; v < vec + len(vec); ++v) {
+    if (!v->x) continue;
+    ix_t *C = get_vec (cols, v->i), *c = C-1, *end = C+len(C);
+    while (++c < end) if (c->x) SCORE [c->i] += 1;
+    free_vec (C);
+  }
+  ix_t *result = full2vec (SCORE);
+  free_vec (SCORE);
+  return result;
+}
+
 void rows_x_cols (coll_t *out, coll_t *rows, coll_t *cols) {
   //coll_t *cols = copy_coll (_cols); // in-memory
   uint nr = num_rows (rows), i = 0;
