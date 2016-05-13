@@ -1,22 +1,22 @@
 /*
-
-   Copyright (C) 1997-2014 Victor Lavrenko
-
-   All rights reserved. 
-
-   THIS SOFTWARE IS PROVIDED BY VICTOR LAVRENKO AND OTHER CONTRIBUTORS
-   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-   FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-   COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-   INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-   (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-   SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-   HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-   STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
-   OF THE POSSIBILITY OF SUCH DAMAGE.
-
+  
+  Copyright (c) 1997-2016 Victor Lavrenko (v.lavrenko@gmail.com)
+  
+  This file is part of YARI.
+  
+  YARI is free software: you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+  
+  YARI is distributed in the hope that it will be useful, but WITHOUT
+  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+  or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+  License for more details.
+  
+  You should have received a copy of the GNU General Public License
+  along with YARI. If not, see <http://www.gnu.org/licenses/>.
+  
 */
 
 #include <time.h>
@@ -37,9 +37,7 @@
 #include <sys/errno.h>
 #include <sys/fcntl.h>
 
-void porter_stemmer (char *word, char *stem) ;
 void kstem_stemmer (char *word, char *stem) ;
-void arabic_stemmer (char *word, char *stem) ;
 
 void lowercase_stemmer (char *string, char *result) {
   char *s;
@@ -51,9 +49,8 @@ void lowercase_stemmer (char *string, char *result) {
 void stem_rcv (char *prm) {
   char *r = strstr(prm,"row");
   void (*stem) (char*,char*) = NULL; 
-  if      (strstr (prm, "porter")) stem = porter_stemmer;
-  else if (strstr (prm, "lower" )) stem = lowercase_stemmer;
-  else                             stem = kstem_stemmer;
+  if (strstr (prm, "lower" )) stem = lowercase_stemmer;
+  else                        stem = kstem_stemmer;
   float value;
   char line[1000], row[1000], col[1000], rstem[1000], cstem[1000];
   while (fgets (line, 999, stdin)) {
@@ -66,7 +63,7 @@ void stem_rcv (char *prm) {
   }    
 }
 
-char *usage = "stem [krovetz,porter,lower],[row] < rcv > stemmed\n";
+char *usage = "stem [krovetz,lower],[row] < rcv > stemmed\n";
 
 int main (int argc, char *argv[]) {
   if (argc > 1 && !strncmp(argv[1],"-h",2)) { printf ("%s", usage); return 1; }

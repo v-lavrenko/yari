@@ -1,22 +1,22 @@
 /*
-
-   Copyright (C) 1997-2014 Victor Lavrenko
-
-   All rights reserved. 
-
-   THIS SOFTWARE IS PROVIDED BY VICTOR LAVRENKO AND OTHER CONTRIBUTORS
-   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-   FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-   COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-   INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-   (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-   SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-   HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-   STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
-   OF THE POSSIBILITY OF SUCH DAMAGE.
-
+  
+  Copyright (c) 1997-2016 Victor Lavrenko (v.lavrenko@gmail.com)
+  
+  This file is part of YARI.
+  
+  YARI is free software: you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+  
+  YARI is distributed in the hope that it will be useful, but WITHOUT
+  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+  or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+  License for more details.
+  
+  You should have received a copy of the GNU General Public License
+  along with YARI. If not, see <http://www.gnu.org/licenses/>.
+  
 */
 
 #include <math.h>
@@ -24,6 +24,17 @@
 #include <pthread.h>
 
 ulong myrand (ulong prev) { return prev * 1103515245 + 12345; }
+
+#ifdef __MACH__
+#define CLOCK_MONOTONIC 1
+#include <sys/time.h>
+void clock_gettime(int tmp, struct timespec* t) {
+  struct timeval T = {0,0}; (void) tmp;
+  gettimeofday(&T, NULL);
+  t->tv_sec  = T.tv_sec;
+  t->tv_nsec = T.tv_usec * 1000;
+}
+#endif
 
 double mstime() {
   struct timespec tp;
@@ -42,7 +53,7 @@ void *test_random_access (void *prm) {
   char *path = getprms (prm,"path=","RND",',');
   char *_mmap = strstr (prm,"mmap");
   char *_read = strstr (prm,"read");
-  char *_MMAP = strstr (prm,"MMAP");
+  char *__MMAP = strstr (prm,"MMAP");
   char *pre = strstr (prm,"pre");
   uint size = getprm (prm, "size=", 10000);
   uint n    = getprm (prm, "n=", 10000);
@@ -55,7 +66,7 @@ void *test_random_access (void *prm) {
   double start = mstime();
   while (--n > 0) {
     offs = myrand(offs) % (flen - size);
-    if (_MMAP) { // entire file memory-mapped
+    if (__MMAP) { // entire file memory-mapped
       if (!MAP) MAP = safe_mmap (fd, 0, page_align (flen, '>'), "r");
       char *chunk = MAP + offs, *p;
       for (p = chunk; p < chunk + size; ++p) sum += *p;

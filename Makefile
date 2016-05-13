@@ -1,3 +1,23 @@
+
+
+  # Copyright (c) 1997-2016 Victor Lavrenko (v.lavrenko@gmail.com)
+
+  # This file is part of YARI.
+
+  # YARI is free software: you can redistribute it and/or modify it
+  # under the terms of the GNU General Public License as published by
+  # the Free Software Foundation, either version 3 of the License, or
+  # (at your option) any later version.
+
+  # YARI is distributed in the hope that it will be useful, but WITHOUT
+  # ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+  # or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+  # License for more details.
+
+  # You should have received a copy of the GNU General Public License
+  # along with YARI. If not, see <http://www.gnu.org/licenses/>.
+
+
 f64=-D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE 
 LIB=-lm -lpthread
 
@@ -19,7 +39,7 @@ publish:
 %.o: %.c
 	$(CC) -c $<
 
-libyari.a: mmap.o vector.o coll.o hash.o matrix.o netutil.o timeutil.o stemmer_porter.o stemmer_krovetz.o textutil.o synq.o svm.o
+libyari.a: mmap.o vector.o coll.o hash.o matrix.o netutil.o timeutil.o stemmer_krovetz.o textutil.o synq.o svm.o
 	ar -r libyari.a $^
 
 %::
@@ -34,10 +54,9 @@ testcoll: testcoll.c mmap.c vector.c coll.c
 testhash: testhash.c mmap.c vector.c coll.c hash.c
 
 mtx: mtx.c mmap.c vector.c coll.c hash.c matrix.c svm.c \
-	textutil.c stemmer_porter.c stemmer_krovetz.c \
-	maxent.c
+	textutil.c stemmer_krovetz.c maxent.c
 
-stem: stem.c stemmer_krovetz.c stemmer_porter.c
+stem: stem.c stemmer_krovetz.c 
 
 plug: plug.c libyari.a
 
