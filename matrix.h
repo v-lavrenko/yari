@@ -244,4 +244,10 @@ double ppndf (double p) ; // inverse gaussian (standard normal) cdf
 float powa (float x, float p) ; // fast |x|^p
 float rnd(); // = random() / RAND_MAX
 
+void mtx_append (coll_t *M, uint id, ix_t *vec, char how) ;
+ix_t *next_in_jix (jix_t *jix, jix_t **last) ;
+void transpose_jix (jix_t *vec) ;
+jix_t *scan_jix (FILE *in, uint num, hash_t *rows, hash_t *cols) ;
+void scan_mtx_rcv (FILE *in, coll_t *M, hash_t *R, hash_t *C, char how, char verb) ;
+
 #endif

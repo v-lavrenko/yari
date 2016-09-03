@@ -2026,18 +2026,23 @@ void kstem_stemmer (char *word, char *stem) {
 
 #ifdef MAIN
 
-int main(int argc, char *argv[]) {
-  char word[80];
-  char *thestem;
+int main (int argc, char *argv[]) {
+  char line[9999];
+  (void) argc;
+  (void) argv;
   
-  do  {
-    gets(word);
-    if (*word == '\0') break;
+  while (fgets (line,9999,stdin)) {
     
-    thestem = kstem_stem(word);
+    if (*line == '#') continue; // skip comments
+    char *nl = strchr (line,'\n'), *toks = line;
+    if (nl) *nl = '\0'; // strip newline
     
-    printf("%s\n", thestem);
-  } while(!feof(stdin));
+    while (word = next_token(&toks," \t")) {
+      char *stem = kstem_stem (word);
+      printf(" %s", stem);
+    }
+    printf ("\n");
+  }
   
   return(0);
 }

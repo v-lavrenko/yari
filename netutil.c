@@ -30,6 +30,7 @@ void server_killed (int n) { // will be called on INT or TERM signal
 
 // redirect bad signals to the user-supplied handler function
 void trap_signals (void (*handle)(int)) {
+  signal (SIGHUP,  handle);
   signal (SIGTERM, handle);
   signal (SIGINT,  handle);
   signal (SIGQUIT, handle);
@@ -40,8 +41,7 @@ void trap_signals (void (*handle)(int)) {
   signal (SIGPWR,  handle); // not defined on a Mac
 #endif
   signal (SIGFPE,  handle);
-  signal (SIGABRT, handle);
-  signal (SIGHUP,  handle);
+  //signal (SIGABRT, handle);
 }
 
 // simple error-handling wrapper around network functions
@@ -317,4 +317,11 @@ int readall (int fd, char *buf, int sz, int ttl) {
     //else warn ("[%d] read ERROR %d", fd, errno);
   }
   return used;
+}
+
+void socket_timeout (int fd, uint sec) {
+  struct timeval tv;
+  tv.tv_sec = sec;  /* 30 Secs Timeout */
+  tv.tv_usec = 0;  // Not init'ing this can cause strange errors
+  setsockopt (fd, SOL_SOCKET, SO_RCVTIMEO, (char *)&tv, sizeof(tv));
 }

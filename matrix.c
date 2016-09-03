@@ -74,33 +74,30 @@ uint jix_is_sorted (jix_t *vec) {
   return 1; 
 }
 
-jix_t *scan_jix (FILE *in, uint num, hash_t *rows, hash_t *cols) {
-  jix_t *buf = new_vec (num, sizeof(jix_t));
-  jix_t *b = buf, *end = buf + len(buf); 
+jix_t *scan_jix (FILE *in, uint maxlen, hash_t *rows, hash_t *cols) {
+  jix_t *buf = new_vec (0, sizeof(jix_t)), new = {0,0,0};
   char line[1000], row[1000], col[1000]; 
-  uint skip = 0; float value;
+  uint fskip=0, rskip=0, cskip=0, vskip=0;
   while (fgets (line, 999, in)) {
-    //fprintf (stderr, line);
     if (*line == '#') { // comments and signals start with a #
       if (!strcmp(line,"# END\n")) break; // stop if end of block
-      else continue; } // skip over comments
-    if (3 != sscanf (line, "%s %s %f", row, col, &value)) {
-      fprintf (stderr, "cannot parse: %100.100s...\n", line); continue; }
-    {
-      //char *c; for (c = col; *c; ++c) *c = tolower ((int) *c);
+      else continue; // skip over comments
+    } 
+    if (3 != sscanf (line, "%s %s %f", row, col, &new.x)) {
+      if (++fskip<9) fprintf (stderr, "cannot parse: %100.100s...\n", line);
+      continue; 
     }
-    b->j = rows ? key2id (rows, row) : atol(row); // row id -> integer
-    b->i = cols ? key2id (cols, col) : atol(col); // column id -> integer
-    b->x = value; // store the value of cell at (row,col)
-    if      (!b->j) { if (++skip<9) fprintf (stderr, "skipping row [%s] %s", row, line); }
-    else if (!b->i) { if (++skip<9) fprintf (stderr, "skipping col [%s] %s", col, line); }
-    else ++b; // keep zero values
-    //else if (b->x) ++b; // skip zero values
-    if (b >= end) break;
+    new.j = rows ? key2id (rows, row) : atol(row); // row id -> integer
+    new.i = cols ? key2id (cols, col) : atol(col); // column id -> integer
+    if      (!new.j) { if (++rskip<9) fprintf (stderr, "skipping row [%s] %s", row, line); } 
+    else if (!new.i) { if (++cskip<9) fprintf (stderr, "skipping col [%s] %s", col, line); }
+    //else if (!new.x) { if (++vskip<9) fprintf (stderr, "skipping zero val %s", line); }
+    else buf = append_vec (buf, &new); // keep zero values
+    if (maxlen && len(buf) >= maxlen) break;
   }
-  resize_vec (buf, b - buf);
   sort_vec (buf, cmp_jix); // rsort?
-  if (skip) fprintf (stderr, "skipped %d posts, ", skip);
+  if (fskip || rskip || cskip) 
+    fprintf (stderr, "skipped posts: %d format, %d row, %d col, %d val\n", fskip, rskip, cskip, vskip);
   return buf;
 }
 
@@ -122,6 +119,21 @@ jix_t *coll_jix (coll_t *c, uint num, uint *id) {
 void transpose_jix (jix_t *vec) {
   uint tmp; jix_t *v, *end = vec + len(vec); // swap i <=> j
   for (v = vec; v < end; ++v) { tmp = v->i; v->i = v->j; v->j = tmp; } 
+}
+
+ix_t *next_in_jix (jix_t *jix, jix_t **last) {
+  if (!jix || !last) return NULL;
+  if (!*last || *last == jix) *last = jix-1; // start from the beginning
+  jix_t *r = *last+1, *s = r, *t, *end = jix + len(jix);
+  while ((s < end) && (s->j == r->j)) ++s; // [r..s) = same vec
+  if (s == r) return NULL; // empty result
+  ix_t *vec = new_vec (0, sizeof(ix_t)); // old vec
+  for (t = r; t < s; ++t) { 
+    ix_t new = {t->i, t->x};
+    vec = append_vec (vec, &new);
+  }
+  *last = s-1;
+  return vec;
 }
 
 void append_jix (coll_t *c, jix_t *jix) {
@@ -155,6 +167,37 @@ void uniq_jix (jix_t *vec) {
     else if (++a < b) *a = *b;
   }
   len(vec) = a - vec + 1;
+}
+
+void put_vec_write (coll_t *c, uint id, void *vec) ;
+void mtx_append (coll_t *M, uint id, ix_t *vec, char how) {
+  if (!M || !id || !vec) return; // nothing to do
+  if (!has_vec (M,id)) return put_vec_write (M, id, vec); // no conflict
+  if (how == 'r') return put_vec_write (M, id, vec); // replace
+  if (how == 's') return ; // skip
+  ix_t *old = get_vec (M,id), *new = 0;
+  if (how == 'l' && len(vec) > len(old)) put_vec_write (M, id, vec); // longer
+  if (how == '+' || how == '|' || how == '&') {
+    new = vec_x_vec (old, how, vec);
+    put_vec_write (M, id, new);
+  }
+  free_vec (old); free_vec (new);
+}
+
+void scan_mtx_rcv (FILE *in, coll_t *M, hash_t *R, hash_t *C, char how, char verb) {
+  ix_t *vec; 
+  if (!in || !M) return;
+  while (1) {
+    jix_t *buf = scan_jix (in, 0, R, C), *last = NULL; 
+    if (!len(buf)) { free_vec (buf); break; }
+    while ((vec = next_in_jix (buf, &last))) {
+      mtx_append (M, last->j, vec, how);
+      if (verb) fprintf (stderr, "added %s [%d]\n", id2key(R,last->j), len(vec));
+      free_vec (vec);
+    }
+    fprintf (stderr, "[%.0fs] added %d cells how:%c -> %d rows, %d cols\n", vtime(), len(buf), how, num_rows(M), num_cols(M)); 
+    free_vec (buf);
+  }
 }
 
 void uniq_vec (ix_t *vec) {
@@ -2074,6 +2117,7 @@ void vec_x_set (ix_t *vec, char op, char *set) {
 }
 
 void filter_and (ix_t *V, ix_t *F) {
+  if (!V || !F) return;
   ix_t *v = V, *f = F, *endV = V + len(V), *endF = F + len(F);
   while (v < endV && f < endF) {
     if      (v->i >  f->i) { ++f; } // f but not v => ignore
@@ -2085,16 +2129,23 @@ void filter_and (ix_t *V, ix_t *F) {
 }
 
 void filter_not (ix_t *V, ix_t *F) {
+  if (!V || !F) return;
   ix_t *v = V, *f = F, *endV = V + len(V), *endF = F + len(F);
+  //fprintf (stderr, "# V[%d] - F[%d]", len(V), len(F));
+  //uint hit = 0;
   while (v < endV && f < endF) {
     if      (v->i >  f->i) { ++f; } // f but not v => ignore
     else if (v->i <  f->i) { ++v; } // v not in f => keep
     else if (v->i == f->i) { v->i = 0; ++v; ++f; } // v in f => skip
   } // keep remaining elements in V (they're not in F)
+  //fprintf (stderr, " -> V[%d]", len(V));
+  //uint leftV = endV - v, leftF = endF - f;
   chop_vec (V);
+  //fprintf (stderr, " -> V[%d] hit: %d leftV: %d leftF: %d\n", len(V), hit, leftV, leftF);
 }
 
 void filter_set (ix_t *V, ix_t *F, float def) {
+  if (!V || !F) return;
   ix_t *v = V, *f = F, *endV = V + len(V), *endF = F + len(F);
   while (v < endV && f < endF) {
     if      (v->i >  f->i) { ++f; } // f but not v => ignore
@@ -2106,6 +2157,7 @@ void filter_set (ix_t *V, ix_t *F, float def) {
 }
 
 void vec_mul_vec (ix_t *V, ix_t *F) {
+  if (!V || !F) return;
   ix_t *v = V, *f = F, *endV = V + len(V), *endF = F + len(F);
   while (v < endV && f < endF) {
     if      (f->i < v->i) { ++f; }           // y but not x

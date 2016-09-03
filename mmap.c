@@ -22,6 +22,8 @@
 #define _GNU_SOURCE // necessary for safe_mremap
 #include "mmap.h"
 
+//void warn (char *s) { fprintf (stderr, "%s\n", s); }
+
 off_t MAP_SIZE = 1<<30;
 
 mmap_t *open_mmap (char *path, char *access, off_t size) {
@@ -53,7 +55,7 @@ void expect_random_access (mmap_t *M, off_t size) {
 
 void free_mmap (mmap_t *M) {
   if (!M) return;
-  if (M->data) munmap (M->data, M->size);
+  if (M->data) munmap (M->data, M->size); 
   if (M->next) free_mmap (M->next);
   else if (M->file) close (M->file); // close only once
   memset (M, 0, sizeof (mmap_t));
@@ -343,7 +345,7 @@ void *safe_remap (int fd, void *buf, off_t osize, off_t nsize) {
 #ifdef MREMAP_MAYMOVE
   buf = mremap (buf, osize, nsize, MREMAP_MAYMOVE);
 #else
-  munmap(buf, osize);
+  munmap(buf, osize); 
   buf = safe_mmap (fd, 0, nsize, "w");
 #endif
   if ((buf == (void*) -1) || (buf == NULL)) {
@@ -410,13 +412,13 @@ off_t safe_pwrite (int fd, void *buf, off_t size, off_t offset) {
   return (off_t) result;
 }
 
-char *itoa (uint i) {
+char *itoa (uint i) { // not thread-safe + buffer overflow
   static char buf[100];
   sprintf (buf, "%u", i);
   return buf;
 }
 
-char *ftoa (char *fmt, float f) {
+char *ftoa (char *fmt, float f) { // not thread-safe + buffer overflow
   static char buf[100];
   sprintf (buf, fmt, f);
   return buf;
@@ -528,8 +530,8 @@ inline void show_spinner () {
   fprintf (stderr, "%c\r", spin[++i%4]);
 }
 
-inline void show_progress (ulong n, ulong N, char *s) {
-  static ulong dots = 0, m = 0, line = 50;
+inline void show_progress (ulong done, ulong total, char *s) {
+  static ulong dots = 0, prev = 0, line = 50;
   static time_t last = 0, begt = 0;
   time_t this = time(0);
   //printf ("%d %d %d\n", this, last, CLOCKS_PER_SEC);
@@ -538,19 +540,19 @@ inline void show_progress (ulong n, ulong N, char *s) {
   last = this;
   fprintf (stderr, ".");
   if (!begt) begt = this;
-  if (n < m) m = n; 
+  if (done < prev) prev = done; 
   if (++dots < line) return;
-  dots = 0;
-  double todo = N-n, di = n-m, ds = this-begt, rpm = 60*di/ds, ETA = todo/rpm;
+  double todo = total-done, di = done-prev, ds = this-begt, rpm = 60*di/ds, ETA = todo/rpm;
   //double ETA = ((double)(N-n)) / ((n-m) * 60 / line); // minutes
-  if (!N) fprintf (stderr, "%ld %s @ %.0f / minute\n", n, s, rpm);
-  else {  fprintf (stderr, "%ld / %ld %s", n, N, s);
+  if (!total) fprintf (stderr, "%ld %s @ %.0f / minute\n", done, s, rpm);
+  else {      fprintf (stderr, "%ld / %ld %s", done, total, s);
     if (ETA < 60)        fprintf (stderr, " ETA: %.1f minutes\n", ETA);
     else if (ETA < 1440) fprintf (stderr, " ETA: %.1f hours\n", ETA/60);
     else                 fprintf (stderr, " ETA: %.1f days\n", ETA/1440);
   }
-  m = n;
+  prev = done;
   begt = this;
+  dots = 0;
 }
 
 double getprm (char *params, char *name, double def) {

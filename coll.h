@@ -42,6 +42,7 @@ typedef struct {
 #define nvecs(c) (len((c)->offs)-1)
 
 coll_t *open_coll (char *_path, char *access) ;
+coll_t *reopen_coll (coll_t *c, char *access) ;
 void free_coll (coll_t *c) ;
 void rm_coll (coll_t *c) ;
 void empty_coll (coll_t *M) ;

@@ -25,6 +25,7 @@
 char *endchr (char *s, char c, uint n) ; // faster strrchr
 // in str replace any occurence of chars from what[] with 'with'
 void csub (char *str, char *what, char with) ; 
+void cqsub (char *str, char what, char with, char quot) ;
 
 void chop (char *str, char *blanks) ; // remove head/tail blanks
 
@@ -41,6 +42,8 @@ char *json_value (char *json, char *key) ;
 char *extract_between (char *buf, char *A, char *B) ;
 
 char *next_token (char **text, char *ws) ;
+
+uint split (char *str, char sep, char **_tok) ;
 
 int read_doc (FILE *in, char *buf, int n, char *beg, char *end) ;
 

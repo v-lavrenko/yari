@@ -70,14 +70,23 @@ char *color (char c) {
   case '*': return BOLD;
   case '_': return UNDER;
   case '~': return INVERSE;
+  case '!': return BLINK;
     //case 'r': return CLS;
     //case 'r': return RESET;
   }
   return "";
 }
 
+char *usage = 
+  "hl 'Y:string' ... highlight in red any line of stdin that contains 'string'\n"
+  "                  R:red G:green B:blue C:cyan M:magenta Y:yellow W:white K:black\n"
+  "                  lowercase:foreground, *:bold _:underline ~:inverse !:blink\n"
+  ;
+
+
 int main (int argc, char *argv[]) {
   char line[1000000], **a, **end = argv + argc;
+  if (argc < 2) return fprintf (stderr, "\n%s\n", usage);
   while (fgets (line, 999999, stdin)) {
     char *eol = index (line,'\n'), *clr = "";
     if (eol) *eol = 0;

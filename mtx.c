@@ -28,6 +28,17 @@
 
 //void mtx_reset_corrupt (char *C) { free_coll (open_coll (C,"a")); } // now in testvec
 
+void mtx_copy (char *SRC, char *TRG) {
+  coll_t *S = open_coll (SRC, "r+"), *T = open_coll (TRG, "w+");
+  uint id, n = num_rows(S);
+  for (id = 1; id <= n; ++id) {
+    void   *vec = get_vec(S,id);
+    if (len(vec)) put_vec(T,id,vec);
+    if (!(id%10)) show_progress (id, n, "rows");
+  }
+  free_coll (S); free_coll (T);
+}
+
 void mtx_size (char *_M, char *prm) {
   coll_t *M = open_coll (_M,"r+");
   if      (strstr(prm,":r")) printf ("%u\n", num_rows(M));
@@ -57,6 +68,14 @@ void mtx_trace (char *_M, char *prm) {
   free_coll (M);
 }
 
+uint len_vec (coll_t *M, uint id) { 
+  if (!has_vec(M,id)) return 0;
+  ix_t *V = get_vec(M,id); 
+  uint n = len(V); 
+  free_vec(V); 
+  return n; 
+}
+
 void mtx_load (char *M, char *RH, char *CH, char *type, char *prm) {
   ulong done = 0;
   char *buf = malloc(1<<24), *id = 0;
@@ -66,7 +85,7 @@ void mtx_load (char *M, char *RH, char *CH, char *type, char *prm) {
   char *BEG = xml ? "<DOC" : "", *END = xml ? "</DOC>" : "\n";
   assert (rcv || svm || csv || txt || xml);
   char *skip = strstr(prm,"skip"), *repl = strstr(prm,"repl");
-  char *join = strstr(prm,"join");
+  char *Long = strstr(prm,"long"), *join = strstr(prm,"join");
   char *p = getprms(prm,"p=","waa",',');
   char *pM = (p[0] == 'w') ? "w+" : (p[0] == 'a') ? "a+" : "r+";
   char *pR = (p[1] == 'w') ? "w"  : (p[1] == 'a') ? "a"  : "r";
@@ -88,7 +107,9 @@ void mtx_load (char *M, char *RH, char *CH, char *type, char *prm) {
 		   csv ? parse_vec_csv (buf, &id) : NULL);
       if (!vec) continue;
       uint row = csv ? nvecs(m)+1 : rh ? key2id(rh,id) : (uint) atoi(id);
-      if (!has_vec (m, row)) put_vec (m, row, vec);
+      /*
+      if (!row) ; // no id (read-only rowhash)
+      else if (!has_vec (m, row)) put_vec (m, row, vec);
       else if (repl) put_vec (m, row, vec);
       else if (skip) ;
       else if (join) {
@@ -98,6 +119,8 @@ void mtx_load (char *M, char *RH, char *CH, char *type, char *prm) {
 	put_vec (m, row, vec);
       }
       else fprintf (stderr, "\nWARNING: skipping duplicate: %s\n", id);
+      */
+      mtx_append (m, row, vec, (join?'+' : skip?'s' : repl?'r' : Long?'l' : 'r'));
       free (id);
       free_vec (vec);
       if (++done%100 == 0) show_progress (done, 0, "rows");
@@ -119,9 +142,10 @@ void mtx_print (char *prm, char *_M, char *RH, char *CH) {
   uint top = getprm (prm,"top=",0), rno = getprm (prm,"rno=",0);
   //uint dd = getprm (prm,"dd=",4);
   char *rcv = strstr(prm,"rcv"), *txt = strstr(prm,"txt"), *xml = strstr(prm,"xml");
-  char *svm = strstr(prm,"svm"), *csv = strstr(prm,"csv");
+  char *svm = strstr(prm,"svm"), *csv = strstr(prm,"csv"), *ids = strstr(prm,"ids");
   char *fmt = getprms (prm,"fmt=",NULL,',');
   char *rid = getprms (prm,"rid=",NULL,',');
+  char *empty = strstr(prm,"empty");
   coll_t *M = open_coll (_M, "r+");
   RH = (RH && *RH && !atoi(RH)) ? RH : NULL;
   CH = (CH && *CH && !atoi(CH)) ? CH : NULL;
@@ -132,8 +156,10 @@ void mtx_print (char *prm, char *_M, char *RH, char *CH) {
   uint beg_i = rno ? rno : rid ? key2id (rh,rid) : 1;
   uint end_i = (rno || rid) ? beg_i : nr;
   for (i = beg_i; i <= end_i; ++i) {
-    ix_t *vec = get_vec (M, i);
+    if (!has_vec(M,i) && !empty) continue; 
     char *rid = strdup (rh ? id2key (rh,i) : itoa (i));
+    if (ids) { printf ("%s\n", rid); free(rid); continue; }
+    ix_t *vec = get_vec (M, i);
     if      (top) { trim_vec (vec, top); sort_vec (vec, cmp_ix_X); }
     if      (rcv) print_vec_rcv (vec, ch, rid, fmt);
     else if (txt) print_vec_txt (vec, ch, rid, 0);
@@ -147,13 +173,25 @@ void mtx_print (char *prm, char *_M, char *RH, char *CH) {
   if (fmt) free(fmt);
 }  
 
+static uint *hash_merge_self (char *_A, char *_B) {
+  assert (!strcmp(_A,_B));
+  hash_t *B = open_hash (_B, "r");
+  uint i, nB = nvecs(B->keys);
+  uint *F = new_vec (nB+1, sizeof(uint));
+  for (i = 1; i <= nB; ++i) F[i] = i;
+  fprintf (stderr, "done: %s == %s [%d] \n", _A, _B, nB);
+  free_hash (B);
+  return F;
+} 
+
 // return an injection F: B -> A, insert missing keys into A
-uint *hash_merge (char *_A, char *_B) {
-  hash_t *A = open_hash (_A, "a");
+uint *hash_merge (char *_A, char *_B, char *pA) {
+  if (!strcmp(_A,_B)) return hash_merge_self (_A, _B);
+  hash_t *A = open_hash (_A, pA);
   hash_t *B = open_hash (_B, "r");
   uint i, nB = nvecs(B->keys), nA = nvecs(A->keys);
   uint *F = new_vec (nB+1, sizeof(uint));
-  fprintf (stderr, "merge: %s [%d] += %s [%d]\n", _A, nA, _B, nB);
+  fprintf (stderr, "merge: %s [%d] += %s [%d] mode:%s\n", _A, nA, _B, nB, pA);
   for (i = 1; i <= nB; ++i) { // for each key in the table
     char *key = id2key (B,i);
     F[i] = key2id (A,key);
@@ -164,14 +202,6 @@ uint *hash_merge (char *_A, char *_B) {
   return F;
 }
 
-uint len_vec (coll_t *M, uint id) { 
-  if (!has_vec(M,id)) return 0;
-  ix_t *V = get_vec(M,id); 
-  uint n = len(V); 
-  free_vec(V); 
-  return n; 
-}
-
 void *get_vec_read (coll_t *c, uint id) ;
 void put_vec_write (coll_t *c, uint id, void *vec) ;
 
@@ -179,15 +209,20 @@ void put_vec_write (coll_t *c, uint id, void *vec) ;
 void mtx_merge (char *_A, char *_RA, char *_CA,
 		char *_B, char *_RB, char *_CB, 		
 		char *prm) {
-  char *skip = strstr(prm,"skip"), *repl = strstr(prm,"repl"); (void) skip;
-  char *Long = strstr(prm,"long"); //, *summ = strstr(prm,"sum");
-  uint *R = hash_merge (_RA, _RB);
-  uint *C = hash_merge (_CA, _CB);
-  coll_t *A = open_coll (_A, "a+");
+  char *skip = strstr(prm,"skip"), *repl = strstr(prm,"repl");
+  char *Long = strstr(prm,"long"), *join = strstr(prm,"join");
+  char *perm = getprms(prm,"p=","aaa",','); // access to A, Ra and Ca
+  char *pA = (perm[0] == 'r') ? "r+" : (perm[0] == 'w') ? "w+" : "a+"; 
+  char *pR = (perm[1] == 'r') ? "r"  : (perm[1] == 'w') ? "w"  : "a";
+  char *pC = (perm[2] == 'r') ? "r"  : (perm[2] == 'w') ? "w"  : "a";
+  uint *R = hash_merge (_RA, _RB, pR);
+  uint *C = hash_merge (_CA, _CB, pC);
+  coll_t *A = open_coll (_A, pA);
   coll_t *B = open_coll (_B, "r+");
   uint nB = num_rows(B), nA = num_rows(A), b;
-  fprintf (stderr, "merge: %s [%d x %d] += %s [%d x %d]\n", _A, nA, num_cols(A), _B, nB, num_cols(B));
+  fprintf (stderr, "merge: %s [%d x %d] += %s [%d x %d] mode:%s\n", _A, nA, num_cols(A), _B, nB, num_cols(B), pA);
   for (b = 1; b <= nB; ++b) {
+    if (!has_vec (B,b)) continue;
     ix_t *V = get_vec (B,b), *v, *last = V+len(V)-1;
     assert (b < len(R) && last->i < len(C));
     uint a = R[b]; // map row: B[b] -> A[a]
@@ -195,10 +230,13 @@ void mtx_merge (char *_A, char *_RA, char *_CA,
     for (v = V; v <= last; ++v) v->i = C[v->i]; // map column
     sort_vec (V, cmp_ix_i);
     chop_vec (V);
+    if (len(V)) mtx_append (A, a, V, (join?'+' : skip?'s' : repl?'r' : Long?'l' : 'r'));
+    /*  
     if (!has_vec (A,a)) put_vec_write (A,a,V); // no conflict
     else if (repl) put_vec_write (A,a,V); // replace A[a] with B[b]
     else if (Long && len(V) > len_vec (A,a)) put_vec_write (A,a,V);
     else {} // skip by default: keep A[a], drop B[b]
+    */
     free_vec (V);
     show_progress (b, nB, "rows merged");
   }
@@ -484,6 +522,24 @@ void dot2lm (coll_t *P, coll_t *Q, char *prm) { // products => LM scores
     free_vec(qry); free_vec(ret);
   }
   free_vec (DL); free_vec (CF); 
+}
+
+void mtx_subset (char *_A, char *_B, char *_H) {
+  char ID[1000], *NL; uint done = 0;
+  fprintf (stderr, "%s = subset %s [%s] reading ids from stdin\n", _A, _B, _H);
+  coll_t *A = open_coll (_A, "w+");
+  coll_t *B = open_coll (_B, "r+");
+  hash_t *H = open_hash (_H, "r+");
+  while (fgets(ID,999,stdin)) {
+    if ((NL = strchr (ID,'\n'))) *NL = 0;
+    uint id = key2id (H,ID);
+    if (!id || !has_vec (B,id)) { fprintf (stderr, "WARNING: no vec for %s(%d)\n", ID, id); continue; }
+    ix_t *vec = get_vec (B,id);
+    put_vec (A,id,vec);
+    free_vec (vec);
+    show_progress (++done, 0, "vecs copied");
+  }
+  free_coll (A); free_coll (B); free_hash (H);
 }
 
 void mtx_product (char *_P, char *_A, char *_B, char *prm) {
@@ -1595,10 +1651,11 @@ char *usage =
   "                          ow=5,uw=5 ... ordered/unordered pairs in a 5-word window\n"
   "                          positions ... store word positions instead of frequencies\n"
   "                          join,skip,replace ... documents with duplicate ids\n"
-  " print:fmt M [R] [C]    - print matrix M using specified format: rcv,csv,svm,txt\n"
+  " print:fmt M [R] [C]    - print matrix M using specified format: rcv,csv,svm,txt,ids\n"
   "                          R,C       ... used to map row/column numbers -> string ids\n"
   "                          top=9     ... 9 biggest values per row in descending order\n"
-  "                          id=ABC    ... only row with id=ABC (row number without R)\n"
+  "                          rid=ABC   ... only row with id=ABC (rno=N for row number)\n"
+  "                          empty     ... include empty rows (for csv,svm,txt)\n"
   "                          fmt=' %f' ... csv number format (must be last parameter)\n"
   " print:f1[prm] Sys Tru  - evaluation: recall, precision, F1, AP\n"
   "                          prm: top=K,b=1,thresh=X\n"
@@ -1611,7 +1668,7 @@ char *usage =
   "                               top=K  ... truncate to top K scores per class\n"
   " transpose M            - transpose matrix M into M.T (eg docs -> inverted lists)\n"
   " merge A R C += B S D   - merge B[SxD] into A[RxC], re-mapping the row/column ids\n"
-  "                          prm: skip,replace ... rows with duplicate ids\n"
+  "                          merge[:join,skip,replace] ... rows with clashing ids\n"
   " B = f A [S]            - apply function f to matrix A, store results in B\n"
   "                          S: matrix for computing statistics (default: use A)\n"
   "                          f:   std - make each column zero mean, unit variance\n"
@@ -1676,6 +1733,7 @@ char *usage =
   "                          use paste:horz or paste:vert to cat renumbered slices\n"
   " A = shuffle B          - randomly re-order (permute) the rows of B (see -r)\n"
   " A = sample:[type] B    - down-sample each row to n=N items or with prob. p=P\n"
+  " A = subset B H         - read ids from stdin and set A[id] = B[id] using hash H\n"
   " xval:fold=1 A T E [V]  - cross-validation A:all, T:train, E:test, V:validation\n"
   " T = mst A              - max spanning tree of affinity matrix A (symmetric)\n"
   " R = reachable S G      - R[i,:] = nodes in graph G reachable from S[i,:]\n"
@@ -1795,7 +1853,7 @@ int main (int argc, char *argv[]) {
     char tmp[1000]; 
     sprintf (tmp, "%s.%d", arg(1), getpid()); // temporary target
     if      (argc == 4 && atof(a(3)))      mtx_dot (tmp, arg(1), '=', arg(3));
-    else if (argc == 4)                    cp_dir (arg(3), tmp);
+    else if (argc == 4)                    mtx_copy (arg(3), tmp); // cp_dir (arg(3), tmp);
     else if (!strcmp  (a(3), "ones"))      mtx_rnd (tmp, arg(3), arg(4), arg(5));
     else if (!strncmp (a(3), "rnd",3))     mtx_rnd (tmp, arg(3), arg(4), arg(5));
     else if (!strcmp  (a(3), "eye"))       mtx_eye (tmp, arg(4));
@@ -1809,10 +1867,11 @@ int main (int argc, char *argv[]) {
     else if (!strncmp (a(3), "paste",5))   mtx_paste (tmp, arg(3), argv+4, argc-4);
     else if (!strcmp  (a(3), "shuffle"))   mtx_shuffle (tmp, arg(4));
     else if (!strncmp (a(3), "sample",6))  mtx_sample (tmp, arg(4), a(3));
+    else if (!strncmp (a(3), "subset",6))  mtx_subset (tmp, arg(4), arg(5));
     else if (!strncmp (a(3), "polyex",6))  mtx_polyex (tmp, arg(4), a(3));
     else if (!strncmp (a(3), "impute",6))  mtx_impute (tmp, arg(4));
     else if (!strncmp (a(3), "maxent",6))  mtx_maxent2 (tmp, arg(4), arg(5), a(3));
-    else if (!strncmp (a(3), "PA",2))      mtx_PA (tmp, arg(4), arg(5), a(3));
+    else if (!strncmp (a(3), "PA:",3))     mtx_PA (tmp, arg(4), arg(5), a(3));
     else if (!strncmp (a(3), "dcrm",4))    mtx_dcrm (tmp, arg(4), arg(5), arg(6), a(3));
     else if (!strncmp (a(3), "semg",4))    mtx_semg (tmp, arg(4), arg(5), a(3));
     else if (!strncmp (a(3), "clump",5))   mtx_clump (tmp, arg(4), arg(5), a(3));

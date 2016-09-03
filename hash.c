@@ -80,6 +80,14 @@ void free_hash (hash_t *h) {
   free (h);
 }
 
+hash_t *reopen_hash (hash_t *h, char *access) {
+  char *path = h->path ? strdup(h->path) : NULL;
+  free_hash (h);
+  h = open_hash (path, access);
+  if (path) free (path);
+  return h;
+}
+
 inline char *id2key (hash_t *h, uint id) { return get_chunk (h->keys, id); }
 
 // find a slot in indx that is empty or matches the key

@@ -120,4 +120,7 @@ void close_socket (int fd) ;
 int peek (int fd, char *buf, int sz, int ttl) ;
 int readall (int fd, char *buf, int sz, int ttl) ;
 
+// maximum amount of time read or recv will wait for data
+void socket_timeout (int fd, uint sec) ;
+
 #endif

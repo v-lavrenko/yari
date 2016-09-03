@@ -83,7 +83,9 @@ void load_json (char *C, char *RH, char *prm) { //
     if (!(++done%10000)) show_progress (done, 0, "JSON records");
     uint sz = strlen (json);
     if (json[sz-1] == '\n') json[--sz] = '\0';
-    char *docid = json_value (json, "docid"); assert (docid);
+    char *docid = json_value (json, "docid"); 
+    if (!docid) docid = json_value (json, "\"id\"");
+    assert (docid);
     uint id = key2id (rh, docid); 
     free(docid);
     if (!id) { ++noid; continue; }
@@ -110,8 +112,11 @@ static inline char *merge_blobs (char *buf, char *a, char *b) {
   if (len(buf) < sz) buf = resize_vec (buf, sz);
   memcpy (buf, a, aSZ);
   memcpy (buf+aSZ, b, bSZ);
+  char *close = endchr (buf,'}',aSZ); if (close) *close = ',';
+  char *open  = strchr (buf+aSZ,'{'); if (open)  *open  = ' ';
+  assert (open && close);
   buf [sz-1] = 0; // null-terminate
-  fprintf (stderr, "a[%d]:%s\nb[%d]:%s\nc[%d]:%s\n", aSZ, a, bSZ, b, sz, buf);
+  //fprintf (stderr, "\na[%d]:%s\nb[%d]:%s\nc[%d]:%s\n", aSZ, a, bSZ, b, sz, buf);
   return buf;
 }
 
@@ -130,6 +135,28 @@ void merge_colls (char *_C, char *_A, char *_B) { // C = A + B
     if (!(i%10)) show_progress (i,n,"blobs merged");
   }
   free_coll(A); free_coll(B); free_coll(C); free_vec(buf);
+  fprintf (stderr, "\n");
+}
+
+void do_merge (char *_A, char *_H, char *_B, char *_G, char *prm) { // A[j] += B[i] where H[j] = G[i]
+  char *nonew = strstr(prm,"nonew");
+  char *buf = new_vec (1<<24, sizeof(char));
+  coll_t *A = open_coll (_A, "a+");
+  coll_t *B = open_coll (_B, "r+");
+  hash_t *H = open_hash (_H, nonew ? "r" : "a");
+  hash_t *G = open_hash (_G, "r");
+  uint n = nvecs(B), i;
+  for (i=1; i<=n; ++i) {
+    if (!(i%10)) show_progress (i,n,"blobs merged");
+    char *key = id2key (G,i);          assert (key);
+    uint j = key2id (H,key);
+    if (!j) continue; // nonew and key not in A
+    char *a = get_chunk(A,j), *b = get_chunk(B,i);
+    if (a && b) b = buf = merge_blobs (buf,a,b);
+    if (b) put_chunk (A, j, b, strlen(b)+1);
+  }
+  free_coll(A); free_coll(B); free_hash(H); free_hash(G); free_vec(buf);
+  fprintf (stderr, "\n");
 }
 
 ix_t *do_qry (char *QRY, char *DICT, char *prm) {
@@ -1101,6 +1128,8 @@ char *usage =
   "  -json JSON HASH [prm]       - stdin -> collection JSON indexed by HASH\n"
   "                                prm: skip, join duplicates\n"
   "  -merge C A B                - C[i] = A[i] + B[i] (concatenates records)\n"
+  "   merge A a += B b [prm]     - A[j] += B[i] (concat) where key = a[j] = b[i]\n"
+  "                                prm: nonew ... skip if key not in a\n"
   "  -stat XML HASH              - stats (cf,df) from collection XML -> stdout\n"
   "  -dmap XML HASH              - stdin: qryid docid, stdout: qryid XML[docid]\n"
   "  -qry 'query' DICT stem=L    - parse query\n"
@@ -1136,6 +1165,8 @@ int main (int argc, char *argv[]) {
     if (!strcmp (a(0), "-load")) load_raw (a(1), a(2));
     if (!strcmp (a(0), "-json")) load_json (a(1), a(2), a(3));
     if (!strcmp (a(0), "-merge")) merge_colls (a(1), a(2), a(3));
+    if (!strcmp (a(0), "merge") && 
+	!strcmp (a(3), "+="))    do_merge (a(1), a(2), a(4), a(5), a(6));
     if (!strcmp (a(0), "-dump")) dump_raw (a(1), a(2), a(3));
     if (!strcmp (a(0), "-dmap")) dump_raw_ret (a(1), a(2));
     if (!strcmp (a(0), "-stat")) do_stats (a(1), a(2));
@@ -1155,4 +1186,3 @@ int main (int argc, char *argv[]) {
   if (ret) free_vec (ret);
   return 0;
 }
-

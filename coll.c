@@ -96,6 +96,14 @@ void free_coll (coll_t *c) {
   free (c);
 }
 
+coll_t *reopen_coll (coll_t *c, char *access) {
+  char *path = c->path ? strdup(c->path) : NULL;
+  free_coll (c);
+  c = open_coll (path, access);
+  if (path) free (path);
+  return c;
+}
+
 void rm_coll (coll_t *c) {
   char *dir = c->path ? strdup (c->path) : NULL;
   free_coll (c);

@@ -47,7 +47,7 @@ void lowercase_stemmer (char *string, char *result) {
 }
 
 void stem_rcv (char *prm) {
-  char *r = strstr(prm,"row");
+  char *r = strstr(prm,"row"), *c = strstr(prm,"col");
   void (*stem) (char*,char*) = NULL; 
   if (strstr (prm, "lower" )) stem = lowercase_stemmer;
   else                        stem = kstem_stemmer;
@@ -58,8 +58,8 @@ void stem_rcv (char *prm) {
     if (3 != sscanf (line, "%s %s %f", row, col, &value)) {
       fprintf (stderr, "cannot parse: %s", line); continue; }
     if (r) stem (row, rstem);
-    if (1) stem (col, cstem);
-    printf ("%15s %15s %10.4f\n", (r?rstem:row), cstem, value);
+    if (c) stem (col, cstem);
+    printf ("%15s %15s %10.4f\n", (r?rstem:row), (c?cstem:col), value);
   }    
 }
 

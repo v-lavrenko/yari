@@ -40,6 +40,7 @@ typedef struct {
 hash_t *open_hash (char *path, char *access);
 void    free_hash (hash_t *h) ;
 hash_t *copy_hash (hash_t *src) ;
+hash_t *reopen_hash (hash_t *h, char *access);
 
 char *id2key (hash_t *h, uint i) ;
 uint  key2id (hash_t *h, char *key) ; 

@@ -45,7 +45,9 @@ int main (int argc, char *argv[]) {
 	     "                -vrfy HASH < pairs\n"
 	     "                -keys HASH > ids\n"
 	     "                -drop HASH < ids > new\n"
+	     "                -keep HASH < ids > old\n"
 	     "                -add  HASH < ids\n"
+	     "               -merge HASH += HASH\n"
 	     "                -k2i  HASH key\n"
 	     "                -i2k  HASH id\n"
 	     "                -dbg  HASH\n"
@@ -76,8 +78,8 @@ int main (int argc, char *argv[]) {
     vtime();
     hash_t *h = open_hash (argv[2], "w");
     ulong done = 0;
-    char key[10000];
-    while (fgets(key, 10000, stdin)) {
+    char key[100000];
+    while (fgets(key, 100000, stdin)) {
       key [strlen(key)-1] = 0; // chop newline
       //uint dup = has_key (h, key);
       uint id  = key2id  (h, key); assert (id);
@@ -96,8 +98,8 @@ int main (int argc, char *argv[]) {
   if (!strcmp(argv[1], "-vrfy")) {
     hash_t *h = open_hash (argv[2], "r");
     uint id; ulong done = 0;
-    char line[10000], key[10000];
-    while (fgets(line, 10000, stdin)) {
+    char line[100000], key[100000];
+    while (fgets(line, 100000, stdin)) {
       uint nf = sscanf (line, "%d %s", &id, key); assert (nf == 2); 
       uint id2 = has_key (h, key); 
       //char *k2 = id2key (h, id); 
@@ -111,24 +113,50 @@ int main (int argc, char *argv[]) {
   
   if (!strcmp(argv[1], "-drop")) {
     hash_t *h = open_hash (argv[2], "r");
-    char key[10000];
-    while (fgets(key, 10000, stdin)) {
+    char key[100000];
+    while (fgets(key, 100000, stdin)) {
       key [strlen(key)-1] = 0; // chop newline
       if (!has_key (h, key)) printf ("%s\n", key);
     }
     free_hash (h);
     return 0;
   }
+
+  if (!strcmp(argv[1], "-keep")) {
+    hash_t *h = open_hash (argv[2], "r");
+    char key[100000];
+    while (fgets(key, 100000, stdin)) {
+      key [strlen(key)-1] = 0; // chop newline
+      if (has_key (h, key)) printf ("%s\n", key);
+    }
+    free_hash (h);
+    return 0;
+  }
+
   
   if (!strcmp(argv[1], "-add")) {
     hash_t *h = open_hash (argv[2], "a");
-    char key[10000]; ulong done = 0;
-    while (fgets(key, 10000, stdin)) {
+    char key[100000]; ulong done = 0;
+    while (fgets(key, 100000, stdin)) {
       key [strlen(key)-1] = 0; // chop newline
       key2id (h,key);
       if (!(++done%1000)) show_progress(done/1000,0,"K keys added");
     }
     free_hash (h);
+    return 0;
+  }
+  
+  if (!strcmp(argv[1], "-merge") && !strcmp(argv[3],"+=")) {
+    hash_t *A = open_hash (argv[2], "a");
+    hash_t *B = open_hash (argv[4], "r");
+    uint i, nB = nkeys(B), nA = nkeys(A);
+    fprintf (stderr, "merge: %s [%d] += %s [%d]\n", A->path, nA, B->path, nB);
+    for (i = 1; i <= nB; ++i) { // for each key in the table
+      key2id (A, id2key (B,i));
+      if (0 == i%10) show_progress (i, nB, "keys merged");
+    }
+    fprintf (stderr, "done: %s [%d]\n", A->path, nkeys(A));
+    free_hash (A); free_hash (B);
     return 0;
   }
   
@@ -138,7 +166,7 @@ int main (int argc, char *argv[]) {
     printf ("%10d %s\n", key2id (h,key), key);
     return 0;
   }
-
+  
   if (!strcmp(argv[1], "-i2k")) {
     hash_t *h = open_hash (argv[2], "r");
     uint i = atoi(argv[3]);

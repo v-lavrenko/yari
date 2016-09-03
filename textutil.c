@@ -49,6 +49,16 @@ void csub (char *str, char *what, char with) {
   //  *t = 0;
 }
 
+// change any occurence of 'what' to 'with' inside quotes
+void cqsub (char *str, char what, char with, char quot) {
+  char in_quot = 0;
+  while (*str) {
+    if (*str == what && in_quot) *str = with;
+    if (*str == quot) in_quot = !in_quot;
+    ++str;
+  }
+}
+
 // in str replace any occurence of chars from punctuation[] with nothing
 void squeeze (char *str, char *what) {
   if (!what) what = default_ws;
@@ -69,6 +79,13 @@ void cgrams (char *str, uint lo, uint hi, uint step, char *buf, uint eob) {
       *b++ = ' ';
     }
   *b = 0;
+}
+
+uint split (char *str, char sep, char **_tok) {
+  char **tok = _tok;
+  *tok++ = str;
+  for (; *str; ++str) if (*str == sep) { *str++ = 0; *tok++ = str; }
+  return tok - _tok;
 }
 
 void chop (char *str, char *blanks) {
