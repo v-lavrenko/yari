@@ -1669,6 +1669,7 @@ char *usage =
   " transpose M            - transpose matrix M into M.T (eg docs -> inverted lists)\n"
   " merge A R C += B S D   - merge B[SxD] into A[RxC], re-mapping the row/column ids\n"
   "                          merge[:join,skip,replace] ... rows with clashing ids\n"
+  "                          merge,p=aaa ... access mode for A,R,C: read,append,write\n"
   " B = f A [S]            - apply function f to matrix A, store results in B\n"
   "                          S: matrix for computing statistics (default: use A)\n"
   "                          f:   std - make each column zero mean, unit variance\n"
