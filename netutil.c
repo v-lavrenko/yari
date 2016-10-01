@@ -47,9 +47,11 @@ void trap_signals (void (*handle)(int)) {
 // simple error-handling wrapper around network functions
 int safe (char *comment, int result) {
   if (result == -1) {
-    fprintf (stderr, "[%s] failed: [%d] ", comment, errno);
-    perror (""); 
-    assert (0); }
+    fprintf (stderr, "--------------------------------------------------\n");
+    fprintf (stderr, "[%s] failed: [%d] ", comment, errno);  perror (""); 
+    fprintf (stderr, "--------------------------------------------------\n");
+    // assert (0); 
+  }
   return result;
 }
 
