@@ -1653,7 +1653,7 @@ char *usage =
   "                          ow=5,uw=5 ... ordered/unordered pairs in a 5-word window\n"
   "                          positions ... store word positions instead of frequencies\n"
   "                          join,skip,replace ... documents with duplicate ids\n"
-  " print:fmt M [R] [C]    - print matrix M using specified format: rcv,csv,svm,txt,ids\n"
+  " print:fmt M [R] [C]    - print matrix M using specified format: rcv,csv,svm,txt,json,ids\n"
   "                          R,C       ... used to map row/column numbers -> string ids\n"
   "                          top=9     ... 9 biggest values per row in descending order\n"
   "                          rid=ABC   ... only row with id=ABC (rno=N for row number)\n"
