@@ -558,6 +558,18 @@ void print_vec_rcv (ix_t *vec, hash_t *ids, char *vec_id, char *fmt) {
   }
 }
 
+void print_vec_json (ix_t *vec, hash_t *ids, char *vec_id, char *fmt) {
+  if (!fmt) fmt = "%g";
+  ix_t *v = vec-1, *end = vec + len(vec);
+  printf ("{ \"id\":\"%s\"", vec_id);
+  while (++v < end) {
+    if (ids) printf (", \"%s\":", id2key(ids,v->i));
+    else     printf (", \"%u\":", v->i);
+    printf (fmt, v->x);
+  }
+  printf (" }\n");
+}
+
 void print_vec_svm (ix_t *vec, hash_t *ids, char *vec_id, char *fmt) {
   if (!fmt) fmt = "%.4f";
   ix_t *v = vec-1, *end = vec + len(vec);
@@ -1386,6 +1398,7 @@ void transpose_mtx (coll_t *rows, coll_t *cols) {
     }
     fprintf (stderr, "\nwriting columns %d...%d\n", v, w-1);
     for (u=v; v < w; ++v) {
+      //if (df[v] == 0) continue; // added Oct.13 2016 works?
       if (v>u) assert (beg[v] - df[v] == beg[v-1]);
       //ix_t *col = new_vec (df[v], sizeof(ix_t));
       ix_t *col = map_vec (cols, v, df[v], sizeof(ix_t));
