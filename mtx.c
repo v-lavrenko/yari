@@ -224,11 +224,11 @@ void mtx_merge (char *_A, char *_RA, char *_CA,
   uint nB = num_rows(B), nA = num_rows(A), b;
   fprintf (stderr, "merge: %s [%d x %d] += %s [%d x %d] mode:%s\n", _A, nA, num_cols(A), _B, nB, num_cols(B), pA);
   for (b = 1; b <= nB; ++b) {
+    uint a = R[b]; // map row: B[b] -> A[a]
+    if (!a) continue;  // no target row => drop
     if (!has_vec (B,b)) continue;
     ix_t *V = get_vec (B,b), *v, *last = V+len(V)-1;
     assert (b < len(R) && last->i < len(C));
-    uint a = R[b]; // map row: B[b] -> A[a]
-    assert (a); // a==0 -> has no mapping, should never happen
     for (v = V; v <= last; ++v) v->i = C[v->i]; // map column
     sort_vec (V, cmp_ix_i);
     chop_vec (V);
