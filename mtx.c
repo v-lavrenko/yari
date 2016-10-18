@@ -143,6 +143,7 @@ void mtx_print (char *prm, char *_M, char *RH, char *CH) {
   //uint dd = getprm (prm,"dd=",4);
   char *rcv = strstr(prm,"rcv"), *txt = strstr(prm,"txt"), *xml = strstr(prm,"xml");
   char *svm = strstr(prm,"svm"), *csv = strstr(prm,"csv"), *ids = strstr(prm,"ids");
+  char *jsn = strstr(prm,"json");
   char *fmt = getprms (prm,"fmt=",NULL,',');
   char *rid = getprms (prm,"rid=",NULL,',');
   char *empty = strstr(prm,"empty");
@@ -156,16 +157,17 @@ void mtx_print (char *prm, char *_M, char *RH, char *CH) {
   uint beg_i = rno ? rno : rid ? key2id (rh,rid) : 1;
   uint end_i = (rno || rid) ? beg_i : nr;
   for (i = beg_i; i <= end_i; ++i) {
-    if (!has_vec(M,i) && !empty) continue; 
-    char *rid = strdup (rh ? id2key (rh,i) : itoa (i));
-    if (ids) { printf ("%s\n", rid); free(rid); continue; }
     ix_t *vec = get_vec (M, i);
+    if (!len(vec) && !empty) { free_vec(vec); continue; }
+    char *rid = strdup (rh ? id2key (rh,i) : itoa (i));
     if      (top) { trim_vec (vec, top); sort_vec (vec, cmp_ix_X); }
-    if      (rcv) print_vec_rcv (vec, ch, rid, fmt);
+    if      (ids) printf ("%s\n", rid); 
+    else if (rcv) print_vec_rcv (vec, ch, rid, fmt);
     else if (txt) print_vec_txt (vec, ch, rid, 0);
     else if (xml) print_vec_txt (vec, ch, rid, 1);
     else if (csv) print_vec_csv (vec, nc, fmt);
     else if (svm) print_vec_svm (vec, ch, rid, fmt);
+    else if (jsn) print_vec_json(vec, ch, rid, fmt);
     else          print_vec_rcv (vec, ch, rid, fmt);
     free (rid); free_vec(vec);
   }
