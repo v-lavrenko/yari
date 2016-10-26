@@ -85,7 +85,7 @@ ix_t *rand_vec_simplex (uint n); // uniformly over a multinomial simplex
 ix_t *rand_vec_sparse (uint n, uint k) ; // [0,1] for k random positions
 
 void scan_mtx (coll_t *rows, coll_t *cols, hash_t *rh, hash_t *ch) ;
-ix_t *parse_vec_svm (char *str, char **id) ;
+ix_t *parse_vec_svm (char *str, char **id, hash_t *ids) ;
 ix_t *parse_vec_csv (char *str, char **id) ;
 ix_t *parse_vec_txt (char *str, char **id, hash_t *ids, char *prm) ;
 ix_t *parse_vec_xml (char *str, char **id, hash_t *ids, char *prm) ;

@@ -103,7 +103,7 @@ void mtx_load (char *M, char *RH, char *CH, char *type, char *prm) {
       if (!xml && *buf == '#') continue; // skip comments (lines starting with '#')
       ix_t *vec = (xml ? parse_vec_xml (buf, &id, ch, prm) :
 		   txt ? parse_vec_txt (buf, &id, ch, prm) :
-		   svm ? parse_vec_svm (buf, &id) :
+		   svm ? parse_vec_svm (buf, &id, ch) :
 		   csv ? parse_vec_csv (buf, &id) : NULL);
       if (!vec) continue;
       uint row = csv ? nvecs(m)+1 : rh ? key2id(rh,id) : (uint) atoi(id);

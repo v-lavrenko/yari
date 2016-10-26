@@ -582,10 +582,18 @@ void print_vec_svm (ix_t *vec, hash_t *ids, char *vec_id, char *fmt) {
   printf ("\n");
 }
 
-ix_t *parse_vec_svm (char *str, char **id) {
-  int bytes;
+ix_t *parse_vec_svm (char *str, char **id, hash_t *ids) {
   if (id) *id = strdup (next_token (&str," \t"));
-  ix_t *vec = new_vec (0, sizeof(ix_t)), new = {0,0};
+  ix_t *vec = new_vec (0, sizeof(ix_t)), new = {0,0}; char *key;
+  while ((key = next_token (&str," \t"))) {
+    char *val = strchr(key,':');   
+    if (!val) continue;
+    *val++ = 0; // null-terminate key + advance to value
+    new.i = ids ? key2id(ids,key) : (uint) atol(key);
+    new.x = atof(val);
+    if (new.i && new.x) vec = append_vec (vec, &new);
+  }
+  int bytes; 
   while (2 == sscanf (str, " %d:%f%n", &(new.i), &(new.x), &bytes)) {
     if (new.i && new.x) vec = append_vec (vec, &new);
     str += bytes;
