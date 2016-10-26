@@ -143,13 +143,15 @@ void do_merge (char *_A, char *_H, char *_B, char *_G, char *prm) { // A[j] += B
   char *buf = new_vec (1<<24, sizeof(char));
   coll_t *A = open_coll (_A, "a+");
   coll_t *B = open_coll (_B, "r+");
-  hash_t *H = open_hash (_H, nonew ? "r" : "a");
-  hash_t *G = open_hash (_G, "r");
-  uint n = nvecs(B), i;
-  for (i=1; i<=n; ++i) {
-    if (!(i%10)) show_progress (i,n,"blobs merged");
-    char *key = id2key (G,i);          assert (key);
-    uint j = key2id (H,key);
+  hash_t *H = *_H ? open_hash (_H, nonew ? "r" : "a") : NULL;
+  hash_t *G = *_G ? open_hash (_G, "r") : NULL;
+  uint nB = nvecs(B), nA = nvecs(A), i;
+  fprintf (stderr, "merging %s[%d] += %s[%d] mode:%s", _A, nA, _B, nB, (nonew?"nonew":"addnew"));
+  if (H || G) fprintf (stderr, ", mapping ids: %s -> %s\n", _G, _H);
+  else fprintf (stderr, ", assuming ids are compatible\n");
+  for (i=1; i<=nB; ++i) {
+    if (!(i%10)) show_progress (i,nB,"blobs merged");
+    uint j = id2id (G,i,H);
     if (!j) continue; // nonew and key not in A
     char *a = get_chunk(A,j), *b = get_chunk(B,i);
     if (a && b) b = buf = merge_blobs (buf,a,b);
@@ -196,7 +198,7 @@ void do_sort (ix_t *ret, char *ORDER, char *prm) {
   char *asc = strstr(prm,"asc");
   coll_t *O = open_coll (ORDER, "r+");
   ix_t *ord = get_vec_ro(O,1);
-  float *order = vec2full (ord, 0);
+  float *order = vec2full (ord, 0, 0);
   vec_x_full (ret, '=', order);
   sort_vec (ret, (asc ? cmp_ix_x : cmp_ix_X));
   free_vec (order); free_coll (O); 
@@ -329,7 +331,7 @@ void ddrag (ixy_t *rnk, ixy_t *seed, coll_t *docs, float thresh) {
 void sdrag (ixy_t *rnk, ixy_t *seed, coll_t *sims, float thresh) {
   ixy_t *d, *end = rnk + len(rnk);
   ix_t *_sim = get_vec (sims, seed->i); // similarity of seed to all
-  float *sim = vec2full (_sim, num_rows (sims));
+  float *sim = vec2full (_sim, num_rows (sims), 0);
   //fprintf (stderr, "dragging %d (%c):", seed->i, (seed->y ? '+' : '-'));
   for (d = seed+1; d < end; ++d) { // for all docs following seed
     assert (d->i < len(sim));
@@ -1128,6 +1130,7 @@ char *usage =
   "  -json JSON HASH [prm]       - stdin -> collection JSON indexed by HASH\n"
   "                                prm: skip, join duplicates\n"
   "  -merge C A B                - C[i] = A[i] + B[i] (concatenates records)\n"
+  "   merge A += B [prm]         - A[j] += B[i] (concat, assume ids compatible)\n"
   "   merge A a += B b [prm]     - A[j] += B[i] (concat) where key = a[j] = b[i]\n"
   "                                prm: nonew ... skip if key not in a\n"
   "  -stat XML HASH              - stats (cf,df) from collection XML -> stdout\n"
@@ -1167,6 +1170,8 @@ int main (int argc, char *argv[]) {
     if (!strcmp (a(0), "-merge")) merge_colls (a(1), a(2), a(3));
     if (!strcmp (a(0), "merge") && 
 	!strcmp (a(3), "+="))    do_merge (a(1), a(2), a(4), a(5), a(6));
+    if (!strcmp (a(0), "merge") && 
+	!strcmp (a(2), "+="))    do_merge (a(1), NULL, a(3), NULL, a(4));
     if (!strcmp (a(0), "-dump")) dump_raw (a(1), a(2), a(3));
     if (!strcmp (a(0), "-dmap")) dump_raw_ret (a(1), a(2));
     if (!strcmp (a(0), "-stat")) do_stats (a(1), a(2));
