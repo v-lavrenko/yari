@@ -45,6 +45,7 @@ hash_t *reopen_hash (hash_t *h, char *access);
 char *id2key (hash_t *h, uint i) ;
 uint  key2id (hash_t *h, char *key) ; 
 uint has_key (hash_t *h, char *key) ;
+uint id2id (hash_t *src, uint id, hash_t *trg) ;
 
 //unsigned keyIn (hash_t *t, char *key) ;
 //hash_t *hnew (unsigned num_els, char *path) ;
