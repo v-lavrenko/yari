@@ -137,6 +137,13 @@ uint key2id (hash_t *h, char *key) {
   return (*slot = id);
 }
 
+uint id2id (hash_t *src, uint id, hash_t *trg) {
+  if (src == trg) return id;
+  if (!src || !trg) return 0;
+  char *key = id2key (src,id);
+  return key ? key2id (trg,key) : 0;
+}
+
 // adapted from http://www.team5150.com/~andrew/noncryptohashzoo/Murmur3.html
 
 inline uint rot ( uint x, char r ) { return (x << r) | (x >> (32 - r)); }
