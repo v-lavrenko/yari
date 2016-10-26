@@ -598,7 +598,7 @@ ix_t *parse_vec_svm (char *str, char **id) {
 void print_vec_csv (ix_t *vec, uint ncols, char *fmt) {
   if (!fmt || !*fmt) fmt = " %5.2f";
   if (!ncols && len(vec)) ncols = vec[len(vec)-1].i;
-  float *full = vec2full (vec, ncols), *end = full+len(full), *f;
+  float *full = vec2full (vec, ncols, 0), *end = full+len(full), *f;
   for (f = full+1; f < end; ++f) printf (fmt, *f);
   printf ("\n");
   free_vec (full);
@@ -1464,10 +1464,11 @@ ix_t *full2vec_keepzero (float *full) {
   return vec;
 }
 
-float *vec2full (ix_t *vec, uint N) {
-  ix_t *v, *end = vec + len(vec);
+float *vec2full (ix_t *vec, uint N, float def) {
+  ix_t *v, *end = vec + len(vec); uint i;
   if (!N && len(vec)) N = (end-1)->i;
-  float *full = new_vec (N+1, sizeof(float));
+  float *full = new_vec (N+1, sizeof(float)); 
+  if (def) for (i=0; i<=N; ++i) full[i] = def;
   for (v = vec; v < end; ++v) 
     if (v->i <= N) full [v->i] = v->x;
     else assert (0 && "incorrect dimensions");

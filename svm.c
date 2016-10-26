@@ -161,8 +161,8 @@ ix_t *cdescent (ix_t *_Y, coll_t *XT, ix_t *W, char *prm) {
   uint N = num_cols (XT), V = num_rows (XT);
   if (!W) W = const_vec (V, 0);
   ix_t *_P = cols_x_vec (XT, W); // initial predictions
-  float *P = vec2full (_P, N); // predictions 
-  float *Y = vec2full (_Y, N); // truth
+  float *P = vec2full (_P, N, 0); // predictions 
+  float *Y = vec2full (_Y, N, 0); // truth
   float *X = new_vec (N+1, sizeof(float)); // inv list
   float *L = new_vec (N+1, sizeof(float)); // left cumulative loss
   float *R = new_vec (N+1, sizeof(float)); // right cumulative loss

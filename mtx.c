@@ -290,7 +290,7 @@ static void mtx2full (coll_t *trg, coll_t *src) {
   fprintf (stderr, "%s [%d x %d] mtx -> full %s\n", src->path, nr, nc, trg->path);
   for (i=0; i<=nr; ++i) {
     ix_t *vec = get_vec (src, i);
-    float *full = vec2full (vec, nc);
+    float *full = vec2full (vec, nc, 0);
     put_vec (trg, i, full);
     free_vec (vec); free_vec (full);
     show_progress (i,nr,"vecs");
@@ -676,7 +676,7 @@ void mtx_distance (char *_D, char *_A, char *_B, char *prm) {
     //if (!has_vec (A,j)) continue; // incorrect: zero vec => nonzero distances
     ix_t *d = const_vec (nB,0);
     ix_t *a = get_vec (A,j);
-    float *aa = mask ? vec2full (a,nC) : NULL;
+    float *aa = mask ? vec2full (a,nC,0) : NULL;
     for (i = 1; i <= nB; ++i) {
       ix_t *b = get_vec_ro (B,i);
       if (mask) {
@@ -1586,10 +1586,10 @@ void mtx_dcrm (char *_D, char *_P, char *_X, char *_Y, char *prm) {
   uint nX = num_rows(X), nY = num_rows(Y), nD = num_cols(X), i,j,d;
   float *Df = new_vec (nD+1, sizeof(float)), p = getprm(prm,"p=",2);
   for (i = 1; i <= nX; ++i) {
-    ix_t *xi = get_vec_ro (X,i); float *Xi = vec2full (xi, nD); 
-    ix_t *pi = get_vec_ro (P,i); float *Pi = vec2full (pi, nD);
+    ix_t *xi = get_vec_ro (X,i); float *Xi = vec2full (xi, nD, 0); 
+    ix_t *pi = get_vec_ro (P,i); float *Pi = vec2full (pi, nD, 0);
     for (j = 1; j <= nY; ++j) {
-      ix_t *yj = get_vec_ro (Y,j); float *Yj = vec2full (yj, nD);
+      ix_t *yj = get_vec_ro (Y,j); float *Yj = vec2full (yj, nD, 0);
       for (d=1; d<=nD; ++d) Df[d] += Pi[j] * powa ((Xi[d]-Yj[d]), p);
       free_vec (Yj);
     }
@@ -1609,7 +1609,7 @@ void mtx_semg (char *_S, char *_P, char *_A, char *prm) {
   float *SS = chk_SCORE (ni);
   for (j = 1; j <= nj; ++j) {
     ix_t *pj = get_vec_ro (P,j);
-    float *Pj = vec2full (pj, ni);
+    float *Pj = vec2full (pj, ni, 0);
     for (w = 1; w <= nw; ++w) {
       ix_t *Aw = get_vec (A,w), *a;
       vec_x_full (Aw, '*', Pj);
