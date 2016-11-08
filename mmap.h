@@ -54,6 +54,7 @@ typedef struct mmap {
 } mmap_t;
 
 extern off_t MAP_SIZE;
+extern int MAP_MODE; //  MAP_LOCKED | MAP_NONBLOCK | MAP_POPULATE etc
 
 mmap_t *open_mmap (char *path, char *access, off_t size) ;
 void free_mmap (mmap_t *M) ;
