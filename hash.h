@@ -32,6 +32,7 @@ typedef struct {
   uint   *indx; // indx[code] -> id
   uint   *code; // code[id] = hashcode
   coll_t *keys; // keys[id] = string 
+  char mlock;
   //char   *data;
 } hash_t; 
 
@@ -46,6 +47,7 @@ char *id2key (hash_t *h, uint i) ;
 uint  key2id (hash_t *h, char *key) ; 
 uint has_key (hash_t *h, char *key) ;
 uint id2id (hash_t *src, uint id, hash_t *trg) ;
+uint *keys2ids (hash_t *h, char **keys) ; // batch version of key2id
 
 //unsigned keyIn (hash_t *t, char *key) ;
 //hash_t *hnew (unsigned num_els, char *path) ;
