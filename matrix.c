@@ -24,41 +24,6 @@
 #include "hash.h"
 #include "textutil.h"
 
-int cmp_jix (const void *n1, const void *n2) { // by increasing j then i
-  jix_t *r1 = (jix_t*) n1, *r2 = (jix_t*) n2; 
-  uint di = r1->i - r2->i, dj = r1->j - r2->j;
-  return dj ? dj : di; }
-
-int cmp_ix_i (const void *n1, const void *n2) { // by increasing id
-  uint i1 = ((ix_t*)n1)->i, i2 = ((ix_t*)n2)->i; 
-  return i1 - i2; }
-
-//int cmp_ix_x (const void *n1, const void *n2) { // by increasing value
-//  float x1 = ((ix_t*)n1)->x, x2 = ((ix_t*)n2)->x;
-//  return (x1 < x2) ? -1 : (x1 > x2) ? +1 : 0; }
-
-int cmp_ix_x (const void *n1, const void *n2) { return -cmp_ix_X (n1,n2); }
-int cmp_ix_X (const void *n1, const void *n2) { // by decreasing value
-  float x1 = ((ix_t*)n1)->x, x2 = ((ix_t*)n2)->x;
-  return (x1 > x2) ? -1 : (x1 < x2) ? +1 : 0; }
-
-int cmp_ixy_i (const void *n1, const void *n2) { // by increasing id
-  uint i1 = ((ixy_t*)n1)->i, i2 = ((ixy_t*)n2)->i; 
-  return i1 - i2; }
-
-int cmp_ixy_x (const void *n1, const void *n2) { return -cmp_ixy_X (n1,n2); }
-int cmp_ixy_X (const void *n1, const void *n2) { // by decreasing x
-  float x1 = ((ixy_t*)n1)->x, x2 = ((ixy_t*)n2)->x;
-  return (x1 > x2) ? -1 : (x1 < x2) ? +1 : 0; }
-
-int cmp_ixy_y (const void *n1, const void *n2) { return -cmp_ixy_Y (n1,n2); }
-int cmp_ixy_Y (const void *n1, const void *n2) { // by decreasing y
-  float y1 = ((ixy_t*)n1)->y, y2 = ((ixy_t*)n2)->y;
-  return (y1 > y2) ? -1 : (y1 < y2) ? +1 : 0; }
-
-int cmp_x (const void *n1, const void *n2) { return -cmp_X (n1,n2); }
-int cmp_X (const void *n1, const void *n2) { return *((float*)n2) - *((float*)n1); }
-
 jix_t *ix2jix (uint j, ix_t *ix) {
   ix_t *v; jix_t *jix = new_vec (0, sizeof(jix_t)); 
   for (v = ix; v < ix+len(ix); ++v) {
@@ -170,18 +135,23 @@ void uniq_jix (jix_t *vec) {
 }
 
 void put_vec_write (coll_t *c, uint id, void *vec) ;
-void mtx_append (coll_t *M, uint id, ix_t *vec, char how) {
-  if (!M || !id || !vec) return; // nothing to do
-  if (!has_vec (M,id)) return put_vec_write (M, id, vec); // no conflict
-  if (how == 'r') return put_vec_write (M, id, vec); // replace
-  if (how == 's') return ; // skip
-  ix_t *old = get_vec (M,id), *new = 0;
-  if (how == 'l' && len(vec) > len(old)) put_vec_write (M, id, vec); // longer
-  if (how == '+' || how == '|' || how == '&') {
+uint mtx_append (coll_t *M, uint id, ix_t *vec, char how) {
+  if (!M || !id || !vec) return 0; // nothing to do
+  if (!has_vec (M,id)) { put_vec_write (M, id, vec); return 1; } // no conflict
+  if (how == 'r')      { put_vec_write (M, id, vec); return 1; } // replace
+  if (how == 's')                                    return 0; // skip
+  ix_t *old = get_vec (M,id), *new = 0; uint ok = 0;
+  if (how == 'l' && len(vec) > len(old)) { // longer
+    put_vec_write (M, id, vec); 
+    ok = 1;
+  }
+  if (how == '+' || how == '|' || how == '&') { // join
     new = vec_x_vec (old, how, vec);
     put_vec_write (M, id, new);
+    ok = 1;
   }
   free_vec (old); free_vec (new);
+  return ok;
 }
 
 void scan_mtx_rcv (FILE *in, coll_t *M, hash_t *R, hash_t *C, char how, char verb) {
@@ -685,9 +655,10 @@ inline uint is_dense (ix_t *V) { uint n=len(V); return V && n && V[n-1].i == n; 
 
 inline uint last_id  (ix_t *V) { uint n=len(V); return (V && n) ? V[n-1].i : 0; }
 
-inline uint num_rows (coll_t *c) { return c->rdim ? c->rdim : (c->rdim = nvecs(c)); }
+inline uint num_rows (coll_t *c) { return (!c) ? 0 : c->rdim ? c->rdim : (c->rdim = nvecs(c)); }
 
 uint num_cols (coll_t *c) {
+  if (!c) return 0;
   if (c->cdim) return c->cdim;
   uint id, N = 0, nr = num_rows (c);
   for (id = 1; id <= nr; ++id) {
