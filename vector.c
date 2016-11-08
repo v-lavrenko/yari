@@ -204,10 +204,53 @@ void *read_vec (char *path) {
 void sort_vec (void *d, int (*cmp) (const void *, const void *)) {
   qsort (d, len(d), vesize(d), cmp); }
 
-
 void *bsearch_vec (void *el, void *vec, int (*cmp) (const void *, const void *)) {
   return bsearch (el, vec, len(vec), vesize(vec), cmp); }
 
+///////////////////////////// sorting for common vector types
+
+int cmp_jix (const void *n1, const void *n2) { // by increasing j then i
+  jix_t *r1 = (jix_t*) n1, *r2 = (jix_t*) n2; 
+  uint di = r1->i - r2->i, dj = r1->j - r2->j;
+  return dj ? dj : di; }
+
+int cmp_it_i (const void *n1, const void *n2) { // by increasing i
+  uint i1 = ((it_t*)n1)->i, i2 = ((it_t*)n2)->i; 
+  return i1 - i2; }
+
+int cmp_it_t (const void *n1, const void *n2) { // by increasing t
+  uint t1 = ((it_t*)n1)->t, t2 = ((it_t*)n2)->t; 
+  return t1 - t2; }
+
+int cmp_ix_i (const void *n1, const void *n2) { // by increasing id
+  uint i1 = ((ix_t*)n1)->i, i2 = ((ix_t*)n2)->i; 
+  return i1 - i2; }
+
+//int cmp_ix_x (const void *n1, const void *n2) { // by increasing value
+//  float x1 = ((ix_t*)n1)->x, x2 = ((ix_t*)n2)->x;
+//  return (x1 < x2) ? -1 : (x1 > x2) ? +1 : 0; }
+
+int cmp_ix_x (const void *n1, const void *n2) { return -cmp_ix_X (n1,n2); }
+int cmp_ix_X (const void *n1, const void *n2) { // by decreasing value
+  float x1 = ((ix_t*)n1)->x, x2 = ((ix_t*)n2)->x;
+  return (x1 > x2) ? -1 : (x1 < x2) ? +1 : 0; }
+
+int cmp_ixy_i (const void *n1, const void *n2) { // by increasing id
+  uint i1 = ((ixy_t*)n1)->i, i2 = ((ixy_t*)n2)->i; 
+  return i1 - i2; }
+
+int cmp_ixy_x (const void *n1, const void *n2) { return -cmp_ixy_X (n1,n2); }
+int cmp_ixy_X (const void *n1, const void *n2) { // by decreasing x
+  float x1 = ((ixy_t*)n1)->x, x2 = ((ixy_t*)n2)->x;
+  return (x1 > x2) ? -1 : (x1 < x2) ? +1 : 0; }
+
+int cmp_ixy_y (const void *n1, const void *n2) { return -cmp_ixy_Y (n1,n2); }
+int cmp_ixy_Y (const void *n1, const void *n2) { // by decreasing y
+  float y1 = ((ixy_t*)n1)->y, y2 = ((ixy_t*)n2)->y;
+  return (y1 > y2) ? -1 : (y1 < y2) ? +1 : 0; }
+
+int cmp_x (const void *n1, const void *n2) { return -cmp_X (n1,n2); }
+int cmp_X (const void *n1, const void *n2) { return *((float*)n2) - *((float*)n1); }
 
 /*
 void vzero (void *d) { // zero out unused portion of the vector
