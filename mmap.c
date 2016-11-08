@@ -25,6 +25,7 @@
 //void warn (char *s) { fprintf (stderr, "%s\n", s); }
 
 off_t MAP_SIZE = 1<<30;
+int MAP_MODE = 0; //  MAP_LOCKED | MAP_NONBLOCK | MAP_POPULATE
 
 mmap_t *open_mmap (char *path, char *access, off_t size) {
   mmap_t *M = safe_calloc (sizeof (mmap_t));
@@ -329,8 +330,9 @@ int popen2 (const char *command, pid_t *_pid) {
 }
 
 void *safe_mmap (int fd, off_t offset, off_t size, char *access) {
+  //fprintf (stderr, "[mmap] fd:%d%s off:%ld sz:%ld flags:%d\n", fd, access, offset, size, MAP_MODE);
   int mprot = (*access == 'r') ? PROT_READ : (PROT_READ|PROT_WRITE);
-  int mflag = MAP_SHARED; // MAP_PRIVATE MAP_NONBLOCK
+  int mflag = MAP_MODE | MAP_SHARED; // MAP_PRIVATE MAP_NONBLOCK
   if (size == 0) return NULL;
   void *buf = mmap64 (NULL, size, mprot, mflag, fd, offset);
   if ((buf == (void *) -1) || (buf == NULL)) {
