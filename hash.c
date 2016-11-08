@@ -55,6 +55,7 @@ hash_t *open_hash (char *_path, char *_access) {
     exit(1); 
   }
   if (!_path) return open_hash_inmem ();
+  //int MAP_OLD = MAP_MODE; MAP_MODE |= MAP_POPULATE; // pre-load hashtable
   char *path = strdup (_path), *access = strdup(_access);
   access[1] = 0; // make sure there's no '+' at the end
   hash_t *h = safe_calloc (sizeof (hash_t));
@@ -65,6 +66,7 @@ hash_t *open_hash (char *_path, char *_access) {
   h->indx = open_vec (cat(path,"/hash.indx"), access, sizeof(uint));
   if (0 == len(h->indx)) h->indx = resize_vec (h->indx, 1023);
   //h->data = open_mmap (path, access, 0); grow_mmap (h->data, 0);
+  //MAP_MODE = MAP_OLD; // default MMAP flags
   return h;
 }
 
@@ -106,6 +108,7 @@ inline uint *href (hash_t *h, char *key, uint code) {
 }
 
 void hrehash (hash_t *h) {
+  //fprintf (stderr, "[hrehash] %s\n", h->path);
   uint id, n = nvecs(h->keys), N = next_pow2(2*len(h->indx)) - 1;
   h->indx = resize_vec (h->indx, N);
   memset (h->indx, 0, ((ulong)N)*sizeof(uint));
@@ -124,15 +127,20 @@ uint has_key (hash_t *h, char *key) {
   return *slot;
 }
 
+static uint add_new_key (hash_t *h, char *key, uint code) {
+  uint id = nvecs(h->keys)+1;
+  put_chunk (h->keys, id, key, strlen(key)+1);
+  h->code = resize_vec (h->code, id+1);
+  h->code[id] = code;
+  return id;
+}
+
 uint key2id (hash_t *h, char *key) {
   if (!h || !key) return 0;
   uint code = murmur3 (key, strlen(key));
   uint *slot = href (h, key, code);
   if (*slot || h->access[0] == 'r') return *slot; // key already in table
-  uint id = nvecs(h->keys)+1;
-  put_chunk (h->keys, id, key, strlen(key)+1);
-  h->code = resize_vec (h->code, id+1);
-  h->code[id] = code;
+  uint id = add_new_key (h, key, code);
   if (id > 0.3*len(h->indx)) { hrehash(h); slot = href (h, key, code); }
   return (*slot = id);
 }
@@ -143,6 +151,69 @@ uint id2id (hash_t *src, uint id, hash_t *trg) {
   char *key = id2key (src,id);
   return key ? key2id (trg,key) : 0;
 }
+
+////////// batch version of key2id: sort + merge
+
+// keys[i] -> {i,code(key)} sorted by code%M
+static it_t *keys2codes (char **keys, uint M) {
+  uint i, n = len(keys);
+  it_t *codes = new_vec (n,sizeof(it_t));
+  for (i=0; i<n; ++i) { 
+    char *key = keys[i];
+    codes[i].i = i; 
+    codes[i].t = murmur3 (key, strlen(key));
+    if (M) codes[i].t %= M;
+  }
+  sort_vec (codes, cmp_it_t); // sort by code
+  return codes;
+}
+
+// {i,code} -> {i,id1}...{i,idN}  possible ids for code
+static it_t *codes2hypos (it_t *codes, uint *indx) {
+  it_t *hypos = new_vec (0, sizeof(it_t)), *c;
+  uint N = len(indx), n = len(codes), hypo, done = 0;
+  for (c = codes; c < codes+n; ++c) {
+    ulong code = c->t;
+    while ((hypo = indx[code])) { // all ids in collision block
+      it_t new = (it_t) {c->i, hypo};
+      hypos = append_vec (hypos, &new);
+      code = (code + 1) % N;
+    }
+    if (0 == ++done%10) show_progress (done, n, "codes");
+  }
+  sort_vec (hypos, cmp_it_t); // sort by hpothesized id
+  return hypos;
+}
+
+static uint *hypos2ids (it_t *hypos, char **keys, coll_t *hkeys) {
+  uint done=0, nk = len(keys), nh = len(hypos);
+  uint *ids = new_vec(nk,sizeof(uint));
+  it_t *h, *hEnd = hypos+nh;
+  for (h = hypos; h < hEnd; ++h) {
+    assert (h->i < nk);
+    char *key = keys[h->i], *hkey = get_chunk (hkeys,h->t);
+    if (hkey && !strcmp (key,hkey)) ids [h->i] = h->t; // match
+    if (0 == ++done%10) show_progress (done, nh, "hypotheses");
+  }
+  return ids;
+}
+
+static void fill_ids (char **keys, uint *ids, hash_t *h) {
+  uint i, n = len(keys);
+  for (i = 0; i < n; ++i) if (!ids[i]) ids[i] = key2id(h,keys[i]);
+}
+
+uint *keys2ids (hash_t *h, char **keys) {
+  vtime();
+  it_t *codes = keys2codes (keys, len(h->indx));       fprintf (stderr, "[%.2fs] keys -> codes[%d]\n", vtime(), len(codes));
+  it_t *hypos = codes2hypos (codes, h->indx);          fprintf (stderr, "[%.2fs] codes -> hypos[%d]\n", vtime(), len(hypos));
+  uint *ids = hypos2ids (hypos, keys, h->keys);        fprintf (stderr, "[%.2fs] hypos -> ids[%d]\n", vtime(), len(ids));
+  if (h->access[0] != 'r') fill_ids (keys, ids, h);    fprintf (stderr, "[%.2fs] filled ids\n", vtime());
+  free_vec (codes); free_vec (hypos);
+  return ids;
+}
+
+////////// END: batch key2id
 
 // adapted from http://www.team5150.com/~andrew/noncryptohashzoo/Murmur3.html
 
