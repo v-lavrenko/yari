@@ -40,7 +40,8 @@ int main (int argc, char *argv[]) {
   
   if (argc < 3) {
     fprintf (stderr, 
-	     "usage: testhash -load HASH < ids\n"
+	     "usage: testhash [lock,prep]\n"
+	     "                -load HASH < ids\n"
 	     "                -dump HASH > pairs\n"
 	     "                -vrfy HASH < pairs\n"
 	     "                -keys HASH > ids\n"
@@ -48,6 +49,7 @@ int main (int argc, char *argv[]) {
 	     "                -keep HASH < ids > old\n"
 	     "                -add  HASH < ids\n"
 	     "               -merge HASH += HASH\n"
+	     "               -batch HASH += HASH\n"
 	     "                -k2i  HASH key\n"
 	     "                -i2k  HASH id\n"
 	     "                -dbg  HASH\n"
@@ -55,6 +57,9 @@ int main (int argc, char *argv[]) {
 	     );
     return 1;
   }
+  
+  if (!strcmp(argv[1], "lock")) { MAP_MODE |= MAP_LOCKED;   ++argv; --argc; }
+  if (!strcmp(argv[1], "prep")) { MAP_MODE |= MAP_POPULATE; ++argv; --argc; }
   
   if (!strcmp(argv[1], "-keys")) {
     hash_t *h = open_hash (argv[2], "r");
@@ -150,7 +155,7 @@ int main (int argc, char *argv[]) {
     hash_t *A = open_hash (argv[2], "a");
     hash_t *B = open_hash (argv[4], "r");
     uint i, nB = nkeys(B), nA = nkeys(A);
-    fprintf (stderr, "merge: %s [%d] += %s [%d]\n", A->path, nA, B->path, nB);
+    fprintf (stderr, "merge: %s [%d] += %s [%d] map: %d\n", A->path, nA, B->path, nB, MAP_MODE);
     for (i = 1; i <= nB; ++i) { // for each key in the table
       key2id (A, id2key (B,i));
       if (0 == i%10) show_progress (i, nB, "keys merged");
@@ -160,6 +165,21 @@ int main (int argc, char *argv[]) {
     return 0;
   }
   
+  if (!strcmp(argv[1], "-batch") && !strcmp(argv[3],"+=")) {
+    hash_t *A = open_hash (argv[2], "a");
+    hash_t *B = open_hash (argv[4], "r");
+    uint i, nB = nkeys(B), nA = nkeys(A);
+    fprintf (stderr, "batch merge: %s [%d] += %s [%d]\n", A->path, nA, B->path, nB);
+    char **keys = new_vec (nB,sizeof(char*));
+    for (i = 0; i < nB; ++i) keys[i] = strdup(id2key(B,i+1));
+    uint *ids = keys2ids (A,keys);
+    fprintf (stderr, "done: %s [%d]\n", A->path, nkeys(A));
+    for (i = 0; i < nB; ++i) if (keys[i]) free(keys[i]);
+    free_vec (keys); free_vec (ids);
+    free_hash (A); free_hash (B);
+    return 0;
+  }
+
   if (!strcmp(argv[1], "-k2i")) {
     hash_t *h = open_hash (argv[2], "r");
     char *key = argv[3];
@@ -178,6 +198,9 @@ int main (int argc, char *argv[]) {
   if (!strcmp(argv[1], "-dbg")) {
     hash_t *h = open_hash (argv[2], "r");
     uint *I = h->indx, n = len(I), i;
+    printf ("keys: %u\n", nvecs(h->keys));
+    printf ("code: %u\n", len(h->code));
+    printf ("indx: %u\n", len(h->indx));
     printf ("#%9s %10s %10s %10s %s\n", "id", "slot", "code%n", "code", "key");
     for (i = 0; i < n; ++i) {
       if (I[i]) {
