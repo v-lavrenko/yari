@@ -74,6 +74,20 @@ void *vec_el (void **vec, uint n) ;
 void *set_vec_el (void *vec, uint i, void *el) ;
 void *ref_vec_el (void **vec, uint i) ;
 
+int cmp_jix (const void *n1, const void *n2) ; // by increasing j then i
+int cmp_it_i (const void *n1, const void *n2) ; // by increasing i
+int cmp_it_t (const void *n1, const void *n2) ; // by increasing t
+int cmp_ix_i (const void *n1, const void *n2) ; // by increasing id
+int cmp_ix_x (const void *n1, const void *n2) ; // by increasing value
+int cmp_ix_X (const void *n1, const void *n2) ; // by decreasing value
+int cmp_ixy_i (const void *n1, const void *n2) ; // by increasing id
+int cmp_ixy_x (const void *n1, const void *n2) ; // by increasing x
+int cmp_ixy_y (const void *n1, const void *n2) ; // by increasing y
+int cmp_ixy_X (const void *n1, const void *n2) ; // by decreasing x
+int cmp_ixy_Y (const void *n1, const void *n2) ; // by decreasing y
+int cmp_x (const void *n1, const void *n2) ; // increasing float
+int cmp_X (const void *n1, const void *n2) ; // decreasing float
+
 #endif
 
 //inline void *vnext (void **d) ;
