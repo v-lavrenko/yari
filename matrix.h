@@ -41,18 +41,6 @@ typedef struct {
   float  b; // free parameter
 } stats_t;
 
-int cmp_jix (const void *n1, const void *n2) ; // by increasing j then i
-int cmp_ix_i (const void *n1, const void *n2) ; // by increasing id
-int cmp_ix_x (const void *n1, const void *n2) ; // by increasing value
-int cmp_ix_X (const void *n1, const void *n2) ; // by decreasing value
-int cmp_ixy_i (const void *n1, const void *n2) ; // by increasing id
-int cmp_ixy_x (const void *n1, const void *n2) ; // by increasing x
-int cmp_ixy_y (const void *n1, const void *n2) ; // by increasing y
-int cmp_ixy_X (const void *n1, const void *n2) ; // by decreasing x
-int cmp_ixy_Y (const void *n1, const void *n2) ; // by decreasing y
-int cmp_x (const void *n1, const void *n2) ; // increasing float
-int cmp_X (const void *n1, const void *n2) ; // decreasing float
-
 void uniq_jix (jix_t *vec) ;
 void chop_jix (jix_t *vec) ;
 
@@ -245,7 +233,7 @@ double ppndf (double p) ; // inverse gaussian (standard normal) cdf
 float powa (float x, float p) ; // fast |x|^p
 float rnd(); // = random() / RAND_MAX
 
-void mtx_append (coll_t *M, uint id, ix_t *vec, char how) ;
+uint mtx_append (coll_t *M, uint id, ix_t *vec, char how) ;
 ix_t *next_in_jix (jix_t *jix, jix_t **last) ;
 void transpose_jix (jix_t *vec) ;
 jix_t *scan_jix (FILE *in, uint num, hash_t *rows, hash_t *cols) ;
