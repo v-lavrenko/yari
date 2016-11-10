@@ -40,7 +40,7 @@ int main (int argc, char *argv[]) {
   
   if (argc < 3) {
     fprintf (stderr, 
-	     "usage: testhash [lock,prep]\n"
+	     "usage: testhash\n"
 	     "                -load HASH < ids\n"
 	     "                -dump HASH > pairs\n"
 	     "                -vrfy HASH < pairs\n"
@@ -58,8 +58,8 @@ int main (int argc, char *argv[]) {
     return 1;
   }
   
-  if (!strcmp(argv[1], "lock")) { MAP_MODE |= MAP_LOCKED;   ++argv; --argc; }
-  if (!strcmp(argv[1], "prep")) { MAP_MODE |= MAP_POPULATE; ++argv; --argc; }
+  //if (!strcmp(argv[1], "lock")) { MAP_MODE |= MAP_LOCKED;   ++argv; --argc; }
+  //if (!strcmp(argv[1], "prep")) { MAP_MODE |= MAP_POPULATE; ++argv; --argc; }
   
   if (!strcmp(argv[1], "-keys")) {
     hash_t *h = open_hash (argv[2], "r");
@@ -155,7 +155,7 @@ int main (int argc, char *argv[]) {
     hash_t *A = open_hash (argv[2], "a");
     hash_t *B = open_hash (argv[4], "r");
     uint i, nB = nkeys(B), nA = nkeys(A);
-    fprintf (stderr, "merge: %s [%d] += %s [%d] map: %d\n", A->path, nA, B->path, nB, MAP_MODE);
+    fprintf (stderr, "merge: %s [%d] += %s [%d]\n", A->path, nA, B->path, nB);
     for (i = 1; i <= nB; ++i) { // for each key in the table
       key2id (A, id2key (B,i));
       if (0 == i%10) show_progress (i, nB, "keys merged");
