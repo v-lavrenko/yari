@@ -181,7 +181,7 @@ static it_t *codes2hypos (it_t *codes, uint *indx) {
     }
     if (0 == ++done%10) show_progress (done, n, "codes");
   }
-  sort_vec (hypos, cmp_it_t); // sort by hpothesized id
+  sort_vec (hypos, cmp_it_t); // sort by hypothesized id
   return hypos;
 }
 
