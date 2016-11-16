@@ -24,9 +24,9 @@
 
 off_t MIN_OFFS = 8;
 
-int coll_exists (char *path) { return file_exists (cat(path,"/coll.vecs")); }
+int coll_exists (char *path) { return file_exists ("%s/coll.vecs", path); }
 
-time_t coll_modified (char *path) { return file_modified (cat(path,"/coll.vecs")); }
+time_t coll_modified (char *path) { return file_modified ("%s/coll.vecs",path); }
 
 static inline coll_t *open_coll_inmem () {
   coll_t *c = safe_calloc (sizeof(coll_t)); 
@@ -47,17 +47,18 @@ coll_t *open_coll (char *path, char *access) {
   if (*access != 'r') mkdir (path, S_IRWXU | S_IRWXG | S_IRWXO);
   c->access = strdup (access);
   c->path = path = strdup (path);
-  FILE *info = fopen(cat(path,"/coll.info"), "r");
+  char x[9999];
+  FILE *info = fopen(fmt(x,"%s/coll.info",path), "r");
   if (!info || !fscanf(info,"vers: %d\n", &(c->version))) c->version = COLL_VERSION;
   if (!info || !fscanf(info,"rows: %d\n", &(c->rdim)))    c->rdim = 0;
   if (!info || !fscanf(info,"cols: %d\n", &(c->cdim)))    c->cdim = 0;
   if (info) fclose(info);
   if (c->version != COLL_VERSION) { fprintf (stderr, "ERROR: version of %s: %d != %d\n", path, c->version, COLL_VERSION); exit(1); }
-  c->vecs = open_mmap (cat(path,"/coll.vecs"), access, MAP_SIZE);
-  c->offs = open_vec (cat(path,"/coll.offs"), access, sizeof(off_t));
+  c->vecs = open_mmap (fmt(x,"%s/coll.vecs",path), access, MAP_SIZE);
+  c->offs = open_vec (fmt(x,"%s/coll.offs",path), access, sizeof(off_t));
   if (access[1] == '+') {
-    c->prev = open_vec (cat(path,"/coll.prev"), access, sizeof(uint));
-    c->next = open_vec (cat(path,"/coll.next"), access, sizeof(uint));
+    c->prev = open_vec (fmt(x,"%s/coll.prev",path), access, sizeof(uint));
+    c->next = open_vec (fmt(x,"%s/coll.next",path), access, sizeof(uint));
   } else c->prev = c->next = NULL;
   if (len(c->offs) == 0) { // new matrix => initialize it
     c->offs = resize_vec (c->offs,1); 
@@ -84,7 +85,8 @@ void free_coll (coll_t *c) {
   free_vec (c->prev);
   free_vec (c->next);
   if (c->access[0] != 'r') {
-    FILE *info = safe_fopen(cat(c->path,"/coll.info"), "w");
+    char x[9999];
+    FILE *info = safe_fopen(fmt(x,"%s/coll.info",c->path), "w");
     fprintf(info,"vers: %d\n", COLL_VERSION);
     fprintf(info,"rows: %d\n", c->rdim);
     fprintf(info,"cols: %d\n", c->cdim);
