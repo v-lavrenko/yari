@@ -88,13 +88,13 @@ off_t safe_write (int fd, void *buf, off_t count) ;
 off_t safe_pread (int fd, void *buf, off_t size, off_t offset) ;
 off_t safe_pwrite (int fd, void *buf, off_t size, off_t offset) ;
 void stracat (char **dst, int *n, char *src) ;
-char *cat (char *s1, char *s2) ;
+char *acat (char *s1, char *s2) ; // must free result
 char *fmt (char *buf, const char *format, ...) ;
-char *itoa (uint i) ;
-char *ftoa (char *fmt, float f) ;
+char *___itoa (uint i) ;
+char *___ftoa (char *fmt, float f) ;
 float vtime () ;
 int file_exists (char *fmt, ...) ;
-time_t file_modified (char *file_name) ;
+time_t file_modified (char *fmt, ...) ;
 void rm_dir (char *dir) ;
 void cp_dir (char *src, char *trg) ;
 void mv_dir (char *src, char *trg) ; // delete target, rename source
