@@ -507,9 +507,9 @@ void scan_mtx (coll_t *rows, coll_t *cols, hash_t *rh, hash_t *ch) {
 }
 
 void print_mtx (coll_t *rows, hash_t *rh, hash_t *ch) {
-  uint id;
+  uint id; 
   for (id = 1; id <= nvecs(rows); ++id) {
-    char *rid = strdup (rh ? id2key(rh,id) : itoa(id));
+    char *rid = id2str(rh,id);
     ix_t *row = get_vec (rows, id);
     print_vec_rcv (row, ch, rid, 0);
     free (rid);
@@ -521,10 +521,11 @@ void print_vec_rcv (ix_t *vec, hash_t *ids, char *vec_id, char *fmt) {
   if (!fmt) fmt = "%12.6f";
   ix_t *v = vec, *end = vec + len(vec);
   for (v = vec; v < end; ++v) {
-    char *id = ids ? id2key (ids, v->i) : itoa (v->i);
+    char *id = id2str (ids, v->i);
     printf ("%20s %20s ", vec_id, id);
     printf (fmt, v->x);
     printf ("\n");
+    free (id);
   }
 }
 
@@ -605,8 +606,9 @@ void print_vec_txt (ix_t *vec, hash_t *ids, char *vec_id, int xml) {
   else printf ("%s", vec_id);
   ix_t *v = vec, *end = vec + len(vec);
   for (v = vec; v < end; ++v) {
-    char *id = ids ? id2key (ids, v->i) : itoa (v->i);
+    char *id = id2str (ids, v->i);
     printf (" %s", id);
+    free (id);
     //for (n = 0; n < factor * v->x; ++n) printf (" %s", id);
   }
   printf (xml ? "</DOC>\n" : "\n");
@@ -931,7 +933,11 @@ void update_stats_from_file (stats_t *s, hash_t *dict, char *file) {
 void dump_stats (stats_t *s, hash_t *dict) {
   uint w = 0, nw = s->nwords;
   //FILE *out = safe_fopen (file, "w");
-  while (++w <= nw) printf ("%15s %5d %10.2f\n", (dict?id2key (dict,w):itoa(w)), s->df[w], s->cf[w]);
+  while (++w <= nw) {
+    char *key = id2str(dict,w);
+    printf ("%15s %5d %10.2f\n", key, s->df[w], s->cf[w]);
+    free (key);
+  }
   //fclose (out);
 }
 
@@ -1396,7 +1402,7 @@ void transpose_mtx (coll_t *rows, coll_t *cols) {
 
 coll_t *transpose (coll_t *M) {
   coll_t *T;
-  char *path = M->path ? strdup(cat(M->path,".T")) : NULL;
+  char *path = M->path ? acat(M->path,".T") : NULL;
   if (path && coll_exists(path) && coll_modified(path) > coll_modified (M->path))
     T = open_coll (path, "r+");
   else {
