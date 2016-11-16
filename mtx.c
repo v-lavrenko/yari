@@ -159,7 +159,7 @@ void mtx_print (char *prm, char *_M, char *RH, char *CH) {
   for (i = beg_i; i <= end_i; ++i) {
     ix_t *vec = get_vec (M, i);
     if (!len(vec) && !empty) { free_vec(vec); continue; }
-    char *rid = strdup (rh ? id2key (rh,i) : itoa (i));
+    char *rid = id2str(rh,i);
     if      (top) { trim_vec (vec, top); sort_vec (vec, cmp_ix_X); }
     if      (ids) printf ("%s\n", rid); 
     else if (rcv) print_vec_rcv (vec, ch, rid, fmt);
@@ -169,7 +169,7 @@ void mtx_print (char *prm, char *_M, char *RH, char *CH) {
     else if (svm) print_vec_svm (vec, ch, rid, fmt);
     else if (jsn) print_vec_json(vec, ch, rid, fmt);
     else          print_vec_rcv (vec, ch, rid, fmt);
-    free (rid); free_vec(vec);
+    free_vec(vec); free(rid);
   }
   free_coll (M); free_hash (rh); if (ch != rh) free_hash (ch);
   if (fmt) free(fmt);
@@ -464,8 +464,9 @@ void mtx_weigh (char *TRG, char *prm, char *SRC, char *STATS) {
 }
 
 void mtx_transpose (char *prm, char *src, char *trg) {
+  char buf[9999];
   coll_t *M = open_coll (src, "r+");
-  if (!trg) trg = cat(src,".T");
+  if (!trg) trg = fmt(buf,"%s.T",src);
   coll_t *T = open_coll (trg, "w+");
   float MB = M->offs[0] / (1<<20), ETA = MB/1400;
   fprintf (stderr, "transposing %s %.0fMB, should be done in %.1f minutes\n", src, MB, ETA);
