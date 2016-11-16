@@ -54,9 +54,9 @@ testcoll: testcoll.c mmap.c vector.c coll.c
 testhash: testhash.c mmap.c vector.c coll.c hash.c
 
 mtx: mtx.c mmap.c vector.c coll.c hash.c matrix.c svm.c \
-	textutil.c stemmer_krovetz.c maxent.c
+	textutil.c stemmer_krovetz.c maxent.c synq.c
 
-stem: stem.c stemmer_krovetz.c 
+stem: stem.c stemmer_krovetz.c synq.c mmap.c
 
 plug: plug.c libyari.a
 
