@@ -332,8 +332,8 @@ int popen2 (const char *command, pid_t *_pid) {
 void *safe_mmap (int fd, off_t offset, off_t size, char *access) {
   int mprot = (access[0] == 'r') ? PROT_READ  : (PROT_READ|PROT_WRITE);
   int mflag = (access[1] == '+') ? MAP_SHARED : (MAP_SHARED|MAP_POPULATE); // pre-populate hashes/vecs
-  fprintf (stderr, "[mmap] fd:%d:%s off:%ld sz:%ld mprot:%d mflag:%d\n", fd, access, offset, size, mprot, mflag);
-  //int mflag = MAP_SHARED;
+  if (1) mflag = MAP_SHARED;
+  //fprintf (stderr, "[mmap] fd:%d:%s off:%ld sz:%ld mprot:%d mflag:%d\n", fd, access, offset, size, mprot, mflag);
   if (size == 0) return NULL;
   void *buf = mmap64 (NULL, size, mprot, mflag, fd, offset);
   if ((buf == (void *) -1) || (buf == NULL)) {
