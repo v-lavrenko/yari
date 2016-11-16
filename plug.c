@@ -1075,12 +1075,13 @@ uint rnk_inorder (rnk_t *rnk, char *prm) {
 */
 
 void do_rnk (char *_RELS, char *_RETS, char *_DOCS, char *_INVL, char *_SIMS, char *prm) {
+  char buf[999];
   RELS = open_coll (_RELS, "r+"); // relevance judgments
   RETS = open_coll (_RETS, "r+"); // old ranked lists
   DOCS = open_coll (_DOCS, "r+"); // document vectors
   INVL = open_coll (_INVL, "r+"); // inverted lists
   SIMS = open_coll (_SIMS, "r+"); // doc-to-doc similarities
-  SIMT = open_coll (cat(_SIMS,".T"), "r+");
+  SIMT = open_coll (fmt(buf,"%s.T",_SIMS), "r+");
   uint q = 0, nq = num_rows (RETS);
   double avg = 0;
   for (q=1; q <= nq; ++q) {
