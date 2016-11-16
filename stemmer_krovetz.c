@@ -2019,9 +2019,16 @@ stemht_init_flag = FALSE;
 free(stemht);
 }
 
+////////////////////////// YARI-specific below /////////////////////////
+
+void lock (int *x) ; // link with synq.c
+void unlock (int *x) ;
 void kstem_stemmer (char *word, char *stem) {
+  static int KSTEM = 0;
+  lock (&KSTEM);
   char *tmp = kstem_stem(word);
   strcpy(stem,tmp);
+  unlock (&KSTEM);
 }
 
 #ifdef MAIN
