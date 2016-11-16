@@ -56,14 +56,14 @@ hash_t *open_hash (char *_path, char *_access) {
   }
   if (!_path) return open_hash_inmem ();
   //int MAP_OLD = MAP_MODE; MAP_MODE |= MAP_POPULATE; // pre-load hashtable
-  char *path = strdup (_path), *access = strdup(_access);
+  char *path = strdup (_path), *access = strdup(_access), x[9999];
   access[1] = 0; // make sure there's no '+' at the end
   hash_t *h = safe_calloc (sizeof (hash_t));
   h->access = access;
   h->path = path;
   h->keys = open_coll (path, access); // expect_random_access (h->keys->vecs,1<<20);
-  h->code = open_vec (cat(path,"/hash.code"), access, sizeof(uint));
-  h->indx = open_vec (cat(path,"/hash.indx"), access, sizeof(uint));
+  h->code = open_vec (fmt(x,"%s/hash.code",path), access, sizeof(uint));
+  h->indx = open_vec (fmt(x,"%s/hash.indx",path), access, sizeof(uint));
   if (0 == len(h->indx)) h->indx = resize_vec (h->indx, 1023);
   //h->data = open_mmap (path, access, 0); grow_mmap (h->data, 0);
   //MAP_MODE = MAP_OLD; // default MMAP flags
@@ -88,6 +88,11 @@ hash_t *reopen_hash (hash_t *h, char *access) {
   h = open_hash (path, access);
   if (path) free (path);
   return h;
+}
+
+char *id2str (hash_t *h, uint id) {
+  if (h) return strdup(id2key(h,id));
+  else return fmt (malloc(15),"%u",id);
 }
 
 inline char *id2key (hash_t *h, uint id) { return get_chunk (h->keys, id); }
