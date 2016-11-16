@@ -63,15 +63,14 @@ struct tm time2tm (time_t time) {
   return tm;
 }
 
-char *time2strf (char *format, time_t time) {
-  static char buf[100];
+char *time2strf (char *buf, char *format, time_t time) {
   struct tm tm = time2tm (time);
   strftime (buf, 99, format, &tm);
   return buf; 
 }
 
-char *time2str (time_t time) { 
-  return time2strf ("%F,%T", time); 
+char *time2str (char *buf, time_t time) { 
+  return time2strf (buf, "%F,%T", time);
 }
 
 int time2hour (time_t time) { 

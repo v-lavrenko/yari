@@ -53,8 +53,8 @@ struct tm time2tm (time_t time) ; // unix timestamp --> broken-down time
 //                  int tm_yday;        /* day in the year */
 //                  int tm_isdst;       /* daylight saving time */
 
-char *time2strf (char *format, time_t time) ; 
-char *time2str (time_t time) ;
+char *time2strf (char *buf, char *format, time_t time) ; 
+char *time2str (char *buf, time_t time) ;
 int time2hour (time_t time) ;
 int time2wday (time_t time) ;
 int same_day (time_t t1, time_t t2) ;
