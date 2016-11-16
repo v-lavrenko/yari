@@ -415,25 +415,24 @@ off_t safe_pwrite (int fd, void *buf, off_t size, off_t offset) {
   return (off_t) result;
 }
 
-char *itoa (uint i) { // not thread-safe + buffer overflow
+char *___itoa (uint i) { // not thread-safe + buffer overflow
   static char buf[100];
   sprintf (buf, "%u", i);
   return buf;
 }
 
-char *ftoa (char *fmt, float f) { // not thread-safe + buffer overflow
+char *___ftoa (char *fmt, float f) { // not thread-safe + buffer overflow
   static char buf[100];
   sprintf (buf, fmt, f);
   return buf;
 }
 
-char *cat (char *s1, char *s2) {
-  static char *buf = NULL;
-  if (!buf) {buf = safe_calloc (1<<12); *buf=0;}
+char *acat (char *s1, char *s2) {
   if (!s1 || !s2) return NULL;
-  if (s1 != buf) strcpy (buf, s1);
-  strcat (buf, s2);
-  return buf;
+  char *s = malloc (strlen(s1) + strlen(s2) + 1);
+  strcpy (s,s1);
+  strcat (s,s2);
+  return s;
 }
 
 // append src to *dst, re-allocating *dst if needed
@@ -488,7 +487,7 @@ float vtime () {
 }
 
 int file_exists (char *fmt, ...) {
-  char path [1000];
+  char path [9999];
   va_list args;
   va_start (args, fmt);
   vsprintf (path, fmt, args);
@@ -498,11 +497,16 @@ int file_exists (char *fmt, ...) {
 }
 
 // time when the file was last modified
-time_t file_modified (char *file_name) {
+time_t file_modified (char *fmt, ...) {
+  char path [9999];
+  va_list args;
+  va_start (args, fmt);
+  vsprintf (path, fmt, args);
+  va_end (args);
   struct stat buf;
-  if (!file_exists(file_name)) return 0;
   memset (&buf, 0, sizeof(buf));
-  stat (file_name, &buf);
+  //if (!file_exists(file_name)) return 0;
+  if (stat (path, &buf)) return 0; // file doesn't exist
   return buf.st_mtime;
 }
 
