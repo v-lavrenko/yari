@@ -37,6 +37,7 @@
 #include <sys/errno.h>
 #include <sys/fcntl.h>
 
+void safe_kstem (char *word) ;
 void kstem_stemmer (char *word, char *stem) ;
 
 void lowercase_stemmer (char *string, char *result) {
@@ -63,7 +64,29 @@ void stem_rcv (char *prm) {
   }    
 }
 
-char *usage = "stem [krovetz,lower],[row] < rcv > stemmed\n";
+char *usage = "stem [krovetz,lower],[row] < rcv > stemmed\nstem -test f1 f2 f3 ...\n";
+
+void *test_kstem_thread (void *_in) {
+  static int threads = 0;
+  int this = ++threads, lines = 0;
+  char *nl, *in = _in, out[1000], line[999], stem[999];
+  sprintf (out,"%s.out",in);
+  fprintf (stderr,"thread %d: %s -> %s\n", this, in, out);
+  FILE *IN  = fopen (in,"r");
+  FILE *OUT = fopen (out,"w");
+  while (fgets (line,999,IN)) {
+    if ((nl = strchr(line,'\n'))) *nl = '\0'; // strip newline
+    kstem_stemmer (line, stem);
+    fputs (stem, OUT); 
+    fputc ('\n', OUT);
+    ++lines;
+  }
+  fclose(IN); fclose(OUT); 
+  fprintf (stderr,"thread %d: %d lines done\n", this, lines);
+  return NULL;
+}
+
+void *detach (void *(*handle) (void *), void *arg) ;
 
 int main (int argc, char *argv[]) {
   if (argc > 1 && !strncmp(argv[1],"-h",2)) { printf ("%s", usage); return 1; }
@@ -72,6 +95,14 @@ int main (int argc, char *argv[]) {
     fprintf (stderr, "*** $STEM_DIR environment variable must be set\n");
     return 1;
   }
+  
+  if (argc > 2 && !strcmp(argv[1],"-test")) {
+    while (--argc > 2) detach (test_kstem_thread, argv[argc]);
+    test_kstem_thread (argv[2]);
+    sleep(10);
+    return 0;
+  }
+  
   stem_rcv (argc > 1 ? argv[1] : "");
   return 0;
 }
