@@ -41,7 +41,8 @@ static it_t parse_slice (char *slice, uint min, uint max) {
   return d;
 }
 
-void load_fasta (char *SEQS) { // TODO: compress 4 chars -> 1 byte + 1 byte footer
+// TODO: compress 4 chars -> 1 byte + 1 byte footer
+void load_fasta (char *SEQS) { // thread-unsafe: show_progress
   uint id = 0;
   char *buf = malloc(1<<30), *c;
   coll_t *C = open_coll (SEQS, "w+");   // id -> ATCGCGTCGGTTAAGGTCCATG
@@ -110,7 +111,7 @@ ix_t *seq2posD (char *seq, uint k, hash_t *D) {
   return pos;
 }
 
-void seqs2kmer (char *_CODE, char *_SEQS, char *prm) {
+void seqs2kmer (char *_CODE, char *_SEQS, char *prm) { // thread-unsafe: show_progress
   coll_t *SEQS = open_coll (_SEQS, "r+");  // id -> ATCGAGTCGGTTAAGGTCCATG
   coll_t *CODE = open_coll (_CODE, "w+");  // id -> ATCG:1 TCGA:2 CGAG:3 ...
   uint i, ns = num_rows (SEQS), k = getprm(prm,"k=",10);
@@ -168,7 +169,7 @@ ix_t *pos2lsh (ix_t *pos, char *prm) {
   return result;
 }
 
-void mtx2mtx (char *_TRG, char *_SRC, char *prm) {
+void mtx2mtx (char *_TRG, char *_SRC, char *prm) { // thread-unsafe: show_progress
   coll_t *SRC = open_coll (_SRC, "r+");
   coll_t *TRG = open_coll (_TRG, "w+");
   char *freq = strstr(prm,"freq");
