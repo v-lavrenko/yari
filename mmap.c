@@ -33,7 +33,8 @@ mmap_t *open_mmap (char *path, char *access, off_t size) {
   M->file = safe_open (path, access);
   M->flen = safe_lseek (M->file, 0, SEEK_END);
   M->offs = 0;
-  if (!size) size = MAX(M->flen,1<<30);
+  //if (!size) size = MAX(M->flen,1<<30);
+  size = MAX(M->flen,1<<30);
   M->size = page_align (size,'>');
   if (M->flen < M->size) {
     if (*access == 'r') M->size = page_align (M->flen,'>');
@@ -76,7 +77,7 @@ void write_mmap (mmap_t *map, char *path) {
 
 off_t MMAP_MOVES = 0;
 
-void *move_mmap (mmap_t *M, off_t offs, off_t size) {
+void *move_mmap (mmap_t *M, off_t offs, off_t size) { // thread-unsafe (if M shared)
   if (offs >= M->offs && (offs+size) <= (M->offs + M->size))
     return M->data + (offs - M->offs); // region already in map
   if (offs+size > M->flen) assert (0 && "move_mmap: offs+size > flen");
@@ -221,8 +222,8 @@ inline uint ilog2 (ulong x) {
 }
 
 // returns page-aligned ceiling of a number
-inline off_t page_align (off_t offs, char side) {
-  static off_t psize = 0;
+inline off_t page_align (off_t offs, char side) { // should be thread-safe
+  static off_t psize = 0; 
   if (!psize) psize = sysconf (_SC_PAGESIZE);
   off_t floor = psize * (uint) (offs / psize);
   off_t ceil = (floor < offs) ? floor + psize : floor;
@@ -415,13 +416,13 @@ off_t safe_pwrite (int fd, void *buf, off_t size, off_t offset) {
   return (off_t) result;
 }
 
-char *___itoa (uint i) { // not thread-safe + buffer overflow
+char *___itoa (uint i) { // thread-unsafe: static + buffer overflow
   static char buf[100];
   sprintf (buf, "%u", i);
   return buf;
 }
 
-char *___ftoa (char *fmt, float f) { // not thread-safe + buffer overflow
+char *___ftoa (char *fmt, float f) { // thread-unsafe: static + buffer overflow
   static char buf[100];
   sprintf (buf, fmt, f);
   return buf;
@@ -473,7 +474,7 @@ void stracat_test () {
 }
 */
 
-float vtime () {
+float vtime () { // thread-unsafe: static
   static long clock_speed = 0;
   static clock_t last = 0;
   struct tms buf;
@@ -531,13 +532,13 @@ void mv_dir (char *src, char *trg) { // delete target, rename source
   }
 }
 
-inline void show_spinner () {
+inline void show_spinner () { // thread-unsafe: static
   static int i = 0;
   char spin[] = "|/-\\";
   fprintf (stderr, "%c\r", spin[++i%4]);
 }
 
-inline void show_progress (ulong done, ulong total, char *s) {
+inline void show_progress (ulong done, ulong total, char *s) { // thread-unsafe: static
   static ulong dots = 0, prev = 0, line = 50;
   static time_t last = 0, begt = 0;
   time_t this = time(0);
