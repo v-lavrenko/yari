@@ -176,7 +176,7 @@ static it_t *keys2codes (char **keys, uint M) {
 // {i,code} -> {i,id1}...{i,idN}  possible ids for code
 static it_t *codes2hypos (it_t *codes, uint *indx) {
   it_t *hypos = new_vec (0, sizeof(it_t)), *c;
-  uint N = len(indx), n = len(codes), hypo, done = 0;
+  uint N = len(indx), n = len(codes), hypo;
   for (c = codes; c < codes+n; ++c) {
     ulong code = c->t;
     while ((hypo = indx[code])) { // all ids in collision block
@@ -184,21 +184,19 @@ static it_t *codes2hypos (it_t *codes, uint *indx) {
       hypos = append_vec (hypos, &new);
       code = (code + 1) % N;
     }
-    if (0 == ++done%10) show_progress (done, n, "codes");
   }
   sort_vec (hypos, cmp_it_t); // sort by hypothesized id
   return hypos;
 }
 
 static uint *hypos2ids (it_t *hypos, char **keys, coll_t *hkeys) {
-  uint done=0, nk = len(keys), nh = len(hypos);
+  uint nk = len(keys), nh = len(hypos);
   uint *ids = new_vec(nk,sizeof(uint));
   it_t *h, *hEnd = hypos+nh;
   for (h = hypos; h < hEnd; ++h) {
     assert (h->i < nk);
     char *key = keys[h->i], *hkey = get_chunk (hkeys,h->t);
     if (hkey && !strcmp (key,hkey)) ids [h->i] = h->t; // match
-    if (0 == ++done%10) show_progress (done, nh, "hypotheses");
   }
   return ids;
 }
