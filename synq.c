@@ -86,3 +86,15 @@ inline int busy (int *x) { // 1: item is busy, 0: we locked it
 inline void lock (int *x) { while (busy (x)) usleep (10); }
 
 inline void unlock (int *x) { *x = 0; }
+
+// -------------------------- thread-related -------------------------- 
+
+#ifdef MAIN
+/*
+int main (int argc, char *argv[]) {
+(void) argc;
+(void) argv;
+return 0;
+}
+*/
+#endif
