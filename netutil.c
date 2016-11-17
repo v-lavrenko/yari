@@ -139,7 +139,7 @@ int accept_and_send (int sockid, void *data, int size) {
 
 // same as above but connection is kept open for subsequent calls 
 // -- useful for 'pushing' a data to the client (e.g. newsfeed)
-int accept_send_hold (int sockid, char *message, int size) {
+int accept_send_hold (int sockid, char *message, int size) { // thread-unsafe: static
   static int client = -1; 
   if (sockid == -1) return -1;
   if (client == -1) client = accept (sockid, NULL, NULL);
@@ -212,7 +212,7 @@ char *extract_message (char *buf, char *eom, int *used) {
   return msg;
 }
 
-char *recv_message (int sockid, char *eom) {
+char *recv_message (int sockid, char *eom) { // thread-unsafe: static
   int get = 10000, got, flags = MSG_NOSIGNAL | MSG_DONTWAIT;
   static int N = 10000, used = 0;
   static char *buf = NULL;
