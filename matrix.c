@@ -614,7 +614,7 @@ void print_vec_txt (ix_t *vec, hash_t *ids, char *vec_id, int xml) {
   printf (xml ? "</DOC>\n" : "\n");
 }
 
-ix_t *parse_vec_txt (char *str, char **id, hash_t *ids, char *prm) {
+ix_t *parse_vec_txt (char *str, char **id, hash_t *ids, char *prm) { // thread-unsafe: stop_toks
   char *position = strstr (prm, "position");
   char *stemmer = getprms (prm, "stem=", "L", ',');
   uint gram = getprm (prm,"gram=",0), gram_hi = getprm (prm,":",gram);
@@ -992,7 +992,7 @@ void weigh_vec_clarity (ix_t *vec, stats_t *s) {
   }
 }
 
-ix_t *doc2lm (ix_t *doc, float *cf, double mu, double lambda) {
+ix_t *doc2lm (ix_t *doc, float *cf, double mu, double lambda) { // thread-unsafe: static
   static ix_t *BG = NULL;
   if (!BG) { BG = full2vec (cf); vec_x_num (BG, '/', sum(BG)); }
   double dl = sum(doc), a = lambda / (dl?dl:1);
@@ -1415,7 +1415,7 @@ coll_t *transpose (coll_t *M) {
   return T;
 }
 
-float *chk_SCORE (uint N) {
+float *chk_SCORE (uint N) { // thread-unsafe: static
   static float *SCORE = 0;
   if (!SCORE) SCORE = new_vec (N+1, sizeof(float));
   if (N+1 > len(SCORE)) SCORE = resize_vec (SCORE, N+1);
@@ -1514,7 +1514,6 @@ ix_t *vec_x_rows (ix_t *vec, coll_t *rows) {
 
 // same, but now we have columns of the matrix 
 ix_t *cols_x_vec (coll_t *cols, ix_t *vec) { 
-  //float *SCORE = chk_SCORE (num_cols(cols)); // not thread-safe
   float *SCORE = new_vec (cols->cdim + 1, sizeof(float)); // safe
   ix_t *v, *c, *col, *end;
   for (v = vec; v < vec + len(vec); ++v) {
@@ -2057,7 +2056,7 @@ void eval_dump_roc (FILE *out, uint id, ixy_t *evl, float b) {
   //free_vec (evl);
 }
 
-void eval_dump_map (FILE *out, uint id, ixy_t *evl, char *prm) {
+void eval_dump_map (FILE *out, uint id, ixy_t *evl, char *prm) { // thread-unsafe: static
   static double mP = 0, mR = 0, mF1 = 0, mAP = 0, mRe = 0, mTP = 0, n = 0;
   if (evl) {
     double rel = num_rel(evl), ret = num_ret(evl), TP = rel_ret(evl);
