@@ -79,8 +79,7 @@ int main (int argc, char *argv[]) {
   }
   
   return 0;
-
-  //char spinner[] = "|/-\\";
+  
   char *NAME = argv[1];
   uint nr = (1<<atoi(argv[2]))-1, nni = atoi(argv[3]), r;
   ulong nR = 0, nW = 0, sz = sizeof(uint), MB = 1<<20;
