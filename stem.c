@@ -66,7 +66,7 @@ void stem_rcv (char *prm) {
 
 char *usage = "stem [krovetz,lower],[row] < rcv > stemmed\nstem -test f1 f2 f3 ...\n";
 
-void *test_kstem_thread (void *_in) {
+void *test_kstem_thread (void *_in) { // thread-safe
   static int threads = 0;
   int this = ++threads, lines = 0;
   char *nl, *in = _in, out[1000], line[999], stem[999];

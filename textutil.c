@@ -185,7 +185,7 @@ hash_t *load_stoplist () {
   return H;
 }
 
-int stop_word (char *word) {
+int stop_word (char *word) { // thread-unsafe: static
   static hash_t *stops = NULL;
   if (!stops) stops = load_stoplist();
   //if (has_key(stops,word)) printf ("%s is a stopword\n", word);
@@ -211,7 +211,7 @@ void stem_toks (char **toks, char *type) {
   }
 }
 
-void stop_toks (char **toks) {
+void stop_toks (char **toks) { // thread-unsafe: static
   static hash_t *stops = NULL;
   if (!stops) stops = load_stoplist();
   char **v, **w, **end = toks+len(toks);
