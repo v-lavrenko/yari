@@ -313,7 +313,7 @@ static void full2mtx (coll_t *trg, coll_t *src) {
 
 void ptrim (ix_t *vec, uint n, float p) ;
 
-void mtx_weigh (char *TRG, char *prm, char *SRC, char *STATS) {
+void mtx_weigh (char *TRG, char *prm, char *SRC, char *STATS) { // thread-unsafe: doc2lm
   assert (TRG && SRC);
   char *flr = strstr(prm,"floor"), *cei = strstr(prm,"ceil");
   char *rou = strstr(prm,"round"), *chop = strstr(prm,"chop");
@@ -574,7 +574,6 @@ void mtx_product (char *_P, char *_A, char *_B, char *prm) {
   uint id, j, nA = num_rows (A), nB = SB ? (len(SB)-1) : num_cols(B), done=0;
   fprintf (stderr, "[%.0fs] computing %s [%dx%d]: %.0fM similarities(%c), p=%.2f, top=%d, cache=%dM, %d threads\n",
 	   vtime(), _P, nA, nB, (nA*nB/1E6), sim, p, top, cache, threads);
-  //float *S = chk_SCORE (nB); // not thread-safe
   //#pragma omp parallel for private(id) schedule(dynamic) if (threads) num_threads(threads)
   for (id = 1; id <= nA; ++id) {
     float *S = new_vec (nB+1,sizeof(float));
@@ -756,7 +755,7 @@ void mtx_add (char *_P, char *wA, char *_A, char op, char *wB, char *_B) {
   free_coll (P); free_coll (A); free_coll (B);
 }
 
-void mtx_eval (char *_TRU, char *_SYS, char *prm) {
+void mtx_eval (char *_TRU, char *_SYS, char *prm) { // thread-unsafe: eval_dump_map
   char *map = strstr(prm,"map"), *roc = strstr(prm,"roc"), *evl = strstr(prm,"evl");
   uint top = getprm(prm,"top=",0);
   //coll_t *SKP = (SKIP && *SKIP) ? open_coll (SKIP, "r+") : NULL;
@@ -1602,7 +1601,7 @@ void mtx_dcrm (char *_D, char *_P, char *_X, char *_Y, char *prm) {
 }
 
 // S[j,:] = SUM_w topk (P[j,:] .* A[w,:])
-void mtx_semg (char *_S, char *_P, char *_A, char *prm) {
+void mtx_semg (char *_S, char *_P, char *_A, char *prm) { // thread-unsafe: chk_SCORE
   uint k = getprm (prm,"k=",4);
   coll_t *P = open_coll (_P, "r+"); uint nj = num_rows (P), j;
   coll_t *A = open_coll (_A, "r+"); uint nw = num_rows (A), w;
