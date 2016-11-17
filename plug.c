@@ -647,7 +647,7 @@ typedef struct { uint set; uint doc; float sim; float rel; } rnk_t;
 
 coll_t *RELS = NULL, *RETS = NULL, *DOCS = NULL, *INVL = NULL, *SIMS = NULL, *SIMT = NULL;
 
-ix_t *centroid (coll_t *vecs) { 
+ix_t *centroid (coll_t *vecs) {  // thread-unsafe: static
   static ix_t *avg = NULL;
   if (avg) return avg;
   uint N = num_rows (vecs);
@@ -877,7 +877,7 @@ ix_t *examples_for_set (uint set, rnk_t *rnk, char *prm) {
   return pos;
 }
 
-void rnk_drag_svm (rnk_t *rnk, char *prm) {
+void rnk_drag_svm (rnk_t *rnk, char *prm) { // thread-unsafe: centroid
   uint set, m = rnk_max_set (rnk);
   save_svm_vec (0, centroid(DOCS), "./train.vecs", "w");
   for (set = 0; set <= m; ++set) {
@@ -918,7 +918,7 @@ ix_t *qry_centr (ix_t *docs) {
   return qry;
 }
 
-ix_t *qry_diff (ix_t *pos) {
+ix_t *qry_diff (ix_t *pos) { // thread-unsafe: centroid
   ix_t *c = centroid (DOCS);
   ix_t *p = qry_centr (pos); // average of the positives
   ix_t *h = vec_x_vec (p, '-', c);
@@ -926,7 +926,7 @@ ix_t *qry_diff (ix_t *pos) {
   return h;
 }
 
-ix_t *qry_logr (ix_t *docs, char *prm) {
+ix_t *qry_logr (ix_t *docs, char *prm) { // thread-unsage: centroid
   float p = getprm (prm,"smooth=",0.9);
   ix_t *bg = centroid (DOCS);          vec_x_num (bg, '/', sum(bg));
   ix_t *lm = qry_centr (docs);
@@ -936,7 +936,7 @@ ix_t *qry_logr (ix_t *docs, char *prm) {
   return lr;
 }
 
-ix_t *qry_clarity (ix_t *docs, char *prm) {
+ix_t *qry_clarity (ix_t *docs, char *prm) { // thread-unsafe: centroid
   float p = getprm (prm,"smooth=",0.9);
   ix_t *bg = centroid (DOCS);          vec_x_num (bg, '/', sum(bg));
   ix_t *lm = qry_centr (docs);
@@ -959,7 +959,7 @@ ix_t *qry_gain (ix_t *pos, ix_t *neg) {
   return qry;
 }
 
-ix_t *rnk_qry (ix_t *pos, char *prm) {
+ix_t *rnk_qry (ix_t *pos, char *prm) { // thread-unsafe: qry_diff qry_clarity
   uint qlen = getprm(prm,"len=",0);
   //strstr(prm,"gain") ? qry_gain (pos, neg) : 
   ix_t *qry = (strstr(prm,"clar") ? qry_clarity (pos, prm) :
@@ -971,7 +971,7 @@ ix_t *rnk_qry (ix_t *pos, char *prm) {
   return qry;
 }
 
-void rnk_drag_qry (rnk_t *rnk, char *prm) { 
+void rnk_drag_qry (rnk_t *rnk, char *prm) {  // thread-unsafe: rnk_qry
   float thresh = getprm (prm, "thresh=", -Inf); 
   uint set, m = rnk_max_set (rnk);
   for (set = 0; set <= m; ++set) {
@@ -988,7 +988,7 @@ void rnk_drag_qry (rnk_t *rnk, char *prm) {
   } 
 }
 
-void rnk_drag (rnk_t *rnk, rnk_t *r, char *prm) {
+void rnk_drag (rnk_t *rnk, rnk_t *r, char *prm) { // thread-unsafe: rnk_drag_qry
   //printf ("%c>%d\n", (r->rel ? '+' : '-'), set);
   r->set = r->rel;
   r->sim = Inf;
@@ -1007,14 +1007,14 @@ rnk_t *rnk_find_miss (rnk_t *rnk, uint set) {
   return NULL;
 }
 
-float rnk_single_drag (rnk_t *rnk, uint q, char *prm) {
+float rnk_single_drag (rnk_t *rnk, uint q, char *prm) { // thread-unsafe: rnk_drag
   printf ("\nQuery %d: %d rels\n", q, rnk_count('r',rnk,1));
   rnk_t *r = rnk_find_miss (rnk, 1); // r should be in set 1 but isn't
   rnk_drag (rnk,r,prm);
   return rnk_eval_multi (rnk,"F1");
 }
 
-float rnk_round_robin (rnk_t *rnk, uint q, char *prm) {
+float rnk_round_robin (rnk_t *rnk, uint q, char *prm) { // thread-unsafe: rnk_drag
   int set, m = rnk_max_set (rnk);
   uint rels = len(rnk)-rnk_count('r',rnk,0), sets = rnk_num_sets(rnk);
   int drags = getprm(prm,"drags=",0), minset = getprm(prm,"minset=",0);
@@ -1034,7 +1034,7 @@ float rnk_round_robin (rnk_t *rnk, uint q, char *prm) {
 }
 
 /*
-uint rnk_recall_1st (rnk_t *rnk, char *prm) {
+uint rnk_recall_1st (rnk_t *rnk, char *prm) { // thread-unsafe: rnk_drag
   float goal = getprm (prm, "F1=", 0.9); // target performance
   uint pdrags = 0, ndrags = 0;
   while (rnk_eval(rnk,"F1") < goal) {
@@ -1059,7 +1059,7 @@ uint rnk_recall_1st (rnk_t *rnk, char *prm) {
   return pdrags + ndrags;
 }
 
-uint rnk_inorder (rnk_t *rnk, char *prm) {
+uint rnk_inorder (rnk_t *rnk, char *prm) { // thread-unsafe: rnk_drag
   float goal = getprm (prm, "F1=", 0.9); // target performance
   uint pdrags = 0, ndrags = 0;
   while (rnk_eval(rnk,"F1") < goal) {
