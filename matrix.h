@@ -54,6 +54,9 @@ void trim_vec (ix_t *vec, int k) ;
 void trim_vec2(ix_t *vec, int k) ;
 void trim_mtx (coll_t *M, int k) ;
 
+void sparse_vec (ix_t *vec, float zero) ;
+ix_t *dense_vec (ix_t *vec, float zero, uint n) ;
+
 ix_t *simhash (ix_t *vec, uint n, char *dist) ;
 ix_t *bits2codes (ix_t *vec, uint L) ;
 ix_t *num2bitvec (ulong num) ;
@@ -184,6 +187,8 @@ ulong  sumi (uint *V) ;
 uint  *maxi (uint *V) ;
 
 uint count (ix_t *V, char op, float x) ;
+ix_t *value_counts (ix_t *V, float eps) ;
+double value_entropy (ix_t *V) ;
 
 double H (ix_t *X, ix_t *Y, double mu, float *CF, ulong CL) ;
 double KL (ix_t *X, ix_t *Y, double mu, float *CF, ulong CL) ;

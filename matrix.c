@@ -1825,6 +1825,31 @@ uint count (ix_t *V, char op, float x) {
   return n;
 }
 
+ix_t *value_counts (ix_t *V, float eps) {
+  ix_t *a, *b, *C = copy_vec(V), *end = C+len(C);
+  sort_vec (C, cmp_ix_x);
+  for (a = b = C; b < end; ++b) {
+    b->i = 1;
+    if (a == b) continue;
+    float diff = b->x ? (a->x / b->x - 1) : 1;
+    float same = ABS(diff) < eps;
+    if (same) { a->i += b->i; a->x = b->x; }
+    else if (++a < b) *a = *b;
+  }
+  return resize_vec (C, a - C + 1);
+}
+
+double value_entropy (ix_t *V) {
+  ix_t *C = value_counts(V,.01), *c;
+  double N = len(V), H = 0;
+  for (c = C; c < C+len(C); ++c) {
+    double p = c->i / N;
+    H -= p * log2(p);
+  }
+  free_vec (C);
+  return H;
+}
+
 double lnP_X_BG (ix_t *X, float *CF, ulong CL) {
   double lnP = 0;
   ix_t *w, *end = X + len(X);
