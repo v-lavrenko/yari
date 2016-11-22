@@ -207,11 +207,11 @@ static void fill_ids (char **keys, uint *ids, hash_t *h) {
 }
 
 uint *keys2ids (hash_t *h, char **keys) {
-  vtime();
-  it_t *codes = keys2codes (keys, len(h->indx));       fprintf (stderr, "[%.2fs] keys -> codes[%d]\n", vtime(), len(codes));
-  it_t *hypos = codes2hypos (codes, h->indx);          fprintf (stderr, "[%.2fs] codes -> hypos[%d]\n", vtime(), len(hypos));
-  uint *ids = hypos2ids (hypos, keys, h->keys);        fprintf (stderr, "[%.2fs] hypos -> ids[%d]\n", vtime(), len(ids));
-  if (h->access[0] != 'r') fill_ids (keys, ids, h);    fprintf (stderr, "[%.2fs] filled ids\n", vtime());
+  //vtime();
+  it_t *codes = keys2codes (keys, len(h->indx));       //fprintf (stderr, "[%.2fs] keys -> codes[%d]\n", vtime(), len(codes));
+  it_t *hypos = codes2hypos (codes, h->indx);          //fprintf (stderr, "[%.2fs] codes -> hypos[%d]\n", vtime(), len(hypos));
+  uint *ids = hypos2ids (hypos, keys, h->keys);        //fprintf (stderr, "[%.2fs] hypos -> ids[%d]\n", vtime(), len(ids));
+  if (h->access[0] != 'r') fill_ids (keys, ids, h);    //fprintf (stderr, "[%.2fs] filled ids\n", vtime());
   free_vec (codes); free_vec (hypos);
   return ids;
 }
