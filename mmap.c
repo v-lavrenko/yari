@@ -511,6 +511,18 @@ time_t file_modified (char *fmt, ...) {
   return buf.st_mtime;
 }
 
+off_t file_size (char *fmt, ...) {
+  char path [9999];
+  va_list args;
+  va_start (args, fmt);
+  vsprintf (path, fmt, args);
+  va_end (args);
+  struct stat buf;
+  memset (&buf, 0, sizeof(buf));
+  if (stat (path, &buf)) return 0; // file doesn't exist
+  return buf.st_size;
+}
+
 void cp_dir (char *src, char *trg) {
   if (!src || !trg) return;
   char x[1000], *cmd = fmt (x, "mkdir -p %s; cp %s/* %s", trg, src, trg);
