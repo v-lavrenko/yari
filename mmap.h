@@ -94,6 +94,7 @@ char *___itoa (uint i) ;
 char *___ftoa (char *fmt, float f) ;
 float vtime () ;
 int file_exists (char *fmt, ...) ;
+off_t file_size (char *fmt, ...) ;
 time_t file_modified (char *fmt, ...) ;
 void rm_dir (char *dir) ;
 void cp_dir (char *src, char *trg) ;
