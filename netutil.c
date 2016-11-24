@@ -194,10 +194,18 @@ char *receive_message (int sockid, char eom) {
 }
 
 int send_message (int sockid, char *message, int size) {
-  int sent, flags = MSG_NOSIGNAL | MSG_DONTWAIT;
-  sent = send (sockid, message, size, flags);
-  if (sent == -1) perror ("send_message: ");
-  return (sent == size);
+  int sent, flags = MSG_NOSIGNAL | MSG_DONTWAIT, wait=1;
+  while (size > 0) {
+    sent = send (sockid, message, size, flags);
+    if (sent == -1) { 
+      if (errno == EAGAIN) usleep (wait*=2); 
+      else perror ("send_message: "); 
+      continue;
+    } 
+    if (sent < size) fprintf (stderr, "[send_message] sent %d < %d bytes, retrying\n", sent, size);
+    message += sent; size -= sent;
+  }
+  return (size == 0);
 }
 
 char *extract_message (char *buf, char *eom, int *used) {
