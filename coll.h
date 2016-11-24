@@ -64,6 +64,7 @@ void *next_vec (coll_t *c, uint *id);
 void *get_or_new_vec (coll_t *c, uint id, uint esize);
 inline void *get_vec_ro (coll_t *c, uint id) ;
 void *get_vec_mp (coll_t *c, uint id) ;
+uint len_vec (coll_t *M, uint id) ;
 
 void defrag_coll (char *SRC, char *TRG) ;
 

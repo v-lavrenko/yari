@@ -68,14 +68,6 @@ void mtx_trace (char *_M, char *prm) {
   free_coll (M);
 }
 
-uint len_vec (coll_t *M, uint id) { 
-  if (!has_vec(M,id)) return 0;
-  ix_t *V = get_vec(M,id); 
-  uint n = len(V); 
-  free_vec(V); 
-  return n; 
-}
-
 void mtx_load (char *M, char *RH, char *CH, char *type, char *prm) {
   ulong done = 0;
   char *buf = malloc(1<<24), *id = 0;

@@ -317,6 +317,14 @@ inline void *map_vec (coll_t *c, uint id, uint n, uint sz) { // TODO : remove th
   return vec->data;
 }
 
+uint len_vec (coll_t *M, uint id) { 
+  if (!has_vec(M,id)) return 0;
+  void *V = get_vec(M,id); 
+  uint n = len(V); 
+  free_vec(V); 
+  return n; 
+}
+
 /*
 void *next_vec (coll_t *c, uint *id) {
   *id = c->next ? c->next [*id] : (1+*id) % len(c->offs);
