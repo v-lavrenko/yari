@@ -100,7 +100,13 @@ int client_socket (char *host) {
   *port++ = '\0'; // null-terminate host, point to port
   saddr_t *server = mkaddr (host, atoi(port));
   int sock = safe ("socket", socket (AF_INET, SOCK_STREAM, 0)); 
-  safe ("connect", connect (sock, (paddr_t) server, sizeof (saddr_t)));
+  int err = connect (sock, (paddr_t) server, sizeof (saddr_t));
+  if (err == -1) {
+    fprintf (stderr, "[connect] %s:%s failed: [%d] ", host, port, errno);
+    perror (""); 
+    close (sock);
+    return -1;
+  }
   return sock;
 }
 
