@@ -166,17 +166,15 @@ int main (int argc, char *argv[]) {
   }
   
   if (!strcmp(argv[1], "-batch") && !strcmp(argv[3],"+=")) {
+    char **keys = hash_keys (argv[4]);
     hash_t *A = open_hash (argv[2], "a");
-    hash_t *B = open_hash (argv[4], "r");
-    uint i, nB = nkeys(B), nA = nkeys(A);
-    fprintf (stderr, "batch merge: %s [%d] += %s [%d]\n", A->path, nA, B->path, nB);
-    char **keys = new_vec (nB,sizeof(char*));
-    for (i = 0; i < nB; ++i) keys[i] = strdup(id2key(B,i+1));
+    uint i, nB = len(keys), nA = nkeys(A);
+    fprintf (stderr, "batch merge: %s [%d] += %s [%d]\n", A->path, nA, argv[4], nB);
     uint *ids = keys2ids (A,keys);
     fprintf (stderr, "done: %s [%d]\n", A->path, nkeys(A));
     for (i = 0; i < nB; ++i) if (keys[i]) free(keys[i]);
     free_vec (keys); free_vec (ids);
-    free_hash (A); free_hash (B);
+    free_hash (A);
     return 0;
   }
 
