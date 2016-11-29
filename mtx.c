@@ -196,6 +196,27 @@ uint *hash_merge (char *_A, char *_B, char *pA) {
   return F;
 }
 
+void *shift_vec (void *V) {
+  uint N = len(V), sz = vesize(V);
+  V = resize_vec (V, N+1);
+  memmove (V + sz, V, N*sz);
+  return V;
+}
+
+// return an injection F: B -> A, insert missing keys into A
+uint *hash_merge2 (char *_A, char *_B, char *pA) {
+  if (!strcmp(_A,_B)) return hash_merge_self (_A, _B);
+  char **keys = hash_keys (_B);
+  hash_t *A = open_hash (_A, pA);
+  uint nB = len(keys), nA = nvecs(A->keys);
+  fprintf (stderr, "merge: %s [%d] += %s [%d] mode:%s\n", _A, nA, _B, nB, pA);
+  uint *F = keys2ids (A, keys); 
+  F = shift_vec (F);
+  fprintf (stderr, "done: %s [%d] \n", _A, nvecs(A->keys));
+  free_hash (A); free_toks (keys);
+  return F;
+}
+
 void *get_vec_read (coll_t *c, uint id) ;
 void put_vec_write (coll_t *c, uint id, void *vec) ;
 
@@ -205,12 +226,13 @@ void mtx_merge (char *_A, char *_RA, char *_CA,
 		char *prm) {
   char *skip = strstr(prm,"skip"), *repl = strstr(prm,"repl");
   char *Long = strstr(prm,"long"), *join = strstr(prm,"join");
+  char *fast = strstr(prm,"fast");
   char *perm = getprms(prm,"p=","aaa",','); // access to A, Ra and Ca
   char *pA = (perm[0] == 'r') ? "r+" : (perm[0] == 'w') ? "w+" : "a+"; 
   char *pR = (perm[1] == 'r') ? "r"  : (perm[1] == 'w') ? "w"  : "a";
   char *pC = (perm[2] == 'r') ? "r"  : (perm[2] == 'w') ? "w"  : "a";
-  uint *R = hash_merge (_RA, _RB, pR);
-  uint *C = hash_merge (_CA, _CB, pC);
+  uint *R = (fast ? hash_merge2 : hash_merge) (_RA, _RB, pR);
+  uint *C = (fast ? hash_merge2 : hash_merge) (_CA, _CB, pC);
   coll_t *A = open_coll (_A, pA);
   coll_t *B = open_coll (_B, "r+");
   uint nB = num_rows(B), nA = num_rows(A), b;
