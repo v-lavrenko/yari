@@ -159,6 +159,15 @@ uint id2id (hash_t *src, uint id, hash_t *trg) {
 
 ////////// batch version of key2id: sort + merge
 
+char **hash_keys (char *path) {
+  hash_t *H = open_hash (path, "r");
+  uint i, nH = nkeys(H);
+  char **keys = new_vec (nH,sizeof(char*));
+  for (i=0; i<nH; ++i) keys[i] = strdup (id2key(H,i+1));
+  free (H); // free if opened
+  return keys;
+}
+
 // keys[i] -> {i,code(key)} sorted by code%M
 static it_t *keys2codes (char **keys, uint M) {
   uint i, n = len(keys);
@@ -207,11 +216,11 @@ static void fill_ids (char **keys, uint *ids, hash_t *h) {
 }
 
 uint *keys2ids (hash_t *h, char **keys) {
-  //vtime();
-  it_t *codes = keys2codes (keys, len(h->indx));       //fprintf (stderr, "[%.2fs] keys -> codes[%d]\n", vtime(), len(codes));
-  it_t *hypos = codes2hypos (codes, h->indx);          //fprintf (stderr, "[%.2fs] codes -> hypos[%d]\n", vtime(), len(hypos));
-  uint *ids = hypos2ids (hypos, keys, h->keys);        //fprintf (stderr, "[%.2fs] hypos -> ids[%d]\n", vtime(), len(ids));
-  if (h->access[0] != 'r') fill_ids (keys, ids, h);    //fprintf (stderr, "[%.2fs] filled ids\n", vtime());
+  vtime();
+  it_t *codes = keys2codes (keys, len(h->indx));       fprintf (stderr, "[%.2fs] keys -> codes[%d]\n", vtime(), len(codes));
+  it_t *hypos = codes2hypos (codes, h->indx);          fprintf (stderr, "[%.2fs] codes -> hypos[%d]\n", vtime(), len(hypos));
+  uint *ids = hypos2ids (hypos, keys, h->keys);        fprintf (stderr, "[%.2fs] hypos -> ids[%d]\n", vtime(), len(ids));
+  if (h->access[0] != 'r') fill_ids (keys, ids, h);    fprintf (stderr, "[%.2fs] filled ids\n", vtime());
   free_vec (codes); free_vec (hypos);
   return ids;
 }

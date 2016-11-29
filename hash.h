@@ -49,6 +49,7 @@ uint  key2id (hash_t *h, char *key) ;
 uint has_key (hash_t *h, char *key) ;
 uint id2id (hash_t *src, uint id, hash_t *trg) ;
 uint *keys2ids (hash_t *h, char **keys) ; // batch version of key2id
+char **hash_keys (char *path) ; // list all keys in a hashtable
 
 //unsigned keyIn (hash_t *t, char *key) ;
 //hash_t *hnew (unsigned num_els, char *path) ;
