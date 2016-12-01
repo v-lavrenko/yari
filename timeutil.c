@@ -100,3 +100,83 @@ time_t today_hhmm (time_t now, char *hhmm) {
   tm.tm_sec = 0;
   return mktime (&tm);
 }
+
+/*
+typedef struct {
+  time_t beg;
+  time_t last;
+  uint dots;
+} eta_t;
+
+inline void *show_eta (ulong done, ulong total, char *s, void *_state) {
+  eta_t *state = (eta_t *)_state;
+  if (!state) {
+    state = malloc (sizeof(eta_t));
+    state->beg = eta->last = time(0);
+    state->dots = 0;
+  }
+  time_t now = time(0); // 3 clock cycles, 3x faster than anything else
+  if (now == eta->last) return; // <1s since last invoke
+  eta->last = now;
+  if (eta->beg == 0) { eta->beg = now; return; }
+  fprintf (stderr, ".");
+  
+  return (void*) state;
+}
+
+inline void show_progress (ulong done, ulong total, char *s) { // thread-unsafe: static
+  static ulong dots = 0, prev = 0, line = 50;
+  static time_t last = 0, begt = 0;
+  time_t this = time(0);
+  //printf ("%d %d %d\n", this, last, CLOCKS_PER_SEC);
+  //if (this - last < CLOCKS_PER_SEC) return; 
+  if (this == last) return;
+  last = this;
+  fprintf (stderr, ".");
+  if (!begt) begt = this;
+  if (done < prev) prev = done; 
+  if (++dots < line) return;
+  double todo = total-done, di = done-prev, ds = this-begt, rpm = 60*di/ds, ETA = todo/rpm;
+  //double ETA = ((double)(N-n)) / ((n-m) * 60 / line); // minutes
+  if (!total) fprintf (stderr, "%ld %s @ %.0f / minute\n", done, s, rpm);
+  else {      fprintf (stderr, "%ld / %ld %s", done, total, s);
+    if (ETA < 60)        fprintf (stderr, " ETA: %.1f minutes\n", ETA);
+    else if (ETA < 1440) fprintf (stderr, " ETA: %.1f hours\n", ETA/60);
+    else                 fprintf (stderr, " ETA: %.1f days\n", ETA/1440);
+  }
+  prev = done;
+  begt = this;
+  dots = 0;
+}
+*/
+
+/*
+
+http://stackoverflow.com/questions/6498972/faster-equivalent-of-gettimeofday
+
+time (s) => 3 cycles
+ftime (ms) => 54 cycles
+gettimeofday (us) => 42 cycles
+clock_gettime (ns) => 9 cycles (CLOCK_MONOTONIC_COARSE)
+clock_gettime (ns) => 9 cycles (CLOCK_REALTIME_COARSE)
+clock_gettime (ns) => 42 cycles (CLOCK_MONOTONIC)
+clock_gettime (ns) => 42 cycles (CLOCK_REALTIME)
+clock_gettime (ns) => 173 cycles (CLOCK_MONOTONIC_RAW)
+clock_gettime (ns) => 179 cycles (CLOCK_BOOTTIME)
+clock_gettime (ns) => 349 cycles (CLOCK_THREAD_CPUTIME_ID)
+clock_gettime (ns) => 370 cycles (CLOCK_PROCESS_CPUTIME_ID)
+rdtsc (cycles) => 24 cycles
+
+http://www.systutorials.com/5086/measuring-time-accurately-in-programs/
+
+time (s) => 4ns
+ftime (ms) => 39ns
+gettimeofday (us) => 30ns
+clock_gettime (ns) => 26ns (CLOCK_REALTIME)
+clock_gettime (ns) => 8ns (CLOCK_REALTIME_COARSE)
+clock_gettime (ns) => 26ns (CLOCK_MONOTONIC)
+clock_gettime (ns) => 9ns (CLOCK_MONOTONIC_COARSE)
+clock_gettime (ns) => 170ns (CLOCK_PROCESS_CPUTIME_ID)
+clock_gettime (ns) => 154ns (CLOCK_THREAD_CPUTIME_ID
+
+*/
