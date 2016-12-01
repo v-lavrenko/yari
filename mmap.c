@@ -332,8 +332,10 @@ int popen2 (const char *command, pid_t *_pid) {
 
 void *safe_mmap (int fd, off_t offset, off_t size, char *access) {
   int mprot = (access[0] == 'r') ? PROT_READ  : (PROT_READ|PROT_WRITE);
-  int mflag = (access[1] == '+') ? MAP_SHARED : (MAP_SHARED|MAP_POPULATE); // pre-populate hashes/vecs
-  if (1) mflag = MAP_SHARED;
+  //int mflag = (access[1] == '+') ? MAP_SHARED : (MAP_SHARED|MAP_POPULATE); // pre-populate hashes/vecs
+  int mflag = (access[1] == '!') ? (MAP_SHARED|MAP_POPULATE) : MAP_SHARED; // pre-populate when forced
+  if (access[1] == '!') fprintf (stderr, "[mmap:%d] pre-fetching %ld+%ldMB\n", fd, offset, (size>>20));
+  //if (1) mflag = MAP_SHARED;
   //fprintf (stderr, "[mmap] fd:%d:%s off:%ld sz:%ld mprot:%d mflag:%d\n", fd, access, offset, size, mprot, mflag);
   if (size == 0) return NULL;
   void *buf = mmap64 (NULL, size, mprot, mflag, fd, offset);
@@ -350,7 +352,7 @@ void *safe_remap (int fd, void *buf, off_t osize, off_t nsize) {
   buf = mremap (buf, osize, nsize, MREMAP_MAYMOVE);
 #else
   munmap(buf, osize); 
-  buf = safe_mmap (fd, 0, nsize, "w");
+  buf = safe_mmap (fd, 0, nsize, "w"); // specifying "w" here is BAAD, used in resize_vec()
 #endif
   if ((buf == (void*) -1) || (buf == NULL)) {
     fprintf (stderr, "[mremap] failed on %lu bytes: [%d] ", (ulong)nsize, errno);
