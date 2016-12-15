@@ -84,7 +84,7 @@ void load_json (char *C, char *RH, char *prm) { //
     uint sz = strlen (json);
     if (json[sz-1] == '\n') json[--sz] = '\0';
     char *docid = json_value (json, "docid"); 
-    if (!docid) docid = json_value (json, "\"id\"");
+    if (!docid) docid = json_value (json, "id");
     assert (docid);
     uint id = key2id (rh, docid); 
     free(docid);
