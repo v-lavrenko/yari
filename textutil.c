@@ -137,12 +137,36 @@ char *extract_between (char *buf, char *A, char *B){
   return result;
 }
 
-char *json_value (char *json, char *key) { // { "key1": "val1", "key2": 2 }
+char *parenthesized (char *str, char open, char close) {
+  int depth = 0; char *beg = strchr(str,open), *s; 
+  if (!beg) return NULL; // no opening paren
+  for (s = beg; *s; ++s) 
+    if      (*s == close && --depth == 0) break;
+    else if (*s == open)    ++depth;
+  if (!*s) return NULL; // no closing paren
+  return strndup (beg, s-beg+1);
+}
+
+uint parenspn (char *str, char close) { // span of parenthesized string starting at *str
+  int depth = 0; char *s, open = *str;
+  for (s = str; *s; ++s)
+    if      (*s == close && --depth == 0) {++s; break;}
+    else if (*s == open)    ++depth;
+  return s - str;
+}
+
+char *json_value (char *json, char *_key) { // { "key1": "val1", "key2": 2 } cat
+  if (!json || !_key) return NULL;
+  if (*_key == '"') assert ("don't pass quotes to json_value");
+  char x[999], *key = fmt(x,"\"%s\"",_key);
   char *val = strstr (json, key);
   if (!val) return NULL;
-  val += strlen(key);
-  if (*val == '"') ++val;
-  return extract_between (val, "\"", "\"");
+  val += strlen(key);       //if (*val == '"') ++val; // " after key
+  val += strspn (val," :"); // skip :
+  if (*val == '"') return extract_between (val, "\"", "\""); // string
+  if (*val == '{') return parenthesized (val, '{', '}'); // object
+  if (*val == '[') return parenthesized (val, '[', ']'); // list
+  return strndup(val,strcspn(val,",}]"));
 }
 
 char *next_token (char **text, char *ws) {
