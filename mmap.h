@@ -90,6 +90,7 @@ off_t safe_pwrite (int fd, void *buf, off_t size, off_t offset) ;
 void stracat (char **dst, int *n, char *src) ;
 char *acat (char *s1, char *s2) ; // must free result
 char *fmt (char *buf, const char *format, ...) ;
+char *fmtn (int sz, const char *format, ...) ;
 char *___itoa (uint i) ;
 char *___ftoa (char *fmt, float f) ;
 float vtime () ;
