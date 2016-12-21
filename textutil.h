@@ -37,6 +37,7 @@ void cgrams (char *str, uint lo, uint hi, uint step, char *buf, uint eob) ; // c
 // erase (overwrite with 'C') every occurence of A...B
 void erase_between (char *buf, char *A, char *B, int C) ;
 char *json_value (char *json, char *key) ;
+float json_numval (char *json, char *key) ;
 
 // extract the text between A and B
 char *extract_between (char *buf, char *A, char *B) ;

@@ -169,6 +169,15 @@ char *json_value (char *json, char *_key) { // { "key1": "val1", "key2": 2 } cat
   return strndup(val,strcspn(val,",}]"));
 }
 
+float json_numval (char *json, char *_key) {
+  char *pos = "yes,true,positive,present"; // checked, ongoing
+  char *neg = "no,false,negative,absent"; // unknown, not present
+  char *val = json_value (json, _key);
+  float num = (!val || !*val) ? 0 : strstr(neg,val) ? 0 : strstr(pos,val) ? 1 : atof(val);
+  free (val); 
+  return num;
+}
+
 char *next_token (char **text, char *ws) {
   if (!ws) ws = default_ws; 
   char *beg = *text + strspn (*text, ws); // skip whitespace
