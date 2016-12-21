@@ -456,6 +456,16 @@ char *fmt (char *buf, const char *format, ...) {
   return buf;
 }
 
+char *fmtn (int sz, const char *format, ...) {
+  assert (sz && format);
+  char *buf = malloc(sz); *buf='\0';
+  va_list args;
+  va_start (args, format);
+  vsnprintf (buf, sz, format, args);
+  va_end (args);
+  return buf;
+}
+
 void apply (void (*func)(void *), ...) {
   void *arg = NULL;
   va_list args;
