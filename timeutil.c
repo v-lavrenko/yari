@@ -65,7 +65,7 @@ struct tm time2tm (time_t time) {
 
 char *time2strf (char *buf, char *format, time_t time) {
   struct tm tm = time2tm (time);
-  strftime (buf, 99, format, &tm);
+  strftime (buf, 199, format, &tm);
   return buf; 
 }
 
