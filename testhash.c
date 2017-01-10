@@ -48,8 +48,8 @@ int main (int argc, char *argv[]) {
 	     "                -drop HASH < ids > new\n"
 	     "                -keep HASH < ids > old\n"
 	     "                -add  HASH < ids\n"
+	     "            -oldmerge HASH += HASH\n"
 	     "               -merge HASH += HASH\n"
-	     "               -batch HASH += HASH\n"
 	     "                -k2i  HASH key\n"
 	     "                -i2k  HASH id\n"
 	     "                -dbg  HASH\n"
@@ -151,7 +151,7 @@ int main (int argc, char *argv[]) {
     return 0;
   }
   
-  if (!strcmp(argv[1], "-merge") && !strcmp(argv[3],"+=")) {
+  if (!strcmp(argv[1], "-oldmerge") && !strcmp(argv[3],"+=")) {
     hash_t *A = open_hash (argv[2], "a");
     hash_t *B = open_hash (argv[4], "r");
     uint i, nB = nkeys(B), nA = nkeys(A);
@@ -165,7 +165,7 @@ int main (int argc, char *argv[]) {
     return 0;
   }
   
-  if (!strcmp(argv[1], "-batch") && !strcmp(argv[3],"+=")) {
+  if (!strcmp(argv[1], "-merge") && !strcmp(argv[3],"+=")) {
     char **keys = hash_keys (argv[4]);
     hash_t *A = open_hash (argv[2], "a");
     uint i, nB = len(keys), nA = nkeys(A);
