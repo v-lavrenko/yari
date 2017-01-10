@@ -518,11 +518,11 @@ void print_mtx (coll_t *rows, hash_t *rh, hash_t *ch) {
 }
 
 void print_vec_rcv (ix_t *vec, hash_t *ids, char *vec_id, char *fmt) {
-  if (!fmt) fmt = "%12.6f";
+  if (!fmt) fmt = "%.6f";
   ix_t *v = vec, *end = vec + len(vec);
   for (v = vec; v < end; ++v) {
     char *id = id2str (ids, v->i);
-    printf ("%20s %20s ", vec_id, id);
+    printf ("%s\t%s\t", vec_id, id);
     printf (fmt, v->x);
     printf ("\n");
     free (id);
