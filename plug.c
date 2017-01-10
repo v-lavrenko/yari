@@ -75,17 +75,18 @@ void load_raw (char *C, char *RH) {
 
 void load_json (char *C, char *RH, char *prm) { // 
   char *skip = strstr(prm,"skip"), *join = strstr(prm,"join");
-  uint done = 0, noid = 0, dups = 0, SZ = 1<<24;  
+  char *addk = strstr(prm,"addkeys");
+  uint done = 0, nodoc = 0, noid = 0, dups = 0, SZ = 1<<24;  
   char *json = malloc(SZ);
   coll_t *c = open_coll (C, "a+");
-  hash_t *rh = open_hash (RH, "r");
+  hash_t *rh = open_hash (RH, (addk ? "a" : "r"));
   while (fgets (json, SZ, stdin)) { // assume one-per-line
     if (!(++done%10000)) show_progress (done, 0, "JSON records");
     uint sz = strlen (json);
     if (json[sz-1] == '\n') json[--sz] = '\0';
     char *docid = json_value (json, "docid"); 
     if (!docid) docid = json_value (json, "id");
-    assert (docid);
+    if (!docid && ++nodoc < 5) { fprintf (stderr, "ERR: no docid in: %s\n", json); continue; }
     uint id = key2id (rh, docid); 
     free(docid);
     if (!id) { ++noid; continue; }
@@ -1129,7 +1130,7 @@ char *usage =
   "  -dump XML [HASH id]         - dump all [id] from collection XML\n"
   "  -load XML HASH              - stdin -> collection XML indexed by HASH\n"
   "  -json JSON HASH [prm]       - stdin -> collection JSON indexed by HASH\n"
-  "                                prm: skip, join duplicates\n"
+  "                                prm: skip, join duplicates, addkeys\n"
   "  -merge C A B                - C[i] = A[i] + B[i] (concatenates records)\n"
   "   merge A += B [prm]         - A[j] += B[i] (concat, assume ids compatible)\n"
   "   merge A a += B b [prm]     - A[j] += B[i] (concat) where key = a[j] = b[i]\n"
