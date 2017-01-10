@@ -222,17 +222,17 @@ void put_vec_write (coll_t *c, uint id, void *vec) ;
 
 // merge B [Rb x Cb] into A [Ra x Ca] mapping rows and columns as needed
 void mtx_merge (char *_A, char *_RA, char *_CA,
-		char *_B, char *_RB, char *_CB, 		
+		char *_B, char *_RB, char *_CB,
 		char *prm) {
   char *skip = strstr(prm,"skip"), *repl = strstr(prm,"repl");
   char *Long = strstr(prm,"long"), *join = strstr(prm,"join");
-  char *fast = strstr(prm,"fast");
+  char *slow = strstr(prm,"slow"), *fast = strstr(prm,"fast");
   char *perm = getprms(prm,"p=","aaa",','); // access to A, Ra and Ca
   char *pA = (perm[0] == 'r') ? "r+" : (perm[0] == 'w') ? "w+" : "a+"; 
   char *pR = (perm[1] == 'r') ? "r"  : (perm[1] == 'w') ? "w"  : "a";
   char *pC = (perm[2] == 'r') ? "r"  : (perm[2] == 'w') ? "w"  : "a";
-  uint *R = (fast ? hash_merge2 : hash_merge) (_RA, _RB, pR);
-  uint *C = (fast ? hash_merge2 : hash_merge) (_CA, _CB, pC);
+  uint *R = (fast ? hash_merge2 : slow ? hash_merge : hash_merge2) (_RA, _RB, pR);
+  uint *C = (fast ? hash_merge2 : slow ? hash_merge : hash_merge2) (_CA, _CB, pC);
   coll_t *A = open_coll (_A, pA);
   coll_t *B = open_coll (_B, "r+");
   uint nB = num_rows(B), nA = num_rows(A), b;
