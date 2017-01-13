@@ -204,8 +204,20 @@ void *read_vec (char *path) {
 void sort_vec (void *d, int (*cmp) (const void *, const void *)) {
   qsort (d, len(d), vesize(d), cmp); }
 
-void *bsearch_vec (void *el, void *vec, int (*cmp) (const void *, const void *)) {
+void *bsearch_vec_old (void *el, void *vec, int (*cmp) (const void *, const void *)) {
   return bsearch (el, vec, len(vec), vesize(vec), cmp); }
+
+// returns pointer to first element >= id
+void *bsearch_vec (void *vec, uint id) { // assume id is 1st field in each element
+  long lo = -1, hi = len(vec), mid, sz = vesize(vec); // both out of range
+  while (hi - lo > 1) {
+    mid = (lo + hi) / 2;
+    uint *pid = (uint *) ((char*)vec + mid * sz);
+    if (*pid < id) lo = mid; // lo <  id
+    else           hi = mid; // hi >= id
+  }
+  return (char*)vec + hi * sz;
+}
 
 ///////////////////////////// sorting for common vector types
 
