@@ -25,7 +25,7 @@ opt ?= -g # make opt=-O3 (optimised) or opt=-pg (profile)
 
 CC=gcc -m64 $(opt) -W -Wall -Wno-unused-result -I . -o $@ $(f64) -fopenmp
 
-exe = testmmap testvec testcoll testhash mtx stem plug hl bio
+exe = testmmap testvec testcoll dict mtx stem kvs hl bio
 
 all: $(exe) libyari.a
 	etags *.c *.h
@@ -51,14 +51,14 @@ testvec: testvec.c mmap.c vector.c
 
 testcoll: testcoll.c mmap.c vector.c coll.c
 
-testhash: testhash.c mmap.c vector.c coll.c hash.c
+dict: dict.c mmap.c vector.c coll.c hash.c
 
 mtx: mtx.c mmap.c vector.c coll.c hash.c matrix.c svm.c \
 	textutil.c stemmer_krovetz.c maxent.c synq.c
 
 stem: stem.c stemmer_krovetz.c synq.c mmap.c
 
-plug: plug.c libyari.a
+kvs: kvs.c libyari.a
 
 hl: hl.c
 
