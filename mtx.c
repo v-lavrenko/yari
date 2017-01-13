@@ -80,8 +80,8 @@ void mtx_load (char *M, char *RH, char *CH, char *type, char *prm) {
   char *Long = strstr(prm,"long"), *join = strstr(prm,"join");
   char *p = getprms(prm,"p=","waa",',');
   char *pM = (p[0] == 'w') ? "w+" : (p[0] == 'a') ? "a+" : "r+";
-  char *pR = (p[1] == 'w') ? "w"  : (p[1] == 'a') ? "a"  : "r";
-  char *pC = (p[2] == 'w') ? "w"  : (p[2] == 'a') ? "a"  : "r";
+  char *pR = (p[1] == 'w') ? "w"  : (p[1] == 'a') ? "a!" : "r!";
+  char *pC = (p[2] == 'w') ? "w"  : (p[2] == 'a') ? "a!" : "r!";
   coll_t *m = open_coll (M, pM);
   RH = (RH && *RH && !atoi(RH)) ? RH : NULL;
   CH = (CH && *CH && !atoi(CH)) ? CH : NULL;
@@ -229,10 +229,10 @@ void mtx_merge (char *_A, char *_RA, char *_CA,
   char *slow = strstr(prm,"slow"), *fast = strstr(prm,"fast");
   char *perm = getprms(prm,"p=","aaa",','); // access to A, Ra and Ca
   char *pA = (perm[0] == 'r') ? "r+" : (perm[0] == 'w') ? "w+" : "a+"; 
-  char *pR = (perm[1] == 'r') ? "r"  : (perm[1] == 'w') ? "w"  : "a";
-  char *pC = (perm[2] == 'r') ? "r"  : (perm[2] == 'w') ? "w"  : "a";
-  uint *R = (fast ? hash_merge2 : slow ? hash_merge : hash_merge2) (_RA, _RB, pR);
-  uint *C = (fast ? hash_merge2 : slow ? hash_merge : hash_merge2) (_CA, _CB, pC);
+  char *pR = (perm[1] == 'r') ? "r!" : (perm[1] == 'w') ? "w!" : "a!";
+  char *pC = (perm[2] == 'r') ? "r!" : (perm[2] == 'w') ? "w!" : "a!";
+  uint *R = (fast ? hash_merge2 : slow ? hash_merge : hash_merge) (_RA, _RB, pR);
+  uint *C = (fast ? hash_merge2 : slow ? hash_merge : hash_merge) (_CA, _CB, pC);
   coll_t *A = open_coll (_A, pA);
   coll_t *B = open_coll (_B, "r+");
   uint nB = num_rows(B), nA = num_rows(A), b;
@@ -369,7 +369,7 @@ void mtx_weigh (char *TRG, char *prm, char *SRC, char *STATS) { // thread-unsafe
     fprintf (stderr, "gathering statistics from %s\n", (STATS?STATS:SRC));
     if (STATS && index(STATS,':')) { // file:dict
       char *_dict = index(STATS,':'); *_dict++ = 0;
-      hash_t *dict = open_hash (_dict, "r");
+      hash_t *dict = open_hash (_dict, "r!");
       stats = blank_stats (1, 1, 0, 1) ;
       update_stats_from_file (stats, dict, STATS) ;
       free_hash (dict);
@@ -546,7 +546,7 @@ void mtx_subset (char *_A, char *_B, char *_H) {
   fprintf (stderr, "%s = subset %s [%s] reading ids from stdin\n", _A, _B, _H);
   coll_t *A = open_coll (_A, "w+");
   coll_t *B = open_coll (_B, "r+");
-  hash_t *H = open_hash (_H, "r+");
+  hash_t *H = open_hash (_H, "r");
   while (fgets(ID,999,stdin)) {
     if ((NL = strchr (ID,'\n'))) *NL = 0;
     uint id = key2id (H,ID);
