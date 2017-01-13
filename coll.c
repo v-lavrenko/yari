@@ -44,7 +44,7 @@ coll_t *copy_coll (coll_t *src) {
 coll_t *open_coll (char *path, char *access) {
   if (!path) return open_coll_inmem ();
   coll_t *c = safe_calloc (sizeof(coll_t));
-  if (*access != 'r') mkdir (path, S_IRWXU | S_IRWXG | S_IRWXO);
+  if (*access != 'r') { mkdir (path, S_IRWXU | S_IRWXG | S_IRWXO); utime (path, NULL); }
   c->access = strdup (access);
   c->path = path = strdup (path);
   char x[9999];
