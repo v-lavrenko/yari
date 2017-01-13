@@ -44,7 +44,7 @@ char *extract_between (char *buf, char *A, char *B) ;
 
 char *next_token (char **text, char *ws) ;
 
-uint split (char *str, char sep, char **_tok) ;
+uint split (char *str, char sep, char **_tok, uint ntoks) ;
 
 int read_doc (FILE *in, char *buf, int n, char *beg, char *end) ;
 
