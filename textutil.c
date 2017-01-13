@@ -81,10 +81,14 @@ void cgrams (char *str, uint lo, uint hi, uint step, char *buf, uint eob) {
   *b = 0;
 }
 
-uint split (char *str, char sep, char **_tok) {
-  char **tok = _tok;
+uint split (char *str, char sep, char **_tok, uint ntoks) {
+  char **tok = _tok, **last = _tok + ntoks - 1;
   *tok++ = str;
-  for (; *str; ++str) if (*str == sep) { *str++ = 0; *tok++ = str; }
+  for (; *str; ++str) if (*str == sep) { 
+      *str++ = 0; 
+      *tok++ = str; 
+      if (tok > last) break;
+    }
   return tok - _tok;
 }
 
