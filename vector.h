@@ -68,6 +68,8 @@ void *append_vec (void *d, void *el) ;
 void *append_many (void *vec, void *els, uint k) ;
 void    sort_vec (void *d, int (*cmp) (const void *, const void *)) ;
 
+void *bsearch_vec (void *vec, uint id); // pointer to first el >= id
+
 void find_el (void *el, void *vec, int (*cmp) (const void *, const void *)) ;
 void *vec_el (void **vec, uint n) ;
 
