@@ -56,7 +56,9 @@ hash_t *open_hash (char *_path, char *_access) {
   }
   if (!_path) return open_hash_inmem ();
   //int MAP_OLD = MAP_MODE; MAP_MODE |= MAP_POPULATE; // pre-load hashtable
-  char *path = strdup (_path), *access = strdup(_access), x[9999];
+  char *path = strdup (_path), x[9999]; // 
+  char *access = strdup(_access);
+  //char *access = calloc(1,3); access[0] = _access[0]; access[1] = '!'; 
   if (access[1] == '+') assert (0 && "[open_hash] invalid access+");
   //access[1] = 0; // make sure there's no '+' at the end
   hash_t *h = safe_calloc (sizeof (hash_t));
@@ -114,8 +116,9 @@ inline uint *href (hash_t *h, char *key, uint code) {
 }
 
 void hrehash (hash_t *h) {
-  //fprintf (stderr, "[hrehash] %s\n", h->path);
-  uint id, n = nvecs(h->keys), N = next_pow2(2*len(h->indx)) - 1;
+  ulong N = next_pow2(2*(ulong)(len(h->indx))) - 1;
+  uint id, n = nvecs(h->keys);
+  fprintf (stderr, " rehash:%s:2^%u ", h->path, ilog2(N+1));
   h->indx = resize_vec (h->indx, N);
   memset (h->indx, 0, ((ulong)N)*sizeof(uint));
   for (id = 1; id <= n; ++id) { // for each key in the table
@@ -247,7 +250,7 @@ uint *keys2ids (hash_t *h, char **keys) {
   return ids;
 }
 
-uint *hash2hash (char *src, char *trg, char *access) {
+uint *hash2hash2 (char *src, char *trg, char *access) {
   fprintf (stderr, "hash2hash: %s -> %s [%s]\n", src, trg, access);
   char **keys = hash_keys (src), **k;
   hash_t *TRG = open_hash (trg, access);
@@ -256,6 +259,29 @@ uint *hash2hash (char *src, char *trg, char *access) {
   free_vec (keys); 
   free_hash (TRG);
   return ids;
+}
+
+uint *hash2hash (char *src, char *trg, char *access) {
+  if (access[1] != '!') return hash2hash2 (src, trg, access);
+  hash_t *SRC = open_hash (src, "r");
+  hash_t *TRG = open_hash (trg, access);
+  uint id, n = nkeys(SRC), *ids = new_vec (n, sizeof(uint)), M = 1000000;
+  fprintf (stderr, "hash2hash: %s [%d] -> %s [%s]\n", src, n, trg, access);
+  for (id=1; id<=n; ++id) {
+    ids[id-1] = id2id (SRC, id, TRG);
+    if (0==id%M) show_progress (id/M,n/M,"M keys");
+  }
+  fprintf(stderr,"done: %s [%d]\n", trg, nkeys(TRG));
+  free_hash (SRC); free_hash (TRG);
+  return ids;
+}
+
+uint *backmap (uint *map) { // map[i-1]==j -> inv[j-1]==i
+  uint i, n = len(map), max = 0;
+  for (i=0; i<n; ++i) if (map[i] > max) max = map[i];
+  uint *inv = new_vec (max, sizeof(uint));
+  for (i=0; i<n; ++i) if (map[i]) inv [map[i]-1] = i+1;
+  return inv;
 }
 
 ////////// END: batch key2id
