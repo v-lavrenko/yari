@@ -192,6 +192,10 @@ char *next_token (char **text, char *ws) {
   return beg;
 }
 
+void lowercase(char *s) { for (; *s; ++s) *s = tolower((int) *s); }
+void uppercase(char *s) { for (; *s; ++s) *s = toupper((int) *s); }
+int cntchr (char *s, char c) { int n; for (n=0; *s; ++s) n += (*s == c); return n; }
+
 void lowercase_stemmer (char *word, char *stem) {
   char *s;
   strncpy (stem, word, 999);

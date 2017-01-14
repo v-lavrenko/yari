@@ -64,4 +64,8 @@ void free_toks (char **toks) ;
 
 char *get_xml_docid (char *xml) ;
 
+void lowercase(char *s); 
+void uppercase(char *s); 
+int cntchr (char *s, char c);
+
 #endif
