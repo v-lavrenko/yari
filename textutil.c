@@ -18,7 +18,7 @@
   along with YARI. If not, see <http://www.gnu.org/licenses/>.
   
 */
-
+#define _GNU_SOURCE
 #include <assert.h>
 #include <string.h>
 #include <stdio.h>
@@ -33,6 +33,12 @@ char *endchr (char *s, char c, uint n) { // faster strrchr
   char *p = s + n - 1; // end of string
   while (p > s && *p != c) --p;
   return p > s ? p : NULL;
+}
+
+char *strRchr (char *beg, char *end, char key) {
+  if (!key || !end || end < beg) return beg;
+  while (end > beg && *end != key) --end;
+  return end;
 }
 
 // in str replace any occurence of chars from what[] with 'with'
@@ -151,11 +157,17 @@ char *parenthesized (char *str, char open, char close) {
   return strndup (beg, s-beg+1);
 }
 
-uint parenspn (char *str, char close) { // span of parenthesized string starting at *str
-  int depth = 0; char *s, open = *str;
+char closing_paren (char open) {
+  return (open == '"' ? '"' :  open == '{' ? '}' : open == '[' ? ']' : 
+	  open == '(' ? ')' :  open == '<' ? '>' : '\0'); 
+}
+
+uint parenspn (char *str) { // span of parenthesized string starting at *str
+  char *s, open = *str, close = closing_paren (open);
+  int depth = 0; 
   for (s = str; *s; ++s)
-    if      (*s == close && --depth == 0) {++s; break;}
-    else if (*s == open)    ++depth;
+    if      (*s == open)    ++depth;
+    else if (*s == close && --depth == 0) {++s; break;}
   return s - str;
 }
 
@@ -180,6 +192,44 @@ float json_numval (char *json, char *_key) {
   float num = (!val || !*val) ? 0 : strstr(neg,val) ? 0 : strstr(pos,val) ? 1 : atof(val);
   free (val); 
   return num;
+}
+
+char *json_pair (char *json, char *_str) {
+  if (!json || !_str) return NULL;
+  char *str = strcasestr(json,_str);
+  if (!str) return NULL;
+  char *beg = strRchr(json,str,'"'), *end = strchr(str,'"')+1; 
+  if (beg == json || end == NULL+1) return NULL;
+  char *sep = end + strcspn(end,":,]}");
+  if (*sep == ':') { // "..str..": wantedValue
+    end = sep+1 + strspn(sep+1," "); // skip spaces
+    if (*end == '"') { end = strchr(end+1,'"'); assert(end); ++end; }
+    else                     end += strcspn(end,",}]"); // numeric, keyword, ?
+    //if (strchr("{[\"",*end)) end += parenspn(end); // {...} or [...] or "..."
+  } else { // "wantedKey": "...str..."
+    beg = strRchr(json,beg-1,':'); // key-value separator
+    beg = strRchr(json,beg-1,'"'); // closing of key 
+    beg = strRchr(json,beg-1,'"'); // opening of key
+  }
+  return strndup (beg, end-beg);
+}
+
+void json2text (char *json) { squeeze (json, "{}[]\""); }
+
+void purge_escaped (char *txt) {
+  char *s = txt;
+  while (*++s) if (s[-1] == '\\') *s = ' ';
+}
+
+char *snippet1 (char *text, char *_str, int sz) {
+  int sz2 = (sz - strlen(_str)) / 2;
+  char *end = text + strlen(text);
+  char *beg = strcasestr(text,_str);
+  if (!beg) return NULL;
+  beg = MAX(text,beg-sz2);
+  end = MIN(end,beg+sz);
+  beg = MAX(text,end-sz);
+  return strndup (beg, end-beg);
 }
 
 char *next_token (char **text, char *ws) {

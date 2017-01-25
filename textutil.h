@@ -38,6 +38,7 @@ void cgrams (char *str, uint lo, uint hi, uint step, char *buf, uint eob) ; // c
 void erase_between (char *buf, char *A, char *B, int C) ;
 char *json_value (char *json, char *key) ;
 float json_numval (char *json, char *key) ;
+char *json_pair (char *json, char *_str) ;
 
 // extract the text between A and B
 char *extract_between (char *buf, char *A, char *B) ;
@@ -67,5 +68,8 @@ char *get_xml_docid (char *xml) ;
 void lowercase(char *s); 
 void uppercase(char *s); 
 int cntchr (char *s, char c);
+
+char *strRchr (char *beg, char *end, char key) ;
+void purge_escaped (char *txt) ;
 
 #endif
