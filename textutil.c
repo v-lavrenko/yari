@@ -185,11 +185,11 @@ char *json_value (char *json, char *_key) { // { "key1": "val1", "key2": 2 } cat
   return strndup(val,strcspn(val,",}]"));
 }
 
-float json_numval (char *json, char *_key) {
+double json_numval (char *json, char *_key) {
   char *pos = "yes,true,positive,present"; // checked, ongoing
   char *neg = "no,false,negative,absent"; // unknown, not present
   char *val = json_value (json, _key);
-  float num = (!val || !*val) ? 0 : strstr(neg,val) ? 0 : strstr(pos,val) ? 1 : atof(val);
+  double num = (!val || !*val) ? 0 : strstr(neg,val) ? 0 : strstr(pos,val) ? 1 : atof(val);
   free (val); 
   return num;
 }
@@ -242,8 +242,18 @@ char *next_token (char **text, char *ws) {
   return beg;
 }
 
-void lowercase(char *s) { for (; *s; ++s) *s = tolower((int) *s); }
-void uppercase(char *s) { for (; *s; ++s) *s = toupper((int) *s); }
+char *lowercase(char *_s) {
+  char *s = _s; 
+  if (s) for (; *s; ++s) *s = tolower((int) *s);
+  return _s;
+}
+
+char *uppercase(char *_s) {
+  char *s = _s; 
+  if (s) for (; *s; ++s) *s = toupper((int) *s);
+  return _s;
+}
+
 int cntchr (char *s, char c) { int n; for (n=0; *s; ++s) n += (*s == c); return n; }
 
 void lowercase_stemmer (char *word, char *stem) {
