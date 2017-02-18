@@ -47,10 +47,11 @@ int main (int argc, char *argv[]) {
 	     "                -drop DICT < ids > new\n"
 	     "                -keep DICT < ids > old\n"
 	     "                 -add DICT < ids\n"
-	     "            -oldmerge DICT += DICT2\n"
 	     "               -merge DICT += DICT2\n"
+	     "               -batch DICT += DICT2\n"
 	     "                 -k2i DICT key\n"
 	     "                 -i2k DICT id\n"
+	     "                -size DICT\n"
 	     "                 -dbg DICT\n"
 	     "                -rand 1-4 logN\n"
 	     );
@@ -190,7 +191,13 @@ int main (int argc, char *argv[]) {
     printf ("%10d %s\n", i, id2key (h,i));
     return 0;
   }
-  
+
+  if (!strcmp(argv[1], "size")) {
+    hash_t *h = open_hash (argv[2], "r");
+    printf ("%d\n", nkeys(h));
+    free_hash (h);
+    return 0;
+  }
   
   if (!strcmp(argv[1], "-dbg")) {
     hash_t *h = open_hash (argv[2], "r");
