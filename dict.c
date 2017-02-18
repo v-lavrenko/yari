@@ -51,7 +51,7 @@ int main (int argc, char *argv[]) {
 	     "               -batch DICT += DICT2\n"
 	     "                 -k2i DICT key\n"
 	     "                 -i2k DICT id\n"
-	     "                -size DICT\n"
+	     "                 size DICT\n"
 	     "                 -dbg DICT\n"
 	     "                -rand 1-4 logN\n"
 	     );
