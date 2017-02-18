@@ -118,7 +118,7 @@ inline uint *href (hash_t *h, char *key, uint code) {
 void hrehash (hash_t *h) {
   ulong N = next_pow2(2*(ulong)(len(h->indx))) - 1;
   uint id, n = nvecs(h->keys);
-  fprintf (stderr, " rehash:%s:2^%u ", h->path, ilog2(N+1));
+  //fprintf (stderr, " rehash:%s:2^%u ", h->path, ilog2(N+1));
   h->indx = resize_vec (h->indx, N);
   memset (h->indx, 0, ((ulong)N)*sizeof(uint));
   for (id = 1; id <= n; ++id) { // for each key in the table
