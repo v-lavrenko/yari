@@ -53,6 +53,8 @@ void chop_vec (ix_t *vec) ;
 void trim_vec (ix_t *vec, int k) ;
 void trim_vec2(ix_t *vec, int k) ;
 void trim_mtx (coll_t *M, int k) ;
+void qselect (ix_t *X, int k) ; // helper for trim_vec
+void nksample (ix_t *X, uint n, int k) ; // keep n elements, preserve top k / bottom -k
 
 void sparse_vec (ix_t *vec, float zero) ;
 ix_t *dense_vec (ix_t *vec, float zero, uint n) ;
@@ -137,6 +139,7 @@ void weigh_vec_laplacian (ix_t *vec, stats_t *s) ;
 void weigh_vec_range01 (ix_t *vec) ;
 void weigh_vec_rnd (ix_t *vec) ;
 void weigh_vec_ranks (ix_t *vec) ;
+void weigh_vec_cdf (ix_t *vec) ;
 
 void weigh_invl_lmd (ix_t *invl, stats_t *s, float mu) ;
 void crop_outliers (ix_t *vec, stats_t *s, float Z) ;
