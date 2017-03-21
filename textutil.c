@@ -67,6 +67,7 @@ void cqsub (char *str, char what, char with, char quot) {
 
 // in str replace any occurence of chars from punctuation[] with nothing
 void squeeze (char *str, char *what) {
+  if (!str) return;
   if (!what) what = default_ws;
   char *s, *t; 
   for (t=s=str; *s; ++s) if (!strchr (what, *s)) *t++ = *s;
