@@ -340,6 +340,7 @@ void mtx_weigh (char *TRG, char *prm, char *SRC, char *STATS) { // thread-unsafe
   char *Exp = strstr(prm,"exp"), *Log = strstr(prm,"log");
   char *inq = strstr(prm,"inq"), *idf = strstr(prm,"idf");
   char *std = strstr(prm,"std"), *uni = strstr(prm,"uni");
+  char *cdf = strstr(prm,"cdf");
   char *L1  = strstr(prm,"L1"),  *L2  = strstr(prm,"L2");
   char *Lap = strstr(prm,"Lap");
   char *rnd = strstr(prm,"rnd"), *lsh = strstr(prm,"lsh");
@@ -350,8 +351,9 @@ void mtx_weigh (char *TRG, char *prm, char *SRC, char *STATS) { // thread-unsafe
   char *Erf = strstr(prm,"erf");
   char *Acos = strstr(prm,"acos"), *Atan = strstr(prm,"atan");
   //uint top2 = getprm(prm,"top2=",0);
-  float out = getprm(prm,"out=",0);
-  float thr = getprm(prm,"thresh=",0); //, trp = getprm(prm,"ptrim=",0);
+  float out = getprm(prm,"out=",0); //, trp = getprm(prm,"ptrim=",0);
+  float thr = getprm(prm,"thresh=",0);
+  float high = getprm(prm,"high=",0), low = getprm(prm,"low=",0);
   float top = getprm(prm,"top=",0),  L = getprm(prm,"L=",0);
   float   k = getprm(prm,  "k=",0),  b = getprm(prm,"b=",0);
   float rbf = getprm(prm,"rbf=",0),  sig = getprm(prm,"sig=",0);
@@ -421,7 +423,6 @@ void mtx_weigh (char *TRG, char *prm, char *SRC, char *STATS) { // thread-unsafe
     if (!has_vec (src, id)) continue;
     ix_t *vec = get_vec (src, id), *tmp = 0; // *e = vec + len(vec), *v = vec-1;
     if (!len(vec)) { free_vec (vec); continue; }
-    if     (chop) chop_vec (vec);
     if      (inq) weigh_vec_inq (vec, stats);
     else if (idf) weigh_vec_idf (vec, stats);
     else if (ntf) weigh_vec_ntf (vec, stats);
@@ -433,6 +434,7 @@ void mtx_weigh (char *TRG, char *prm, char *SRC, char *STATS) { // thread-unsafe
     else if (LM && b) { vec = doc2lm (tmp=vec, stats->cf, 0, b); free_vec(tmp); }
     else if (out) crop_outliers (vec, stats, out);
     else if (std) weigh_vec_std (vec, stats);
+    else if (cdf) weigh_vec_cdf (vec);
     else if (Lap) weigh_vec_laplacian (vec, stats);
     else if (rnd) weigh_vec_rnd (vec);
     else if (rbf) vec_x_num (vec, 'r', rbf); // radial basis function
@@ -447,6 +449,9 @@ void mtx_weigh (char *TRG, char *prm, char *SRC, char *STATS) { // thread-unsafe
     if      (FS) { vec_x_full (vec, '&', FS); chop_vec (vec); }
     if      (top) trim_vec (vec, top);
     if      (thr) vec_x_num (vec, 'T', thr);
+    if      (low) vec_x_num (vec, 'T', low);
+    if     (high) vec_x_num (vec, 't', high);
+    if     (chop) chop_vec (vec);
     //if     (top2) trim_vec2 (vec, top2);
     if      (l2p) softmax (vec); // log2posterior
     else if (smx) softmax (vec); // log2posterior
@@ -1689,6 +1694,7 @@ char *usage =
   " B = f A [S]            - apply function f to matrix A, store results in B\n"
   "                          S: matrix for computing statistics (default: use A)\n"
   "                          f:   std - make each column zero mean, unit variance\n"
+  "                               cdf - row-based cumulative distribution function\n"
   "                               idf - multiply weight by idf of the feature\n"
   "                               inq - InQuery tf.idf (BM25)\n"
   "                               ntf - BM25-normalized TF (no idf), set k=2,b=0.75\n"
@@ -1706,7 +1712,9 @@ char *usage =
   "                               uni - uniform weights over top=k features\n"
   "                             ranks - replace weights with rank\n"
   "                             top=k - keep only k highest cells in each vector\n"
-  "                          thresh=k - keep only cells with values > X\n"
+  "                            high=X - keep only cells with values <= X\n"
+  "                             low=X - keep only cells with values >= X\n"
+  "                          thresh=X - keep only cells with values >= X\n"
   "                         FS:df=a:b - remove columns with frequency outside [a:b]\n"
   "                         outlier=Z - crop values outside Z standard deviations\n"
   "                              chop - remove zero entries\n"

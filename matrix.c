@@ -258,7 +258,61 @@ void assert_partition (ix_t *beg, ix_t *pivot, ix_t *last) {
   for (r = last; r > pivot; --r) assert (r->x <= pivot->x);
 }
 
+inline ix_t *partition (ix_t *a, ix_t *z) {
+  ix_t *pivot = a + rand() % (z - a), tmp, *i;
+  SWAP(*pivot,*z);
+  for (i = a-1; a < z; ++a) if (a->x < z->x) { ++i; SWAP(*i,*a); }
+  ++i; SWAP(*i,*z);
+  return i;
+}
+
+void quickselect (ix_t *A, ix_t *Z, uint K) {
+  ix_t *a = A, *z = Z;
+  while (1) {
+    ix_t *m = partition(a,z);
+    if (m - a < K) { K -= (m-a); a = m; }
+    else           { z = m; }
+  }
+}
+	      
+void qselect (ix_t *X, int k) { // reorder X to have top k elements first
+  uint n = ABS(k), top = k>0, bot = k<0;
+  if (len(X) <= n) return;
+  ix_t *beg = X, *last = X+len(X)-1, *a, *b, tmp;
+  while (last > beg) {
+    ix_t *pivot = beg + rand() % (last-beg); // faster than medix3
+    SWAP(*pivot,*last);
+    for (a = b = beg; a < last; ++a) 
+      if ((top && a->x > last->x) ||
+	  (bot && a->x < last->x) ||
+	  (a->x == last->x && a->i < last->i)) { SWAP(*a,*b); ++b; }
+    SWAP(*last,*b); // beg...b-1 > b >= b+1...last
+    if (b == X+n) break; 
+    else if (b > X+n) {last = b-1; }
+    else if (b < X+n) { beg = b+1; } 
+    else break;
+  }
+}
+
 void trim_vec (ix_t *X, int k) {
+  return trim_vec2(X,k);
+  //qselect (X, k);
+  //len(X) = ABS(k); 
+  //sort_vec (X, cmp_ix_i);
+}
+
+void nksample (ix_t *X, uint n, int k) { // top k elements + random n-k
+  if (!X || n >= len(X)) return;
+  qselect (X, k);
+  ix_t *a = X+k-1, *end = X+len(X);
+  while (++a < X+n) {
+    ix_t *b = a + rand() % (end - a), tmp;
+    if (a < b) SWAP(*a,*b);
+  }
+  len(X) = n;
+}
+
+void trim_vec1 (ix_t *X, int k) {
   uint n = ABS(k), top = k>0, bot = k<0;
   if (len(X) <= n) return;
   ix_t *beg = X, *last = X+len(X)-1, *a, *b, tmp;
@@ -1103,6 +1157,13 @@ void weigh_vec_ranks (ix_t *vec) { // rank
   sort_vec (vec, cmp_ix_i);
 }
 
+void weigh_vec_cdf (ix_t *vec) { // values -> cumulative distribution function
+  sort_vec (vec, cmp_ix_x);
+  ix_t *v = vec-1, *end = vec + len(vec);
+  while (++v < end) v->x = (v-vec+1.0) / (end-vec);
+  sort_vec (vec, cmp_ix_i);
+}
+
 //void filter_vec (ix_t *vec, uint *keep) {
 //  ix_t *u, *v, *end = vec+len(vec);
 //  for (v = vec; v < end; ++v) if (keep[v->i]) *u++ = *v;
@@ -1566,6 +1627,16 @@ void rows_x_rows (coll_t *P, coll_t *A, coll_t *B) {
     chop_vec (p);
     put_vec (P, i, p);
     free_vec (a); free_vec (p);
+  }
+}
+
+void rows_o_vec (coll_t *out, coll_t *rows, char op, ix_t *vec) {
+  uint n = num_rows (rows), id;
+  for (id = 1; id <= n; ++id) {
+    ix_t *a = get_vec (rows, id);
+    ix_t *b = vec_x_vec (a, op, vec);
+    put_vec (out, id, b);
+    free_vec (a); free_vec (b);
   }
 }
 
