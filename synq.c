@@ -79,13 +79,13 @@ void *detach (void *(*handle) (void *), void *arg) {
   return NULL;
 }
 
-inline int busy (int *x) { // 1: item is busy, 0: we locked it
+int busy (int *x) { // 1: item is busy, 0: we locked it
   return !__sync_bool_compare_and_swap (x, 0, 1); // !true if swapped 0 -> 1
 }
 
-inline void lock (int *x) { while (busy (x)) usleep (10); }
+void lock (int *x) { while (busy (x)) usleep (10); }
 
-inline void unlock (int *x) { *x = 0; }
+void unlock (int *x) { *x = 0; }
 
 // -------------------------- thread-related -------------------------- 
 

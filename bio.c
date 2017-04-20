@@ -60,30 +60,30 @@ void load_fasta (char *SEQS) { // thread-unsafe: show_progress
 #define BIT(x,n) ((x<<(32-n))>>(31))
 #define ROT(x,n) ((x<<n)|(x>>(32-n)))
 
-inline char bits2c (uint b) { return (b==0) ? 'A' : (b==1) ? 'C' : (b==2) ? 'G' : 'T'; }
-inline uint c2bits (char c) { return (c=='A') ? 0 : (c=='C') ? 1 : (c=='G') ? 2 : 3; }
-inline uint c2rand (char c) { return ((c=='A') ? 0xc73ee513 : (c=='C') ? 0x3a5e13de : 
+char bits2c (uint b) { return (b==0) ? 'A' : (b==1) ? 'C' : (b==2) ? 'G' : 'T'; }
+uint c2bits (char c) { return (c=='A') ? 0 : (c=='C') ? 1 : (c=='G') ? 2 : 3; }
+uint c2rand (char c) { return ((c=='A') ? 0xc73ee513 : (c=='C') ? 0x3a5e13de : 
 				      (c=='G') ? 0xf67cc174 :            0x01ca1a35); }
 
-inline uint tucode (uint i, uint j) { return ROT(i,16) ^ j; }
+uint tucode (uint i, uint j) { return ROT(i,16) ^ j; }
 
-inline void bits2kmer (uint bits, char *mer, uint k) {
+void bits2kmer (uint bits, char *mer, uint k) {
   uint i; mer[k] = 0;
   for (i = 0; i < k; ++i) { mer[i] = bits2c (bits&3); bits >>= 2; }
 }
 
-inline uint kmer2bits (char *mer, uint k) {
+uint kmer2bits (char *mer, uint k) {
   uint bits = 0, i;
   for (i = 0; i < k; ++i) { bits = (bits << 2) | c2bits (mer[i]); }
   return bits;
 }
 
-inline uint update_kmer (uint bits, uint k, char add) {
+uint update_kmer (uint bits, uint k, char add) {
   uint truncate = (1LL << (k << 1)) - 1; // 2k lowest bits
   return ((bits << 2) | c2bits(add)) & truncate;
 } // L-shift old bits by 2, append 2 new bits, truncate to 2k
 
-inline uint update_buzz (uint bits, uint k, char add, char del) {
+uint update_buzz (uint bits, uint k, char add, char del) {
   uint head = c2rand(add), tail = c2rand(del);
   return ROT(bits,1) ^ head ^ ROT(tail,k); // buzhash
 }

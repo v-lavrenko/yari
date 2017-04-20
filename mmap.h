@@ -65,12 +65,12 @@ void *mmap_region (int fd, off_t offs, off_t size, char *access) ;
 void unmap_region (void *region, off_t offs, off_t size);
 void expect_random_access (mmap_t *M, off_t size) ;
 
-inline off_t align8 (off_t x) ;
-inline ulong next_pow2 (ulong x) ;
-inline uint ilog2 (ulong x) ;
-inline uint fast_log2 (unsigned x) ;
-inline off_t page_align (off_t offs, char side) ; // floor:'<'   ceiling:'>'
-inline ulong physical_memory () ;
+off_t align8 (off_t x) ;
+ulong next_pow2 (ulong x) ;
+uint ilog2 (ulong x) ;
+uint fast_log2 (unsigned x) ;
+off_t page_align (off_t offs, char side) ; // floor:'<'   ceiling:'>'
+ulong physical_memory () ;
 
 void *safe_malloc (size_t size) ;
 void *safe_calloc (off_t size) ;
@@ -100,8 +100,8 @@ time_t file_modified (char *fmt, ...) ;
 void rm_dir (char *dir) ;
 void cp_dir (char *src, char *trg) ;
 void mv_dir (char *src, char *trg) ; // delete target, rename source
-inline void show_spinner () ;
-inline void show_progress (ulong n, ulong N, char *s) ;
+void show_spinner () ;
+void show_progress (ulong n, ulong N, char *s) ;
 double getprm (char *params, char *name, double def) ;
 char *getprms (char *params, char *name, char *def, char eol) ;
 char *getprmp (char *params, char *name, char *def) ;

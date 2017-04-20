@@ -61,8 +61,8 @@ uint *backmap (uint *map); // inverse map: map[i]==j <-> inv[j]==i
 //hash_t *hread (char *path) ;
 //unsigned hsizeof (hash_t *t) ;
 
-inline uint murmur3 (const char *key, uint len) ;
-inline uint murmur3uint (uint key) ;
+uint murmur3 (const char *key, uint len) ;
+uint murmur3uint (uint key) ;
 
 //inline uint OneAtATime (const char *key, uint len) ;
 //inline uint SBox (const char *key, uint len) ;

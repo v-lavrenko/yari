@@ -21,7 +21,7 @@
 
 #include "vector.h"
 
-inline void *init_vec_t (vec_t *v, uint n, uint s, int fd) {
+static inline void *init_vec_t (vec_t *v, uint n, uint s, int fd) {
   v->count = n;  v->limit = 0;
   v->esize = s;  v->file = fd;
   if (n && s) memset (v->data, 0, n * (size_t)s);
@@ -63,7 +63,7 @@ void free_vec (void *d) {
 
 // resize vector to 'num' elements, re-allocate if needed
 // vector will be physically resized to next power of 2
-inline void *resize_vec (void *d, uint n) {
+void *resize_vec (void *d, uint n) {
   if (!d) return NULL;
   vec_t *v = vect (d);
   //if (n && n < vlimit(v)) {v->count = n; return d;} // big enough already
@@ -87,7 +87,7 @@ inline void *resize_vec (void *d, uint n) {
 // append an element to the end of vector
 // use for adding a single element:
 // cv_t el = {2, 1}; vec = append (vec, &el);
-inline void *append_vec (void *vec, void *el) {
+void *append_vec (void *vec, void *el) {
   if (!el || !vec) return vec;
   uint i = len(vec), sz = vesize(vec);
   vec = resize_vec (vec, i+1);
@@ -95,7 +95,7 @@ inline void *append_vec (void *vec, void *el) {
   return vec;
 }
 
-inline void *append_many (void *vec, void *els, uint k) {
+void *append_many (void *vec, void *els, uint k) {
   if (!els || !vec) return vec;
   uint n = len(vec), sz = vesize(vec);
   vec = resize_vec (vec, n+k);
@@ -103,14 +103,14 @@ inline void *append_many (void *vec, void *els, uint k) {
   return vec;
 }
 
-inline void *set_vec_el (void *vec, uint i, void *el) {
+void *set_vec_el (void *vec, uint i, void *el) {
   if (i >= len(vec)) vec = resize_vec (vec, i+1);
   uint sz = vesize(vec);
   memcpy (vec + i*sz, el, sz);
   return vec;
 }
 
-inline void *ref_vec_el (void **vec, uint i) {
+void *ref_vec_el (void **vec, uint i) {
   if (i > len(*vec)) (*vec) = resize_vec ((*vec), i+1);
   return (*vec) + i;
 }

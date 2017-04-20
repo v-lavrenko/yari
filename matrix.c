@@ -203,7 +203,7 @@ ix_t *dense_vec (ix_t *vec, float zero, uint n) {
   return dense;
 }
 
-static inline void heapify_up (ix_t *H, uint i) {
+void heapify_up (ix_t *H, uint i) {
   ix_t tmp; 
   while (i > 1) {
     uint j = i/2;
@@ -213,7 +213,7 @@ static inline void heapify_up (ix_t *H, uint i) {
   }
 }
 
-static inline void heapify_do (ix_t *H, uint i, uint N) {
+void heapify_do (ix_t *H, uint i, uint N) {
   ix_t tmp; 
   while (i*2 < N) {
     uint L = i*2, R = L+1; 
@@ -224,7 +224,7 @@ static inline void heapify_do (ix_t *H, uint i, uint N) {
   }
 } 
 
-inline void topKadd (ix_t *H, uint K, ix_t new) {
+void topKadd (ix_t *H, uint K, ix_t new) {
   uint n = len(H);
   if (n < K) { // fewer than K elements => add
     ++len(H);
@@ -258,7 +258,7 @@ void assert_partition (ix_t *beg, ix_t *pivot, ix_t *last) {
   for (r = last; r > pivot; --r) assert (r->x <= pivot->x);
 }
 
-inline ix_t *partition (ix_t *a, ix_t *z) {
+ix_t *partition (ix_t *a, ix_t *z) {
   ix_t *pivot = a + rand() % (z - a), tmp, *i;
   SWAP(*pivot,*z);
   for (i = a-1; a < z; ++a) if (a->x < z->x) { ++i; SWAP(*i,*a); }
@@ -502,9 +502,9 @@ ix_t *bits2codes (ix_t *vec, uint ncodes) {
 //  return sqrt (- log (1 - q*q) * PI / 2); // this is only half (for <0 or >0)
 //}
 
-inline double logit (double x) { return - log (1/x - 1); }
+double logit (double x) { return - log (1/x - 1); }
 
-inline double ident (double x) { return x; }
+double ident (double x) { return x; }
 
 ix_t *simhash (ix_t *vec, uint n, char *distr) {
   //double (*F) (double) = (distr == 'N') ? ppndf : (distr == 'L') ? logit : ident;
@@ -707,11 +707,11 @@ ix_t *parse_vec_xml (char *str, char **id, hash_t *ids, char *prm) {
   return parse_vec_txt (str, NULL, ids, prm); // normal text, but no docid
 }
 
-inline uint is_dense (ix_t *V) { uint n=len(V); return V && n && V[n-1].i == n; }
+uint is_dense (ix_t *V) { uint n=len(V); return V && n && V[n-1].i == n; }
 
-inline uint last_id  (ix_t *V) { uint n=len(V); return (V && n) ? V[n-1].i : 0; }
+uint last_id  (ix_t *V) { uint n=len(V); return (V && n) ? V[n-1].i : 0; }
 
-inline uint num_rows (coll_t *c) { return (!c) ? 0 : c->rdim ? c->rdim : (c->rdim = nvecs(c)); }
+uint num_rows (coll_t *c) { return (!c) ? 0 : c->rdim ? c->rdim : (c->rdim = nvecs(c)); }
 
 uint num_cols (coll_t *c) {
   if (!c) return 0;
@@ -1724,14 +1724,14 @@ void kmeans (coll_t *X, coll_t *M, coll_t *P, uint iter) {
 }
 */
 
-inline double dot_full (ix_t *vec, float *full) {
+double dot_full (ix_t *vec, float *full) {
   double s = 0; uint n = len(full);
   ix_t *v = vec-1, *end = vec+len(vec);
   while (++v < end && v->i < n) s += v->x * full[v->i];
   return s;
 }
 
-inline double dot_dense (ix_t *vec, ix_t *dense) {
+double dot_dense (ix_t *vec, ix_t *dense) {
   double s = 0; uint n = len(dense);
   ix_t *v = vec-1, *end = vec+len(vec);
   while (++v < end && v->i <= n) s += v->x * dense[v->i-1].x;
@@ -2053,17 +2053,17 @@ double igain (ix_t *score, ix_t *truth, double N) {
   return (H - H0 - H1) / n;
 }
 
-inline uint num_rel (ixy_t *evl) {
+uint num_rel (ixy_t *evl) {
   uint n = 0; ixy_t *e = evl-1, *end = evl+len(evl);
   while (++e < end) if (e->y > 0) ++n;
   return n; }
 
-inline uint num_ret (ixy_t *evl) {
+uint num_ret (ixy_t *evl) {
   uint n = 0; ixy_t *e = evl-1, *end = evl+len(evl);
   while (++e < end) if (e->x > -Infinity) ++n;
   return n; }
 
-inline uint rel_ret (ixy_t *evl) {
+uint rel_ret (ixy_t *evl) {
   uint n = 0; ixy_t *e = evl-1, *end = evl+len(evl);
   while (++e < end) if (e->y > 0 && e->x > -Infinity) ++n;
   return n; }

@@ -658,7 +658,7 @@ void mtx_product (char *_P, char *_A, char *_B, char *prm) {
   fprintf (stderr, "[%.0fs] %d rows done\n", vtime(), nA);
 }
 
-inline ix_t *fill_mask (float *full, ix_t *mask) {
+ix_t *fill_mask (float *full, ix_t *mask) {
   assert (last_id(mask) < len(full));
   //ix_t *m = mask-1, *end = mask+len(mask);
   //while (++m < end) m->x = full [m->i];

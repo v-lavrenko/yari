@@ -23,12 +23,12 @@
 #include "matrix.h"
 #include "svm.h"
 
-inline uint tri (uint i, uint j) { // dense lower-triangular matrix
+uint tri (uint i, uint j) { // dense lower-triangular matrix
   if (i >= j) return i*(i-1)/2 + j;
   else        return j*(j-1)/2 + i;
 }
 
-inline uint trilen (uint n) { return (ceil(sqrt(1+8*n)) - 1) / 2; } // n = i(i+1)/2
+uint trilen (uint n) { return (ceil(sqrt(1+8*n)) - 1) / 2; } // n = i(i+1)/2
 
 static inline void L1 (ix_t *X) { vec_x_num (X,'/',sum(X)); }
 

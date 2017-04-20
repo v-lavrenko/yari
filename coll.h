@@ -58,11 +58,11 @@ off_t chunk_sz (coll_t *c, uint id) ;
 
 #define has_vec(c,i) ((i) > 0 && (i) <= nvecs(c) && (c)->offs[(i)])
 void *get_vec (coll_t *c, uint id) ;
-inline void del_vec (coll_t *c, uint id) ;
-inline void put_vec (coll_t *c, uint id, void *vec) ;
+void del_vec (coll_t *c, uint id) ;
+void put_vec (coll_t *c, uint id, void *vec) ;
 void *next_vec (coll_t *c, uint *id);
 void *get_or_new_vec (coll_t *c, uint id, uint esize);
-inline void *get_vec_ro (coll_t *c, uint id) ;
+void *get_vec_ro (coll_t *c, uint id) ;
 void *get_vec_mp (coll_t *c, uint id) ;
 uint len_vec (coll_t *M, uint id) ;
 

@@ -98,10 +98,10 @@ char *id2str (hash_t *h, uint id) {
   else return fmt (malloc(15),"%u",id);
 }
 
-inline char *id2key (hash_t *h, uint id) { return get_chunk (h->keys, id); }
+char *id2key (hash_t *h, uint id) { return get_chunk (h->keys, id); }
 
 // find a slot in indx that is empty or matches the key
-inline uint *href (hash_t *h, char *key, uint code) {
+uint *href (hash_t *h, char *key, uint code) {
   uint *H = h->indx, N = len(h->indx), o = code % N, id; // c = code, i=1;
   while ((id = H[o])) { // stop if we find an empty slot
     if (h->code[id] == code) { // hashcode match for id
@@ -288,11 +288,11 @@ uint *backmap (uint *map) { // map[i-1]==j -> inv[j-1]==i
 
 // adapted from http://www.team5150.com/~andrew/noncryptohashzoo/Murmur3.html
 
-inline uint rot ( uint x, char r ) { return (x << r) | (x >> (32 - r)); }
+uint rot ( uint x, char r ) { return (x << r) | (x >> (32 - r)); }
 
 #define mmix3(h,k) { k *= m1; k = rot(k,r1); k *= m2; h *= 3; h ^= k; }
 
-inline uint murmur3 (const char *key, uint len) {
+uint murmur3 (const char *key, uint len) {
   const uint m1 = 0x0acffe3d, m2 = 0x0e4ef5f3, m3 = 0xa729a897;
   const uint r1 = 11, r2 = 18, r3 = 18;
   uint h = len, k = 0;
@@ -315,7 +315,7 @@ inline uint murmur3 (const char *key, uint len) {
   return h;
 }
 
-inline uint murmur3uint (uint key) {
+uint murmur3uint (uint key) {
   const uint m1 = 0x0acffe3d, m2 = 0x0e4ef5f3, m3 = 0xa729a897;
   const uint r1 = 11, r2 = 18, r3 = 18;
   uint h = 4, k = key;
@@ -328,7 +328,7 @@ inline uint murmur3uint (uint key) {
 
 // good hashes from http://www.team5150.com/~andrew/noncryptohashzoo/
 
-inline uint OneAtATime (const char *key, uint len) {
+uint OneAtATime (const char *key, uint len) {
   register uint hash = 0;
   while (len--) {
     hash += ( *key++ );
@@ -341,7 +341,7 @@ inline uint OneAtATime (const char *key, uint len) {
   return ( hash );
 }
 
-inline uint multiadd_hashcode (char *s) {
+uint multiadd_hashcode (char *s) {
   //if (HASH_FUNC == 1) return murmur3 (s, strlen(s));
   //if (HASH_FUNC == 2) return OneAtATime (s, strlen(s));
   register uint result = 0; 
@@ -384,7 +384,7 @@ const uint SBoxTable[256] = {
   0xdbb4534a, 0xce01f5c8, 0x0c072b61, 0x5d59736a, 0x60291da4, 0x1fbe2c71, 0x2f11d09c, 0x9dce266a,
 };
 
-inline uint SBox (const char *key, uint len) {
+uint SBox (const char *key, uint len) {
   register uint h = len;
   for ( ; len & ~1; len -= 2, key += 2 )
     h = ( ( ( h ^ SBoxTable[(uint)key[0]] ) * 3 ) ^ SBoxTable[(uint)key[1]] ) * 3;
@@ -394,7 +394,7 @@ inline uint SBox (const char *key, uint len) {
   return h;
 }
 
-inline uint sfrand (uint seed) { return seed *= 16807; }
+uint sfrand (uint seed) { return seed *= 16807; }
 
 /*
 void hwrite (hash_t *t, char *_path) {
