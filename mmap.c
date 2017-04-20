@@ -330,11 +330,15 @@ int popen2 (const char *command, pid_t *_pid) {
   //return in;
 }
 
+#ifndef MAP_POPULATE
+#define MAP_POPULATE 0
+#endif
+
 void *safe_mmap (int fd, off_t offset, off_t size, char *access) {
   int mprot = (access[0] == 'r') ? PROT_READ  : (PROT_READ|PROT_WRITE);
   //int mflag = (access[1] == '+') ? MAP_SHARED : (MAP_SHARED|MAP_POPULATE); // pre-populate hashes/vecs
   int mflag = (access[1] == '!') ? (MAP_SHARED|MAP_POPULATE) : MAP_SHARED; // pre-populate when forced
-  if (access[1] == '!') fprintf (stderr, "[mmap:%d] pre-fetching %ld+%ldMB\n", fd, offset, (size>>20));
+  if (access[1] == '!') fprintf (stderr, "[mmap:%d] pre-fetching %lld+%lldMB\n", fd, offset, (size>>20));
   //if (1) mflag = MAP_SHARED;
   //fprintf (stderr, "[mmap] fd:%d:%s off:%ld sz:%ld mprot:%d mflag:%d\n", fd, access, offset, size, mprot, mflag);
   if (size == 0) return NULL;
