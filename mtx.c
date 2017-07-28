@@ -21,7 +21,7 @@
 
 #include <math.h>
 #include <err.h>
-#include <omp.h>
+//#include <omp.h>
 #include "matrix.h"
 #include "textutil.h"
 #include "svm.h"
@@ -647,7 +647,8 @@ void mtx_product (char *_P, char *_A, char *_B, char *prm) {
     free_vec (_a); 
     free_vec (_c); 
     free_vec (S);
-    if (omp_get_thread_num() == 0) show_progress (++done, nA, "rows");
+    //if (omp_get_thread_num() == 0)
+    show_progress (++done, nA, "rows");
   }
   free_coll (B);
   free_vec (SA);
