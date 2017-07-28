@@ -23,7 +23,8 @@ LIB=-lm -lpthread
 
 opt ?= -g # make opt=-O3 (optimised) or opt=-pg (profile)
 
-CC=gcc -m64 $(opt) -W -Wall -Wno-unused-result -I . -o $@ $(f64) -fopenmp
+#CC=gcc -m64 $(opt) -W -Wall -Wno-unused-result -I . -o $@ $(f64) -fopenmp
+CC=gcc -m64 $(opt) -W -Wall -Wno-unused-result -I . -o $@ $(f64) 
 
 exe = testmmap testvec testcoll dict mtx stem kvs hl bio
 
