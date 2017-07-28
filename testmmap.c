@@ -25,16 +25,17 @@
 
 ulong myrand (ulong prev) { return prev * 1103515245 + 12345; }
 
-#ifdef __MACH__
-#define CLOCK_MONOTONIC 1
-#include <sys/time.h>
-void clock_gettime(int tmp, struct timespec* t) {
-  struct timeval T = {0,0}; (void) tmp;
-  gettimeofday(&T, NULL);
-  t->tv_sec  = T.tv_sec;
-  t->tv_nsec = T.tv_usec * 1000;
-}
-#endif
+// no longer needed on MacOS
+//#ifdef __MACHxxx__
+//#define CLOCK_MONOTONIC 1
+//#include <sys/time.h>
+//void clock_gettime(int tmp, struct timespec* t) {
+//  struct timeval T = {0,0}; (void) tmp;
+//  gettimeofday(&T, NULL);
+//  t->tv_sec  = T.tv_sec;
+//  t->tv_nsec = T.tv_usec * 1000;
+//}
+//#endif
 
 double mstime() {
   struct timespec tp;
