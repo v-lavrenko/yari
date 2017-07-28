@@ -227,7 +227,7 @@ void put_chunk_pwrite (coll_t *c, uint id, void *chunk, off_t size) {
   safe_pwrite (c->vecs->file, chunk, size, c->offs[id]);
 }
 
-vec_t nullvec = {0, 0, 0, 0};
+vec_t nullvec = {0, 0, 0, 0, {}};
 
 void *get_vec (coll_t *c, uint id) {
   vec_t *hdr = get_chunk (c, id);
