@@ -25,7 +25,7 @@ opt ?= -g # make opt=-O3 (optimised) or opt=-pg (profile)
 
 CC=gcc -m64 $(opt) -W -Wall -Wno-unused-result -I . -o $@ $(f64) -fopenmp
 
-exe = testmmap testvec testcoll dict mtx stem kvs hl bio
+exe = testmmap testvec testcoll dict mtx stem kvs hl bio shard
 
 all: $(exe) libyari.a
 	etags *.c *.h
@@ -63,3 +63,5 @@ kvs: kvs.c libyari.a
 hl: hl.c
 
 bio: bio.c libyari.a
+
+shard: shard.c libyari.a
