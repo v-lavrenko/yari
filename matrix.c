@@ -2201,11 +2201,12 @@ char *vec2set (ix_t *vec, uint N) {
 }
 
 void vec_x_set (ix_t *vec, char op, char *set) {
-  assert (vec && set && (op == '*' || op == '-'));
+  assert (vec && set && (op == '.' || op == '*' || op == '-'));
   uint N = len(set);
   ix_t *u = vec, *v = vec-1, *end = vec+len(vec);
-  assert (end == vec || end[-1].i < N);
+  if (end > vec) assert (end[-1].i < N);
   if (op == '*') while (++v < end) if ( set[v->i]) *u++ = *v;
+  if (op == '.') while (++v < end) if ( set[v->i]) *u++ = *v;
   if (op == '-') while (++v < end) if (!set[v->i]) *u++ = *v;
   len(vec) = u - vec;
 }
