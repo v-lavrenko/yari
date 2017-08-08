@@ -28,13 +28,14 @@
 void dump_raw_ret (char *C, char *RH) {
   coll_t *c = open_coll (C, "r+");
   hash_t *h = open_hash (RH, "r!");
-  char qryid[100], docid[100], line[1000];
-  while (fgets (line, 999, stdin)) {
+  char qryid[9999], docid[999], line[10000], *eol;
+  while (fgets (line, 9999, stdin)) {
     if (*line == '#') continue;
+    if ((eol = strchr(line,'\n'))) *eol = '\0';
     if (2 != sscanf (line, "%s %s", qryid, docid)) continue;
     uint i = key2id(h,docid);
     char *raw = get_chunk(c,i);
-    printf ("<DOC id=\"%s\"> %s",qryid,raw);
+    printf ("%s\t%s\n",line,raw);
   }
   free_coll(c); free_hash(h);
 }
@@ -277,7 +278,7 @@ void do_pairs (ix_t *rnk, char *RANKS, char *PAIRS) {
   mv_dir (RANKs, RANKS);
 }
 
-void do_out (ix_t *rnk, char *TEXT, char *RNDR){
+void do_out (ix_t *rnk, char *TEXT, char *RNDR){ // unsafe: system()
   ix_t *r;
   //hash_t *dict = (DICT && *DICT) ? open_hash (DICT, "r")  : NULL;
   //coll_t *docs = (DOCS && *DOCS) ? open_coll (DOCS, "r+") : NULL;
@@ -929,7 +930,7 @@ ix_t *examples_for_set (uint set, rnk_t *rnk, char *prm) {
   return pos;
 }
 
-void rnk_drag_svm (rnk_t *rnk, char *prm) { // thread-unsafe: centroid
+void rnk_drag_svm (rnk_t *rnk, char *prm) { // thread-unsafe: centroid + system()
   uint set, m = rnk_max_set (rnk);
   save_svm_vec (0, centroid(DOCS), "./train.vecs", "w");
   for (set = 0; set <= m; ++set) {
