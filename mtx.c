@@ -287,13 +287,16 @@ static void mtx_weigh_sum (coll_t *trg, coll_t *src, char *prm) {
 
 static it_t parse_slice (char *slice, uint min, uint max) ;
 static float *mtx_feature_select (coll_t *src, char *prm) {
-  char *p;  
+  char *p; 
   if ((p=strstr(prm,"FS:df="))) {
     it_t range = parse_slice (p+6, 1, num_rows(src));
-    fprintf (stderr, "Feature selection: %d < df < %d ...", range.i-1, range.t+1);
+    fprintf (stderr, "Feature selection: %d < df < %d ", range.i-1, range.t+1);
     float *F = sum_cols (src, 0), *f;
-    for (f = F; f < F+len(F); ++f) if (*f < range.i || *f > range.t) *f = 0;
-    fprintf (stderr, "\n");
+    uint kept = 0;
+    for (f = F; f < F+len(F); ++f) 
+      if (*f < range.i || *f > range.t) *f = 0;
+      else ++kept;
+    fprintf (stderr, " %d kept\n", kept);
     return F;
   }
   return NULL;
@@ -546,9 +549,9 @@ void dot2lm (coll_t *P, coll_t *Q, char *prm) { // products => LM scores
   free_vec (DL); free_vec (CF); 
 }
 
-void mtx_subset (char *_A, char *_B, char *_H) {
+void mtx_rowset (char *_A, char *_B, char *_H) {
   char ID[1000], *NL; uint done = 0;
-  fprintf (stderr, "%s = subset %s [%s] reading ids from stdin\n", _A, _B, _H);
+  fprintf (stderr, "%s = rowset %s [%s] reading ids from stdin\n", _A, _B, _H);
   coll_t *A = open_coll (_A, "w+");
   coll_t *B = open_coll (_B, "r+");
   hash_t *H = open_hash (_H, "r");
@@ -562,6 +565,34 @@ void mtx_subset (char *_A, char *_B, char *_H) {
     show_progress (++done, 0, "vecs copied");
   }
   free_coll (A); free_coll (B); free_hash (H);
+}
+
+void mtx_colset (char *_A, char *_B, char *_H) {
+  char ID[1000], *NL; 
+  uint id = 0, dropped = 0, inset = 0, done = 0;
+  fprintf (stderr, "%s = colset %s reading stdin: ", _A, _B);
+  hash_t *H = open_hash (_H, "r");
+  char *set = new_vec (nkeys(H)+1, sizeof(char));
+  while (fgets(ID,999,stdin)) {
+    if ((NL = strchr (ID,'\n'))) *NL = 0;
+    id = has_key (H,ID);
+    set[id] = 1;
+    if (id) ++inset;
+    else ++dropped;
+  }
+  free_hash (H);
+  fprintf (stderr, "%d ids (%d not in %s)\n", inset, dropped, _H);
+  coll_t *A = open_coll (_A, "w+");
+  coll_t *B = open_coll (_B, "r+");
+  uint N = num_rows(B);
+  for (id = 1; id <= N; ++id) {
+    ix_t *vec = get_vec (B, id);
+    vec_x_set (vec, '*', set) ;
+    if (len(vec)) put_vec (A, id, vec);
+    free_vec (vec);
+    show_progress (++done, N, "vecs masked");
+  }
+  free_coll (A); free_coll (B); 
 }
 
 void mtx_product (char *_P, char *_A, char *_B, char *prm) {
@@ -1759,6 +1790,8 @@ char *usage =
   " A = shuffle B          - randomly re-order (permute) the rows of B (see -r)\n"
   " A = sample:[type] B    - down-sample each row to n=N items or with prob. p=P\n"
   " A = subset B H         - read ids from stdin and set A[id] = B[id] using hash H\n"
+  " A = rowset B H         - A[r,*] = B[r,*] for r in {rows}, read from stdin via H\n"
+  " A = colset B H         - A[*,c] = B[*,c] for c in {cols}, read from stdin via H\n"
   " xval:fold=1 A T E [V]  - cross-validation A:all, T:train, E:test, V:validation\n"
   " T = mst A              - max spanning tree of affinity matrix A (symmetric)\n"
   " R = reachable S G      - R[i,:] = nodes in graph G reachable from S[i,:]\n"
@@ -1892,7 +1925,9 @@ int main (int argc, char *argv[]) {
     else if (!strncmp (a(3), "paste",5))   mtx_paste (tmp, arg(3), argv+4, argc-4);
     else if (!strcmp  (a(3), "shuffle"))   mtx_shuffle (tmp, arg(4));
     else if (!strncmp (a(3), "sample",6))  mtx_sample (tmp, arg(4), a(3));
-    else if (!strncmp (a(3), "subset",6))  mtx_subset (tmp, arg(4), arg(5));
+    else if (!strncmp (a(3), "subset",6))  mtx_rowset (tmp, arg(4), arg(5));
+    else if (!strncmp (a(3), "rowset",6))  mtx_rowset (tmp, arg(4), arg(5));
+    else if (!strncmp (a(3), "colset",6))  mtx_colset (tmp, arg(4), arg(5));
     else if (!strncmp (a(3), "polyex",6))  mtx_polyex (tmp, arg(4), a(3));
     else if (!strncmp (a(3), "impute",6))  mtx_impute (tmp, arg(4));
     else if (!strncmp (a(3), "maxent",6))  mtx_maxent2 (tmp, arg(4), arg(5), a(3));
