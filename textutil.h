@@ -30,6 +30,11 @@ void cqsub (char *str, char what, char with, char quot) ;
 void chop (char *str, char *blanks) ; // remove head/tail blanks
 
 char *substr (char *str, uint n) ; // str[0:n) in a static buffer
+void reverse (char *str, uint n) ; // reverse sub-string of length n
+
+uint atou (char *s) ; // string to integer (unsigned, decimal)
+char *itoa (char*_a, uint i) ;
+
 
 void squeeze (char *str, char *what) ;
 void cgrams (char *str, uint lo, uint hi, uint step, char *buf, uint eob) ; // character n-grams
@@ -45,6 +50,7 @@ char *extract_between (char *buf, char *A, char *B) ;
 
 char *next_token (char **text, char *ws) ;
 
+char *field_value (char *str, char sep, uint col) ; // 
 uint split (char *str, char sep, char **_tok, uint ntoks) ;
 
 int read_doc (FILE *in, char *buf, int n, char *beg, char *end) ;
