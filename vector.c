@@ -234,9 +234,11 @@ int cmp_it_t (const void *n1, const void *n2) { // by increasing t
   uint t1 = ((it_t*)n1)->t, t2 = ((it_t*)n2)->t; 
   return t1 - t2; }
 
+int cmp_ix_I (const void *n1, const void *n2) { return -cmp_ix_i (n1,n2); }
 int cmp_ix_i (const void *n1, const void *n2) { // by increasing id
   uint i1 = ((ix_t*)n1)->i, i2 = ((ix_t*)n2)->i; 
   return i1 - i2; }
+
 
 //int cmp_ix_x (const void *n1, const void *n2) { // by increasing value
 //  float x1 = ((ix_t*)n1)->x, x2 = ((ix_t*)n2)->x;
