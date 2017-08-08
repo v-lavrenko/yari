@@ -284,20 +284,20 @@ FILE *safe_fopen (char *path, char *access) {
   return f;
 }
 
-FILE *safe_popen (char *access, char *fmt, ...) {
+FILE *safe_popen (char *access, char *fmt, ...) { // unsafe: popen()
   char cmd [1000];
   va_list args;
   va_start (args, fmt);
   vsprintf (cmd, fmt, args);
   va_end (args);
-  FILE *p = popen (cmd, access);
+  FILE *p = popen (cmd, access); // unsafe
   if (!p) {
     fprintf (stderr, "[popen] failed to open '%s' for '%s': [%d] ", cmd, access, errno);
     perror (""); assert (0); }
   return p; 
 }
 
-int popen2 (const char *command, pid_t *_pid) {
+int popen2 (const char *command, pid_t *_pid) { // unsafe: popen()
   int fd[2]; // read fd[0] <-- fd[1] write 
   
   if (pipe(fd)) { perror ("pipe failed"); return 0; }
@@ -539,13 +539,13 @@ off_t file_size (char *fmt, ...) {
   return buf.st_size;
 }
 
-void cp_dir (char *src, char *trg) {
+void cp_dir (char *src, char *trg) { // unsafe: system()
   if (!src || !trg) return;
   char x[1000], *cmd = fmt (x, "mkdir -p %s; cp %s/* %s", trg, src, trg);
   if (system (cmd)) { fprintf (stderr, "ERROR: %s\n", cmd); perror(""); assert(0); }
 }
 
-void rm_dir (char *dir) {
+void rm_dir (char *dir) { // unsafe: system()
   if (!dir) return;
   char x[1000], *cmd = fmt (x, "rm -rf %s", dir);
   if (system (cmd)) { fprintf (stderr, "ERROR: %s\n", cmd); perror(""); assert(0); }
@@ -553,7 +553,7 @@ void rm_dir (char *dir) {
 
 void mv_dir (char *src, char *trg) { // delete target, rename source
   if (!src || !trg) return;
-  rm_dir (trg);
+  rm_dir (trg); // unsafe: system()
   if (rename (src, trg)) {
     fprintf (stderr, "ERROR: mv %s %s [%d] ", src, trg, errno);
     perror (""); assert (0); 
