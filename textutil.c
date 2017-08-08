@@ -88,6 +88,16 @@ void cgrams (char *str, uint lo, uint hi, uint step, char *buf, uint eob) {
   *b = 0;
 }
 
+char *field_value (char *line, char sep, uint col) {
+  uint f; 
+  char *this = line;
+  for (f = 1; this && f < col; ++f) this = strchr(this,sep);
+  if (!this) return NULL;
+  char *seps = "\t\r\n"; seps[0] = sep;
+  uint length = strcspn (this+1, seps);
+  return strndup(this+1,length);
+}
+
 uint split (char *str, char sep, char **_tok, uint ntoks) {
   char **tok = _tok, **last = _tok + ntoks - 1;
   *tok++ = str;
@@ -118,6 +128,28 @@ char *substr (char *s, uint n) {
   buf[n] = 0;
   return buf;
 }
+
+uint atou (char *s) { // string to integer (unsigned, decimal)
+  register uint U = 0, B = 10;
+  register int zero = '0', nine = '9';
+  for (; *s >= zero && *s <= nine; ++s) // only leading digits
+    U = B*U + (*s - zero);
+  return U;
+}
+
+void reverse (char *str, uint n) { 
+  char *beg = str-1, *end = str + n, tmp;
+  while (++beg < --end) { tmp = *beg; *beg = *end; *end = tmp; }
+}
+
+char *itoa (char*_a, uint i) {
+  char *a = _a;
+  while (i > 0) { *a++ = i%10 + '0'; i /= 10; }
+  *a = 0;
+  reverse (_a, a-_a);
+  return a;
+}
+
 
 // erase (overwrite with 'C') every occurence of A...B
 void erase_between (char *buf, char *A, char *B, int C) {
