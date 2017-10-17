@@ -143,6 +143,8 @@ void weigh_vec_cdf (ix_t *vec) ;
 
 void weigh_invl_lmd (ix_t *invl, stats_t *s, float mu) ;
 void crop_outliers (ix_t *vec, stats_t *s, float Z) ;
+void keep_outliers (ix_t *X, float p) ;
+xy_t cdf_interval (ix_t *X, float p) ;
 
 void weigh_mtx (coll_t *M, char *prm, stats_t *s) ;
 
@@ -190,7 +192,7 @@ ulong  sumi (uint *V) ;
 uint  *maxi (uint *V) ;
 
 uint count (ix_t *V, char op, float x) ;
-ix_t *value_counts (ix_t *V, float eps) ;
+ix_t *distinct_values (ix_t *V, float eps) ;
 double value_entropy (ix_t *V) ;
 
 double H (ix_t *X, ix_t *Y, double mu, float *CF, ulong CL) ;
@@ -225,6 +227,7 @@ void vec_x_full (ix_t *V, char op, float *F) ;
 ix_t *vec_x_vec (ix_t *X, char op, ix_t *Y) ;
 void num_x_vec (double b, char op, ix_t *A) ;
 void vec_x_num (ix_t *A, char op, double b) ;
+void vec_x_range (ix_t *A, char op, xy_t R) ;
 ix_t *vec_add_vec (float x, ix_t *X, float y, ix_t *Y) ;
 void vec_mul_vec (ix_t *V, ix_t *F) ; // fast, sparse, in-place
 void filter_and (ix_t *V, ix_t *F) ; // in-place

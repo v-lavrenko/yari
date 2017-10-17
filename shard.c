@@ -2,34 +2,42 @@
 #include "textutil.h"
 
 FILE **fopen_files (uint num, char *pfx, char *mode) {
-  uint i;
-  char path[9999];
+  uint i; char path[9999]; 
+  mkdir_parent (pfx);
   FILE **file = new_vec (num, sizeof(FILE*));
   for (i = 0; i < num; ++i) 
     file[i] = safe_fopen (fmt (path,"%s%d",pfx,i+1), mode);
   return file;
 }
 
-void fclose_files (FILE **file) {
-  uint i;
-  for (i = 0; i < len(file); ++i) if (file[i]) fclose(file[i]);
+void fclose_files (FILE **file, char *pfx, char *clean) {
+  uint i; char path[9999];
+  for (i = 0; i < len(file); ++i) if (file[i]) {
+      fclose(file[i]);
+      if (clean) remove (fmt (path,"%s%d",pfx,i+1));
+    }
   free_vec (file);
+  if (clean) rmdir_parent (pfx);
 }
 
 void do_shard (FILE *in, FILE **out, char *prm) {
+  //char *mur = strstr (prm,"murmur"), *mad = strstr (prm,"multiadd");
+  //hash_t *H = open_hash(0,0);
   uint col = getprm (prm,"col=",0);
   char *key = getprms (prm,"key=","id",',');
   char *line = NULL;
   size_t sz = 0;
   while (getline (&line, &sz, in) > 0) {
-    char *val = col ? field_value (line,'\t',col) : json_value (line,key);
-    uint bin = multiadd_hashcode (val) % len(out);
-    //uint bin = murmur3 (id, strlen(val)) % num;
-    fputs (line, out[bin]);
+    char *val = col ? tsv_value (line,col) : json_value (line,key);
+    uint code = multiadd_hashcode (val); // murmur3 (val, strlen(val)); key2id (H,val));
+    uint bin =  code % len(out);
+    fprintf (out[bin], "%d %d '%s' %s\n", bin, code, val, line);
+    //fputs (line, out[bin]);
     if (val) free (val);
   }
   if (line) free (line);
   if (key) free (key);
+  //if (H) free_hash(H);
 }
 
 /*
@@ -72,12 +80,13 @@ int main (int argc, char *argv[]) {
   uint num = getprm(prm,"num=",100);
   char *pfx = getprms(prm,"pfx=","bin",',');
   char *mode = strstr(prm,"append") ? "a" : "w";
+  char *clean = strstr(prm,"clean");
   //char *merge = strstr(prm,"merge");
   FILE **files = fopen_files (num, pfx, mode);
   do_shard (stdin, files, prm);
   //if (merge) do_merge (files, key);
-  fclose_files (files);
-  free (pfx); free (mode);
+  fclose_files (files, pfx, clean);
+  free (pfx);
   return 0;
 }
 

@@ -50,11 +50,11 @@ inline static hash_t *open_hash_inmem () {
 }
 
 hash_t *open_hash (char *_path, char *_access) {
+  if (!_path) return open_hash_inmem ();
   if (*_access != 'w' && file_exists (_path) && !file_exists ("%s/hash.code",_path)) { 
     fprintf (stderr, "\n\nERROR: %s is outdated, re-index or downgrade\n\n", _path);
     exit(1); 
   }
-  if (!_path) return open_hash_inmem ();
   //int MAP_OLD = MAP_MODE; MAP_MODE |= MAP_POPULATE; // pre-load hashtable
   char *path = strdup (_path), x[9999]; // 
   char *access = strdup(_access);

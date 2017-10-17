@@ -64,6 +64,8 @@ uint *backmap (uint *map); // inverse map: map[i]==j <-> inv[j]==i
 uint murmur3 (const char *key, uint len) ;
 uint murmur3uint (uint key) ;
 uint multiadd_hashcode (char *s) ;
+uint OneAtATime (const char *key, uint len) ;
+uint SBox (const char *key, uint len) ;
 
 //inline uint OneAtATime (const char *key, uint len) ;
 //inline uint SBox (const char *key, uint len) ;

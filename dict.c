@@ -23,6 +23,7 @@
 
 uint multiadd_hashcode (char *s) ;
 uint murmur3 (const char *key, uint len) ;
+uint *href (hash_t *h, char *key, uint code) ;
 
 extern ulong COLLISIONS;
 extern off_t MMAP_MOVES;
@@ -37,6 +38,27 @@ int main (int argc, char *argv[]) {
   //HASH_FUNC = getprm(prm,"F=",0);
   //HASH_PROB = getprm(prm,"P=",0);
   //HASH_LOAD = getprm(prm,"L=",0.5);
+
+  if (!strcmp(argv[1], "-uniq")) {
+    ix_t *C = new_vec(0,sizeof(ix_t)), *c;
+    hash_t *H = open_hash (0,0);
+    char *line = NULL;
+    size_t sz = 0;
+    while (getline (&line, &sz, stdin) > 0) {
+      uint id = key2id(H,line);
+      if (id > len(C)) C = resize_vec (C, id);
+      C[id-1].i = id;
+      C[id-1].x ++;
+    }
+    sort_vec (C, cmp_ix_X);
+    for (c = C; c < C+nkeys(H); ++c)
+      printf ("%.0f\t%s", c->x, id2key(H,c->i));
+    if (line) free (line);
+    free_hash (H);
+    free_vec (C);
+    return 0;
+  }
+
   
   if (argc < 3) {
     fprintf (stderr, 
@@ -49,11 +71,13 @@ int main (int argc, char *argv[]) {
 	     "                 -add DICT < ids\n"
 	     "               -merge DICT += DICT2\n"
 	     "               -batch DICT += DICT2\n"
+	     "           -diff,tail DICT - DICT2\n"
 	     "                 -k2i DICT key\n"
 	     "                 -i2k DICT id\n"
 	     "                 size DICT\n"
 	     "                 -dbg DICT\n"
 	     "                -rand 1-4 logN\n"
+	     "                -uniq ... faster uniq\n"
 	     );
     return 1;
   }
@@ -177,6 +201,24 @@ int main (int argc, char *argv[]) {
     free_hash (A);
     return 0;
   }
+  
+  if (!strcmp(argv[1], "-diff") && !strcmp(argv[3],"-")) {
+    char *tail = strstr (argv[1], "tail");
+    hash_t *A = open_hash (argv[2], "r");
+    hash_t *B = open_hash (argv[4], "r!");
+    uint i, nB = nkeys(B), nA = nkeys(A), nD = 0;
+    fprintf (stderr, "diff: %s [%d] - %s [%d]\n", A->path, nA, B->path, nB);
+    for (i = nA; i >= 1; --i) { // for each key in A
+      char *key = id2key(A,i);
+      uint code = A->code[i];
+      uint *inB = href(B,key,code);
+      if (!*inB) { ++nD; puts(key); }
+      else if (tail) break; // stop on 1st key in B
+    }
+    fprintf (stderr, "diff: %d in %s - %s\n", nD, A->path, B->path);
+    free_hash (A); free_hash (B);
+    return 0;
+  }
 
   if (!strcmp(argv[1], "-k2i")) {
     hash_t *h = open_hash (argv[2], "r");
@@ -229,6 +271,9 @@ int main (int argc, char *argv[]) {
     printf(" %lu random numbers ", i);
     return 0;
   }
+    
+  fprintf (stderr, "ERROR\n");
+  return 0;
 
   ulong lines = 0; 
   char *path = argv[1], phrase[10000];

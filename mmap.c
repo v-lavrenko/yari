@@ -560,6 +560,24 @@ void mv_dir (char *src, char *trg) { // delete target, rename source
   }
 }
 
+void mkdir_parent (char *_path) { // unsafe: system
+  char *path = strdup(_path), *eop = strrchr (path, '/'), cmd[1000];
+  if (!eop) return;
+  *eop = '\0';
+  if (file_exists (path)) return;
+  sprintf (cmd, "mkdir -p %s", path);
+  if (system (cmd)) { fprintf (stderr, "ERROR: %s\n", cmd); assert(0); }
+  free(path);
+}
+
+void rmdir_parent (char *path) { // unsafe: system
+  char *eop = strrchr (path, '/'); // last slash
+  if (!eop) return;
+  char *pfx = strndup(path,eop-path);
+  rm_dir (pfx);
+  free (pfx);
+}
+
 inline void show_spinner () { // thread-unsafe: static
   static int i = 0;
   char spin[] = "|/-\\";

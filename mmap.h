@@ -100,6 +100,8 @@ time_t file_modified (char *fmt, ...) ;
 void rm_dir (char *dir) ;
 void cp_dir (char *src, char *trg) ;
 void mv_dir (char *src, char *trg) ; // delete target, rename source
+void mkdir_parent (char *_path) ; // unsafe: system
+void rmdir_parent (char *path) ; // unsafe: system
 void show_spinner () ;
 void show_progress (ulong n, ulong N, char *s) ;
 double getprm (char *params, char *name, double def) ;

@@ -46,10 +46,12 @@ typedef struct { uint i; float x; } ix_t;
 
 typedef struct { uint i; uint t; } it_t;
 
-typedef struct { uint j; uint i; float x; } jix_t;
-
 typedef struct { float x; float y; } xy_t;
 
+typedef struct { uint j; uint i; float x; } jix_t;
+
 typedef struct { uint i; float x; float y; } ixy_t;
+
+typedef struct { uint i; uint j; uint k; } ijk_t;
 
 #endif

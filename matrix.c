@@ -1194,6 +1194,25 @@ void crop_outliers (ix_t *vec, stats_t *s, float out) {
   }
 }
 
+xy_t cdf_interval (ix_t *X, float p) { // at least p of the values fall into [x,y]
+  if (!len(X) || p <= 0 || p > 1) return (xy_t) {0,0};
+  ix_t *C = distinct_values (X, 0), *last = C+len(C)-1, *c;
+  for (c = C+1; c <= last; ++c) c->i += c[-1].i; // CDF
+  xy_t CI = {C->x, last->x}, THR = { (1-p)/2 * last->i, (1+p)/2 * last->i};
+  if (len(C) < 30) return CI;
+  for (c = C; c <= last; ++c) if (c->i >= THR.x) { CI.x = c->x; break; } // [x
+  for (c = last; c >= C; --c) if (c->i <= THR.y) { CI.y = c->x; break; } // ??
+  free_vec (C);
+  return CI;
+}
+
+void keep_outliers (ix_t *X, float p) { 
+  fprintf (stderr, "[%f..%f] %d -> ", min(X)->x, max(X)->x, len(X));
+  xy_t CI = cdf_interval (X,p);
+  vec_x_range (X, '-', CI);
+  fprintf (stderr, "%d [%f..%f]\n", len(X), CI.x, CI.y);
+}
+
 void weigh_mtx (coll_t *M, char *prm, stats_t *s) {
   char *l2p = strstr(prm,"softmax");
   float  L1 = getprm(prm,"L1=",0);
@@ -1896,14 +1915,14 @@ uint count (ix_t *V, char op, float x) {
   return n;
 }
 
-ix_t *value_counts (ix_t *V, float eps) {
+ix_t *distinct_values (ix_t *V, float eps) {
   ix_t *a, *b, *C = copy_vec(V), *end = C+len(C);
   sort_vec (C, cmp_ix_x);
   for (a = b = C; b < end; ++b) {
     b->i = 1;
     if (a == b) continue;
     float diff = b->x ? (a->x / b->x - 1) : 1;
-    float same = ABS(diff) < eps;
+    float same = ABS(diff) <= eps;
     if (same) { a->i += b->i; a->x = b->x; }
     else if (++a < b) *a = *b;
   }
@@ -1911,7 +1930,7 @@ ix_t *value_counts (ix_t *V, float eps) {
 }
 
 double value_entropy (ix_t *V) {
-  ix_t *C = value_counts(V,.01), *c;
+  ix_t *C = distinct_values (V,.01), *c;
   double N = len(V), H = 0;
   for (c = C; c < C+len(C); ++c) {
     double p = c->i / N;
@@ -1950,8 +1969,11 @@ double lnP (ix_t *X, ix_t *Y, double mu, float *CF, ulong CL) {
 double entropy (ix_t *X) {
   double SX = sum(X), entropy = 0;
   ix_t *w, *end = X + len(X);
-  for (w = X; w < end; ++w) entropy -= w->x * log(w->x);
-  return entropy / (SX?SX:1);
+  for (w = X; w < end; ++w) {
+    double p = w->x / (SX ? SX : 1);
+    entropy -= p * log(p);
+  }
+  return entropy;
 }
 
 double cross_entropy (ix_t *X, ix_t *Y, double mu, float *CF, ulong CL) {
@@ -2400,6 +2422,17 @@ void num_x_vec (double b, char op, ix_t *A) {
   default: vec_x_num (A, op, b);
   }
   //chop_vec(A);
+}
+
+void vec_x_range (ix_t *A, char op, xy_t R) { // [x,y)
+  ix_t *a = A-1, *e = A + len(A);
+  switch (op) {
+  case '.': 
+  case '*': while (++a<e) a->x = (R.x <= a->x && a->x <= R.y) ? a->x : 0; break;
+  case '-': while (++a<e) a->x = (a->x < R.x  ||  R.y < a->x) ? a->x : 0; break;
+  default: assert (0 && "unknown vector-range operation");
+  }
+  chop_vec(A);
 }
 
 ix_t *vec_X_vec (ix_t *A, ix_t *B) { // polynomial expansion

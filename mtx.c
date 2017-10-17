@@ -360,6 +360,8 @@ void mtx_weigh (char *TRG, char *prm, char *SRC, char *STATS) { // thread-unsafe
   float top = getprm(prm,"top=",0),  L = getprm(prm,"L=",0);
   float   k = getprm(prm,  "k=",0),  b = getprm(prm,"b=",0);
   float rbf = getprm(prm,"rbf=",0),  sig = getprm(prm,"sig=",0);
+  char *distinct = strstr(prm,"distinct");
+  float outside = getprm(prm,"outside=",0);
   
   //float lmj = getprm(prm,"lm:j=",0), lmd = getprm(prm,"lm:d=",0);
   //fprintf (stderr, "%s -> %f\n", prm, pow);
@@ -436,6 +438,7 @@ void mtx_weigh (char *TRG, char *prm, char *SRC, char *STATS) { // thread-unsafe
     else if (LM && k) { vec = doc2lm (tmp=vec, stats->cf, k, 0); free_vec(tmp); }
     else if (LM && b) { vec = doc2lm (tmp=vec, stats->cf, 0, b); free_vec(tmp); }
     else if (out) crop_outliers (vec, stats, out);
+    else if (outside) keep_outliers (vec, outside); 
     else if (std) weigh_vec_std (vec, stats);
     else if (cdf) weigh_vec_cdf (vec);
     else if (Lap) weigh_vec_laplacian (vec, stats);
@@ -469,6 +472,7 @@ void mtx_weigh (char *TRG, char *prm, char *SRC, char *STATS) { // thread-unsafe
     else if (rou) vec_x_num (vec, 'i', 0);
     if      (smh) { vec = simhash (tmp=vec, L*k, smd); free_vec (tmp); }
     if      (lsh) { vec = bits2codes (tmp=vec, L);     free_vec (tmp); }
+    if (distinct) { vec = distinct_values (tmp=vec,0); free_vec (tmp); }
     if      (Max) { vec->i=1; vec->x = max(vec)->x;      len(vec)=1; }
     else if (Min) { vec->i=1; vec->x = min(vec)->x;      len(vec)=1; }
     else if (Sm0) { vec->i=1; vec->x = sump(0,vec);      len(vec)=1; }
@@ -1741,6 +1745,7 @@ char *usage =
   "                           lsh:L=0 - binarize (>0), split into L chunks\n"
   "                           simhash - generate L=32 fingerprints of k=16 bits\n"
   "                                     sampling simhash:Uniform,Normal,Logistic,Bernoulli\n"
+  "                          distinct - column numbers -> per-row counts of unique values\n"
   "                               uni - uniform weights over top=k features\n"
   "                             ranks - replace weights with rank\n"
   "                             top=k - keep only k highest cells in each vector\n"
@@ -1749,6 +1754,7 @@ char *usage =
   "                          thresh=X - keep only cells with values >= X\n"
   "                         FS:df=a:b - remove columns with frequency outside [a:b]\n"
   "                         outlier=Z - crop values outside Z standard deviations\n"
+  "                         outside=p - keep values outside p-confidence interval\n"
   "                              chop - remove zero entries\n"
   "                          mtx2full - convert matrix A to collection of float[]\n"
   "                          full2mtx - convert a collection of float[] to matrix\n"
