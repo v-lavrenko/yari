@@ -1,22 +1,22 @@
 /*
-
-   Copyright (C) 1997-2014 Victor Lavrenko
-
-   All rights reserved. 
-
-   THIS SOFTWARE IS PROVIDED BY VICTOR LAVRENKO AND OTHER CONTRIBUTORS
-   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-   FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-   COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-   INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-   (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-   SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-   HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-   STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
-   OF THE POSSIBILITY OF SUCH DAMAGE.
-
+  
+  Copyright (c) 1997-2016 Victor Lavrenko (v.lavrenko@gmail.com)
+  
+  This file is part of YARI.
+  
+  YARI is free software: you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+  
+  YARI is distributed in the hope that it will be useful, but WITHOUT
+  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+  or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+  License for more details.
+  
+  You should have received a copy of the GNU General Public License
+  along with YARI. If not, see <http://www.gnu.org/licenses/>.
+  
 */
 
 #include <math.h>
@@ -71,6 +71,7 @@ void maxent_update_W (jix_t *P, coll_t *X, coll_t *W, float *D, float rate) {
 // Y[c x d] ... list of docs in class c
 // X[d x w] ... list of words present in doc d
 void maxent_train (jix_t *P, coll_t *X, coll_t *W, char *prm) {
+  char buf[999];
   float faster = getprm(prm,"faster=",1.1), rate = getprm(prm,"rate=",0.1);
   float slower = getprm(prm,"slower=",0.5), ridge = getprm(prm,"ridge=",1);
   uint iterations = getprm(prm,"iterations=",10);
@@ -78,7 +79,7 @@ void maxent_train (jix_t *P, coll_t *X, coll_t *W, char *prm) {
   uint iter, nw = num_cols (X);
   float *D = new_vec (nw+1, sizeof (float)); // gradient vector
   jix_t *P0 = copy_vec (P);
-  coll_t *W0 = open_coll (cat(W->path,".tmp"),"w+");
+  coll_t *W0 = open_coll (fmt(buf,"%s.tmp",W->path),"w+");
   for (iter = 0; iter < iterations; ++iter) {
     //maxent_update_W (P,X,W,D,(i?rate:1)); // 1st iteration => centroid
     jix_t *p, *last = P+len(P)-1;
@@ -135,7 +136,7 @@ static double maxent_likelihood (coll_t *YP) {
 
 void split_mtx (coll_t *M, float p, coll_t *A, coll_t *B) ;
 void maxent2 (coll_t *W, coll_t *_Y, coll_t *X, char *prm) {
-  char *mask = strstr(prm,"mask"), *seed = strstr(prm,"seed");
+  char *mask = strstr(prm,"mask"), *seed = strstr(prm,"seed"), buf[999];
   float faster = getprm(prm,"faster=",1.1), rate = getprm(prm,"rate=",0.1);
   float slower = getprm(prm,"slower=",0.5), h = getprm(prm,"reg=",0.3);
   float valid = getprm(prm,"valid=",0);
@@ -145,9 +146,9 @@ void maxent2 (coll_t *W, coll_t *_Y, coll_t *X, char *prm) {
   float prune = pow (voc*1./vocab, 1./(iterations-2));
   double L, L0 = -Infinity;
   coll_t *XT = transpose (X);
-  coll_t *P  = open_coll (cat(W->path,".P" ),"w+");
-  coll_t *P0 = open_coll (cat(W->path,".P0"),"w+");
-  coll_t *W0 = open_coll (cat(W->path,".W0"),"w+");
+  coll_t *P  = open_coll (fmt(buf,"%s.P",W->path), "w+");
+  coll_t *P0 = open_coll (fmt(buf,"%s.P0",W->path),"w+");
+  coll_t *W0 = open_coll (fmt(buf,"%s.W0",W->path),"w+");
   coll_t *Y  = open_coll(0,0), *Z = open_coll(0,0); split_mtx (_Y,valid,Y,Z);
   fprintf (stderr, "%5s %3s %5s %6s %6s %3s %3s\n", 
 	   "time", "#", "rate", "logL", "vocab", "train", "valid");

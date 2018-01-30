@@ -1,22 +1,22 @@
 /*
-
-   Copyright (C) 2014 AENALYTICS LLC
-
-   All rights reserved. 
-
-   THIS SOFTWARE IS PROVIDED BY AENALYTICS LLC AND OTHER CONTRIBUTORS
-   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-   FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-   COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-   INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-   (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-   SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-   HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-   STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
-   OF THE POSSIBILITY OF SUCH DAMAGE.
-
+  
+  Copyright (c) 1997-2016 Victor Lavrenko (v.lavrenko@gmail.com)
+  
+  This file is part of YARI.
+  
+  YARI is free software: you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+  
+  YARI is distributed in the hope that it will be useful, but WITHOUT
+  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+  or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+  License for more details.
+  
+  You should have received a copy of the GNU General Public License
+  along with YARI. If not, see <http://www.gnu.org/licenses/>.
+  
 */
 
 #include "netutil.h"
@@ -30,6 +30,7 @@ void server_killed (int n) { // will be called on INT or TERM signal
 
 // redirect bad signals to the user-supplied handler function
 void trap_signals (void (*handle)(int)) {
+  signal (SIGHUP,  handle);
   signal (SIGTERM, handle);
   signal (SIGINT,  handle);
   signal (SIGQUIT, handle);
@@ -40,16 +41,17 @@ void trap_signals (void (*handle)(int)) {
   signal (SIGPWR,  handle); // not defined on a Mac
 #endif
   signal (SIGFPE,  handle);
-  signal (SIGABRT, handle);
-  signal (SIGHUP,  handle);
+  //signal (SIGABRT, handle);
 }
 
 // simple error-handling wrapper around network functions
 int safe (char *comment, int result) {
   if (result == -1) {
-    fprintf (stderr, "[%s] failed: [%d] ", comment, errno);
-    perror (""); 
-    assert (0); }
+    fprintf (stderr, "--------------------------------------------------\n");
+    fprintf (stderr, "[%s] failed: [%d] ", comment, errno);  perror (""); 
+    fprintf (stderr, "--------------------------------------------------\n");
+    // assert (0); 
+  }
   return result;
 }
 
@@ -98,7 +100,13 @@ int client_socket (char *host) {
   *port++ = '\0'; // null-terminate host, point to port
   saddr_t *server = mkaddr (host, atoi(port));
   int sock = safe ("socket", socket (AF_INET, SOCK_STREAM, 0)); 
-  safe ("connect", connect (sock, (paddr_t) server, sizeof (saddr_t)));
+  int err = connect (sock, (paddr_t) server, sizeof (saddr_t));
+  if (err == -1) {
+    fprintf (stderr, "[connect] %s:%s failed: [%d] ", host, port, errno);
+    perror (""); 
+    close (sock);
+    return -1;
+  }
   return sock;
 }
 
@@ -137,7 +145,7 @@ int accept_and_send (int sockid, void *data, int size) {
 
 // same as above but connection is kept open for subsequent calls 
 // -- useful for 'pushing' a data to the client (e.g. newsfeed)
-int accept_send_hold (int sockid, char *message, int size) {
+int accept_send_hold (int sockid, char *message, int size) { // thread-unsafe: static
   static int client = -1; 
   if (sockid == -1) return -1;
   if (client == -1) client = accept (sockid, NULL, NULL);
@@ -192,10 +200,18 @@ char *receive_message (int sockid, char eom) {
 }
 
 int send_message (int sockid, char *message, int size) {
-  int sent, flags = MSG_NOSIGNAL | MSG_DONTWAIT;
-  sent = send (sockid, message, size, flags);
-  if (sent == -1) perror ("send_message: ");
-  return (sent == size);
+  int sent, flags = MSG_NOSIGNAL | MSG_DONTWAIT, wait=1;
+  while (size > 0) {
+    sent = send (sockid, message, size, flags);
+    if (sent == -1) { 
+      if (errno == EAGAIN) usleep (wait*=2); 
+      else perror ("send_message: "); 
+      continue;
+    } 
+    if (sent < size) fprintf (stderr, "[send_message] sent %d < %d bytes, retrying\n", sent, size);
+    message += sent; size -= sent;
+  }
+  return (size == 0);
 }
 
 char *extract_message (char *buf, char *eom, int *used) {
@@ -210,7 +226,7 @@ char *extract_message (char *buf, char *eom, int *used) {
   return msg;
 }
 
-char *recv_message (int sockid, char *eom) {
+char *recv_message (int sockid, char *eom) { // thread-unsafe: static
   int get = 10000, got, flags = MSG_NOSIGNAL | MSG_DONTWAIT;
   static int N = 10000, used = 0;
   static char *buf = NULL;
@@ -317,4 +333,11 @@ int readall (int fd, char *buf, int sz, int ttl) {
     //else warn ("[%d] read ERROR %d", fd, errno);
   }
   return used;
+}
+
+void socket_timeout (int fd, uint sec) {
+  struct timeval tv;
+  tv.tv_sec = sec;  /* 30 Secs Timeout */
+  tv.tv_usec = 0;  // Not init'ing this can cause strange errors
+  setsockopt (fd, SOL_SOCKET, SO_RCVTIMEO, (char *)&tv, sizeof(tv));
 }

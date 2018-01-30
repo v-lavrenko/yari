@@ -1,27 +1,27 @@
 /*
-
-   Copyright (C) 1997-2014 Victor Lavrenko
-
-   All rights reserved. 
-
-   THIS SOFTWARE IS PROVIDED BY VICTOR LAVRENKO AND OTHER CONTRIBUTORS
-   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-   FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-   COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-   INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-   (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-   SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-   HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-   STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
-   OF THE POSSIBILITY OF SUCH DAMAGE.
-
+  
+  Copyright (c) 1997-2016 Victor Lavrenko (v.lavrenko@gmail.com)
+  
+  This file is part of YARI.
+  
+  YARI is free software: you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+  
+  YARI is distributed in the hope that it will be useful, but WITHOUT
+  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+  or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+  License for more details.
+  
+  You should have received a copy of the GNU General Public License
+  along with YARI. If not, see <http://www.gnu.org/licenses/>.
+  
 */
 
 #include "vector.h"
 
-inline void *init_vec_t (vec_t *v, uint n, uint s, int fd) {
+static inline void *init_vec_t (vec_t *v, uint n, uint s, int fd) {
   v->count = n;  v->limit = 0;
   v->esize = s;  v->file = fd;
   if (n && s) memset (v->data, 0, n * (size_t)s);
@@ -63,7 +63,7 @@ void free_vec (void *d) {
 
 // resize vector to 'num' elements, re-allocate if needed
 // vector will be physically resized to next power of 2
-inline void *resize_vec (void *d, uint n) {
+void *resize_vec (void *d, uint n) {
   if (!d) return NULL;
   vec_t *v = vect (d);
   //if (n && n < vlimit(v)) {v->count = n; return d;} // big enough already
@@ -87,7 +87,7 @@ inline void *resize_vec (void *d, uint n) {
 // append an element to the end of vector
 // use for adding a single element:
 // cv_t el = {2, 1}; vec = append (vec, &el);
-inline void *append_vec (void *vec, void *el) {
+void *append_vec (void *vec, void *el) {
   if (!el || !vec) return vec;
   uint i = len(vec), sz = vesize(vec);
   vec = resize_vec (vec, i+1);
@@ -95,7 +95,7 @@ inline void *append_vec (void *vec, void *el) {
   return vec;
 }
 
-inline void *append_many (void *vec, void *els, uint k) {
+void *append_many (void *vec, void *els, uint k) {
   if (!els || !vec) return vec;
   uint n = len(vec), sz = vesize(vec);
   vec = resize_vec (vec, n+k);
@@ -103,14 +103,14 @@ inline void *append_many (void *vec, void *els, uint k) {
   return vec;
 }
 
-inline void *set_vec_el (void *vec, uint i, void *el) {
+void *set_vec_el (void *vec, uint i, void *el) {
   if (i >= len(vec)) vec = resize_vec (vec, i+1);
   uint sz = vesize(vec);
   memcpy (vec + i*sz, el, sz);
   return vec;
 }
 
-inline void *ref_vec_el (void **vec, uint i) {
+void *ref_vec_el (void **vec, uint i) {
   if (i > len(*vec)) (*vec) = resize_vec ((*vec), i+1);
   return (*vec) + i;
 }
@@ -204,10 +204,67 @@ void *read_vec (char *path) {
 void sort_vec (void *d, int (*cmp) (const void *, const void *)) {
   qsort (d, len(d), vesize(d), cmp); }
 
-
-void *bsearch_vec (void *el, void *vec, int (*cmp) (const void *, const void *)) {
+void *bsearch_vec_old (void *el, void *vec, int (*cmp) (const void *, const void *)) {
   return bsearch (el, vec, len(vec), vesize(vec), cmp); }
 
+// returns pointer to first element >= id
+void *bsearch_vec (void *vec, uint id) { // assume id is 1st field in each element
+  long lo = -1, hi = len(vec), mid, sz = vesize(vec); // both out of range
+  while (hi - lo > 1) {
+    mid = (lo + hi) / 2;
+    uint *pid = (uint *) ((char*)vec + mid * sz);
+    if (*pid < id) lo = mid; // lo <  id
+    else           hi = mid; // hi >= id
+  }
+  return (char*)vec + hi * sz;
+}
+
+///////////////////////////// sorting for common vector types
+
+int cmp_jix (const void *n1, const void *n2) { // by increasing j then i
+  jix_t *r1 = (jix_t*) n1, *r2 = (jix_t*) n2; 
+  uint di = r1->i - r2->i, dj = r1->j - r2->j;
+  return dj ? dj : di; }
+
+int cmp_it_i (const void *n1, const void *n2) { // by increasing i
+  uint i1 = ((it_t*)n1)->i, i2 = ((it_t*)n2)->i; 
+  return i1 - i2; }
+
+int cmp_it_t (const void *n1, const void *n2) { // by increasing t
+  uint t1 = ((it_t*)n1)->t, t2 = ((it_t*)n2)->t; 
+  return t1 - t2; }
+
+int cmp_ix_I (const void *n1, const void *n2) { return -cmp_ix_i (n1,n2); }
+int cmp_ix_i (const void *n1, const void *n2) { // by increasing id
+  uint i1 = ((ix_t*)n1)->i, i2 = ((ix_t*)n2)->i; 
+  return i1 - i2; }
+
+
+//int cmp_ix_x (const void *n1, const void *n2) { // by increasing value
+//  float x1 = ((ix_t*)n1)->x, x2 = ((ix_t*)n2)->x;
+//  return (x1 < x2) ? -1 : (x1 > x2) ? +1 : 0; }
+
+int cmp_ix_x (const void *n1, const void *n2) { return -cmp_ix_X (n1,n2); }
+int cmp_ix_X (const void *n1, const void *n2) { // by decreasing value
+  float x1 = ((ix_t*)n1)->x, x2 = ((ix_t*)n2)->x;
+  return (x1 > x2) ? -1 : (x1 < x2) ? +1 : 0; }
+
+int cmp_ixy_i (const void *n1, const void *n2) { // by increasing id
+  uint i1 = ((ixy_t*)n1)->i, i2 = ((ixy_t*)n2)->i; 
+  return i1 - i2; }
+
+int cmp_ixy_x (const void *n1, const void *n2) { return -cmp_ixy_X (n1,n2); }
+int cmp_ixy_X (const void *n1, const void *n2) { // by decreasing x
+  float x1 = ((ixy_t*)n1)->x, x2 = ((ixy_t*)n2)->x;
+  return (x1 > x2) ? -1 : (x1 < x2) ? +1 : 0; }
+
+int cmp_ixy_y (const void *n1, const void *n2) { return -cmp_ixy_Y (n1,n2); }
+int cmp_ixy_Y (const void *n1, const void *n2) { // by decreasing y
+  float y1 = ((ixy_t*)n1)->y, y2 = ((ixy_t*)n2)->y;
+  return (y1 > y2) ? -1 : (y1 < y2) ? +1 : 0; }
+
+int cmp_x (const void *n1, const void *n2) { return -cmp_X (n1,n2); }
+int cmp_X (const void *n1, const void *n2) { return *((float*)n2) - *((float*)n1); }
 
 /*
 void vzero (void *d) { // zero out unused portion of the vector

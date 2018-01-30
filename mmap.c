@@ -1,28 +1,31 @@
 /*
-
-   Copyright (C) 2014 AENALYTICS LLC
-
-   All rights reserved. 
-
-   THIS SOFTWARE IS PROVIDED BY AENALYTICS LLC AND OTHER CONTRIBUTORS
-   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-   FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-   COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-   INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-   (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-   SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-   HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-   STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
-   OF THE POSSIBILITY OF SUCH DAMAGE.
-
+  
+  Copyright (c) 1997-2016 Victor Lavrenko (v.lavrenko@gmail.com)
+  
+  This file is part of YARI.
+  
+  YARI is free software: you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+  
+  YARI is distributed in the hope that it will be useful, but WITHOUT
+  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+  or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+  License for more details.
+  
+  You should have received a copy of the GNU General Public License
+  along with YARI. If not, see <http://www.gnu.org/licenses/>.
+  
 */
 
 #define _GNU_SOURCE // necessary for safe_mremap
 #include "mmap.h"
 
-off_t MAP_SIZE = 1<<28;
+//void warn (char *s) { fprintf (stderr, "%s\n", s); }
+
+off_t MAP_SIZE = 1<<30;
+//int MAP_MODE = 0; //  MAP_LOCKED | MAP_NONBLOCK | MAP_POPULATE
 
 mmap_t *open_mmap (char *path, char *access, off_t size) {
   mmap_t *M = safe_calloc (sizeof (mmap_t));
@@ -30,7 +33,9 @@ mmap_t *open_mmap (char *path, char *access, off_t size) {
   M->file = safe_open (path, access);
   M->flen = safe_lseek (M->file, 0, SEEK_END);
   M->offs = 0;
-  M->size = page_align ((size?size:MAP_SIZE),'>');
+  //if (!size) size = MAX(M->flen,1<<30);
+  size = MAX(M->flen,1<<30);
+  M->size = page_align (size,'>');
   if (M->flen < M->size) {
     if (*access == 'r') M->size = page_align (M->flen,'>');
     else M->flen = safe_truncate (M->file, M->size); }
@@ -52,7 +57,7 @@ void expect_random_access (mmap_t *M, off_t size) {
 
 void free_mmap (mmap_t *M) {
   if (!M) return;
-  if (M->data) munmap (M->data, M->size);
+  if (M->data) munmap (M->data, M->size); 
   if (M->next) free_mmap (M->next);
   else if (M->file) close (M->file); // close only once
   memset (M, 0, sizeof (mmap_t));
@@ -72,17 +77,27 @@ void write_mmap (mmap_t *map, char *path) {
 
 off_t MMAP_MOVES = 0;
 
+void *move_mmap (mmap_t *M, off_t offs, off_t size) { // thread-unsafe (if M shared)
+  if (offs >= M->offs && (offs+size) <= (M->offs + M->size))
+    return M->data + (offs - M->offs); // region already in map
+  if (offs+size > M->flen) assert (0 && "move_mmap: offs+size > flen");
+  if (M->data) munmap (M->data, M->size); // release old map
+  M->data = safe_mmap (M->file, 0, (M->size=M->flen), M->mode);
+  MMAP_MOVES += 1; // += M->size;
+  return M->data + offs;
+}
+
 // checks whether the region [offs..+size] is available from map
 // if not -- shifts map to include the region, 
 // making sure the mapping aligns on a page boundary
 // if random-access: uses pread() outside of main map
-void *move_mmap (mmap_t *M, off_t offs, off_t size) {
+void *move_mmap_old (mmap_t *M, off_t offs, off_t size) {
   if (offs >= M->offs && (offs+size) <= (M->offs + M->size))
     return M->data + (offs - M->offs); // region already in map
   if (M->next) return move_mmap (M->next, offs, size);
   if (0) fprintf (stderr, "[%'lu %'lu] outside map(%d) [%'lu %'lu]\n", 
-  	  (ulong)offs, (ulong)(offs+size), M->file,
-  	  (ulong)(M->offs), (ulong)(M->offs + M->size));
+		  (ulong)offs, (ulong)(offs+size), M->file,
+		  (ulong)(M->offs), (ulong)(M->offs + M->size));
   assert (offs+size <= M->flen);
   if (M->data) munmap (M->data, M->size); // release old map
   off_t beg = page_align (offs, '<'), end = page_align (offs+size, '>');
@@ -95,7 +110,7 @@ void *move_mmap (mmap_t *M, off_t offs, off_t size) {
   return M->data + (offs - M->offs); 
 }
 
-inline void *move_mmap_old (mmap_t *map, off_t offs, off_t size) {
+inline void *move_mmap_older (mmap_t *map, off_t offs, off_t size) {
   off_t beg = offs, end = offs+size;
   if (beg < map->offs || end > (map->offs+map->size)){
     assert (beg < end && end < map->flen && end-beg < map->size);
@@ -111,13 +126,6 @@ inline void *move_mmap_old (mmap_t *map, off_t offs, off_t size) {
   return map->data + (beg - map->offs);
 }
 
-void expand_mmap (mmap_t *map, off_t size) {
-  if (map->flen > size) return; // enough space
-  map->flen = next_pow2 (size); // page_align (2 * size, '>');
-  safe_truncate (map->file, map->flen); // expand file
-  if (map->next) map->next->flen = map->flen; // update overflow map
-}
-
 // map region beg..end from file (align boundaries properly)
 void *mmap_region (int fd, off_t offs, off_t size, char *access) {
   off_t beg = page_align (offs,'<'), end = page_align (offs+size,'>');
@@ -131,13 +139,20 @@ void unmap_region (void *region, off_t offs, off_t size) {
   munmap (region - (offs-beg), end-beg);
 }
 
-void grow_mmap (mmap_t *M) {
-  //ulong LIMIT = physical_memory();
-  if (M->size >= M->flen) return;
-  if (M->data) munmap (M->data, M->size); // release old map
-  M->offs = 0;
-  M->size = page_align (M->flen, '>');
-  M->data = safe_mmap (M->file, M->offs, M->size, M->mode);
+void grow_mmap_file (mmap_t *map, off_t size) {
+  if (map->flen > size) return; // enough space
+  map->flen = next_pow2 (size); // page_align (2 * size, '>');
+  safe_truncate (map->file, map->flen); // expand file
+  if (map->next) map->next->flen = map->flen; // update overflow map
+}
+
+void grow_mmap (mmap_t *map, off_t size) {
+  grow_mmap_file (map, size);
+  if (map->size >= map->flen) return;
+  if (map->data) munmap (map->data, map->size); // release old map
+  map->size = map->flen;
+  map->data = safe_mmap (map->file, 0, map->size, map->mode);
+  MMAP_MOVES += 1; // += M->size;
 }
 
 ////////////////////////////////////////////////////////////
@@ -207,8 +222,8 @@ inline uint ilog2 (ulong x) {
 }
 
 // returns page-aligned ceiling of a number
-inline off_t page_align (off_t offs, char side) {
-  static off_t psize = 0;
+inline off_t page_align (off_t offs, char side) { // should be thread-safe
+  static off_t psize = 0; 
   if (!psize) psize = sysconf (_SC_PAGESIZE);
   off_t floor = psize * (uint) (offs / psize);
   off_t ceil = (floor < offs) ? floor + psize : floor;
@@ -269,20 +284,20 @@ FILE *safe_fopen (char *path, char *access) {
   return f;
 }
 
-FILE *safe_popen (char *access, char *fmt, ...) {
+FILE *safe_popen (char *access, char *fmt, ...) { // unsafe: popen()
   char cmd [1000];
   va_list args;
   va_start (args, fmt);
   vsprintf (cmd, fmt, args);
   va_end (args);
-  FILE *p = popen (cmd, access);
+  FILE *p = popen (cmd, access); // unsafe
   if (!p) {
     fprintf (stderr, "[popen] failed to open '%s' for '%s': [%d] ", cmd, access, errno);
     perror (""); assert (0); }
   return p; 
 }
 
-int popen2 (const char *command, pid_t *_pid) {
+int popen2 (const char *command, pid_t *_pid) { // unsafe: popen()
   int fd[2]; // read fd[0] <-- fd[1] write 
   
   if (pipe(fd)) { perror ("pipe failed"); return 0; }
@@ -315,9 +330,17 @@ int popen2 (const char *command, pid_t *_pid) {
   //return in;
 }
 
+#ifndef MAP_POPULATE
+#define MAP_POPULATE 0
+#endif
+
 void *safe_mmap (int fd, off_t offset, off_t size, char *access) {
-  int mprot = (*access == 'r') ? PROT_READ : (PROT_READ|PROT_WRITE);
-  int mflag = MAP_SHARED; // MAP_PRIVATE MAP_NONBLOCK
+  int mprot = (access[0] == 'r') ? PROT_READ  : (PROT_READ|PROT_WRITE);
+  //int mflag = (access[1] == '+') ? MAP_SHARED : (MAP_SHARED|MAP_POPULATE); // pre-populate hashes/vecs
+  int mflag = (access[1] == '!') ? (MAP_SHARED|MAP_POPULATE) : MAP_SHARED; // pre-populate when forced
+  if (access[1] == '!') fprintf (stderr, "[mmap:%d] pre-fetching %ld+%ldMB\n", fd, (long)offset, (long)(size>>20));
+  //if (1) mflag = MAP_SHARED;
+  //fprintf (stderr, "[mmap] fd:%d:%s off:%ld sz:%ld mprot:%d mflag:%d\n", fd, access, offset, size, mprot, mflag);
   if (size == 0) return NULL;
   void *buf = mmap64 (NULL, size, mprot, mflag, fd, offset);
   if ((buf == (void *) -1) || (buf == NULL)) {
@@ -332,8 +355,8 @@ void *safe_remap (int fd, void *buf, off_t osize, off_t nsize) {
 #ifdef MREMAP_MAYMOVE
   buf = mremap (buf, osize, nsize, MREMAP_MAYMOVE);
 #else
-  munmap(buf, osize);
-  buf = safe_mmap (fd, 0, nsize, "w");
+  munmap(buf, osize); 
+  buf = safe_mmap (fd, 0, nsize, "w"); // specifying "w" here is BAAD, used in resize_vec()
 #endif
   if ((buf == (void*) -1) || (buf == NULL)) {
     fprintf (stderr, "[mremap] failed on %lu bytes: [%d] ", (ulong)nsize, errno);
@@ -399,25 +422,24 @@ off_t safe_pwrite (int fd, void *buf, off_t size, off_t offset) {
   return (off_t) result;
 }
 
-char *itoa (uint i) {
+char *___itoa (uint i) { // thread-unsafe: static + buffer overflow
   static char buf[100];
   sprintf (buf, "%u", i);
   return buf;
 }
 
-char *ftoa (char *fmt, float f) {
+char *___ftoa (char *fmt, float f) { // thread-unsafe: static + buffer overflow
   static char buf[100];
   sprintf (buf, fmt, f);
   return buf;
 }
 
-char *cat (char *s1, char *s2) {
-  static char *buf = NULL;
-  if (!buf) {buf = safe_calloc (1<<12); *buf=0;}
+char *acat (char *s1, char *s2) {
   if (!s1 || !s2) return NULL;
-  if (s1 != buf) strcpy (buf, s1);
-  strcat (buf, s2);
-  return buf;
+  char *s = malloc (strlen(s1) + strlen(s2) + 1);
+  strcpy (s,s1);
+  strcat (s,s2);
+  return s;
 }
 
 // append src to *dst, re-allocating *dst if needed
@@ -434,6 +456,16 @@ char *fmt (char *buf, const char *format, ...) {
   va_list args;
   va_start (args, format);
   vsprintf (buf, format, args);
+  va_end (args);
+  return buf;
+}
+
+char *fmtn (int sz, const char *format, ...) {
+  assert (sz && format);
+  char *buf = malloc(sz); *buf='\0';
+  va_list args;
+  va_start (args, format);
+  vsnprintf (buf, sz, format, args);
   va_end (args);
   return buf;
 }
@@ -458,7 +490,7 @@ void stracat_test () {
 }
 */
 
-float vtime () {
+float vtime () { // thread-unsafe: static
   static long clock_speed = 0;
   static clock_t last = 0;
   struct tms buf;
@@ -472,7 +504,7 @@ float vtime () {
 }
 
 int file_exists (char *fmt, ...) {
-  char path [1000];
+  char path [9999];
   va_list args;
   va_start (args, fmt);
   vsprintf (path, fmt, args);
@@ -482,21 +514,38 @@ int file_exists (char *fmt, ...) {
 }
 
 // time when the file was last modified
-time_t file_modified (char *file_name) {
+time_t file_modified (char *fmt, ...) {
+  char path [9999];
+  va_list args;
+  va_start (args, fmt);
+  vsprintf (path, fmt, args);
+  va_end (args);
   struct stat buf;
-  if (!file_exists(file_name)) return 0;
   memset (&buf, 0, sizeof(buf));
-  stat (file_name, &buf);
+  //if (!file_exists(file_name)) return 0;
+  if (stat (path, &buf)) return 0; // file doesn't exist
   return buf.st_mtime;
 }
 
-void cp_dir (char *src, char *trg) {
+off_t file_size (char *fmt, ...) {
+  char path [9999];
+  va_list args;
+  va_start (args, fmt);
+  vsprintf (path, fmt, args);
+  va_end (args);
+  struct stat buf;
+  memset (&buf, 0, sizeof(buf));
+  if (stat (path, &buf)) return 0; // file doesn't exist
+  return buf.st_size;
+}
+
+void cp_dir (char *src, char *trg) { // unsafe: system()
   if (!src || !trg) return;
   char x[1000], *cmd = fmt (x, "mkdir -p %s; cp %s/* %s", trg, src, trg);
   if (system (cmd)) { fprintf (stderr, "ERROR: %s\n", cmd); perror(""); assert(0); }
 }
 
-void rm_dir (char *dir) {
+void rm_dir (char *dir) { // unsafe: system()
   if (!dir) return;
   char x[1000], *cmd = fmt (x, "rm -rf %s", dir);
   if (system (cmd)) { fprintf (stderr, "ERROR: %s\n", cmd); perror(""); assert(0); }
@@ -504,21 +553,39 @@ void rm_dir (char *dir) {
 
 void mv_dir (char *src, char *trg) { // delete target, rename source
   if (!src || !trg) return;
-  rm_dir (trg);
+  rm_dir (trg); // unsafe: system()
   if (rename (src, trg)) {
     fprintf (stderr, "ERROR: mv %s %s [%d] ", src, trg, errno);
     perror (""); assert (0); 
   }
 }
 
-inline void show_spinner () {
+void mkdir_parent (char *_path) { // unsafe: system
+  char *path = strdup(_path), *eop = strrchr (path, '/'), cmd[1000];
+  if (!eop) return;
+  *eop = '\0';
+  if (file_exists (path)) return;
+  sprintf (cmd, "mkdir -p %s", path);
+  if (system (cmd)) { fprintf (stderr, "ERROR: %s\n", cmd); assert(0); }
+  free(path);
+}
+
+void rmdir_parent (char *path) { // unsafe: system
+  char *eop = strrchr (path, '/'); // last slash
+  if (!eop) return;
+  char *pfx = strndup(path,eop-path);
+  rm_dir (pfx);
+  free (pfx);
+}
+
+inline void show_spinner () { // thread-unsafe: static
   static int i = 0;
   char spin[] = "|/-\\";
   fprintf (stderr, "%c\r", spin[++i%4]);
 }
 
-inline void show_progress (ulong n, ulong N, char *s) {
-  static ulong dots = 0, m = 0, line = 50;
+inline void show_progress (ulong done, ulong total, char *s) { // thread-unsafe: static
+  static ulong dots = 0, prev = 0, line = 50;
   static time_t last = 0, begt = 0;
   time_t this = time(0);
   //printf ("%d %d %d\n", this, last, CLOCKS_PER_SEC);
@@ -527,19 +594,19 @@ inline void show_progress (ulong n, ulong N, char *s) {
   last = this;
   fprintf (stderr, ".");
   if (!begt) begt = this;
-  if (n < m) m = n; 
+  if (done < prev) prev = done; 
   if (++dots < line) return;
-  dots = 0;
-  double todo = N-n, di = n-m, ds = this-begt, rpm = 60*di/ds, ETA = todo/rpm;
+  double todo = total-done, di = done-prev, ds = this-begt, rpm = 60*di/ds, ETA = todo/rpm;
   //double ETA = ((double)(N-n)) / ((n-m) * 60 / line); // minutes
-  if (!N) fprintf (stderr, "%ld %s @ %.0f / minute\n", n, s, rpm);
-  else {  fprintf (stderr, "%ld / %ld %s", n, N, s);
+  if (!total) fprintf (stderr, "%ld %s @ %.0f / minute\n", done, s, rpm);
+  else {      fprintf (stderr, "%ld / %ld %s", done, total, s);
     if (ETA < 60)        fprintf (stderr, " ETA: %.1f minutes\n", ETA);
     else if (ETA < 1440) fprintf (stderr, " ETA: %.1f hours\n", ETA/60);
     else                 fprintf (stderr, " ETA: %.1f days\n", ETA/1440);
   }
-  m = n;
+  prev = done;
   begt = this;
+  dots = 0;
 }
 
 double getprm (char *params, char *name, double def) {

@@ -1,28 +1,29 @@
 /*
-
-   Copyright (C) 1997-2014 Victor Lavrenko
-
-   All rights reserved. 
-
-   THIS SOFTWARE IS PROVIDED BY VICTOR LAVRENKO AND OTHER CONTRIBUTORS
-   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-   FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-   COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-   INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-   (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-   SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-   HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-   STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
-   OF THE POSSIBILITY OF SUCH DAMAGE.
-
+  
+  Copyright (c) 1997-2016 Victor Lavrenko (v.lavrenko@gmail.com)
+  
+  This file is part of YARI.
+  
+  YARI is free software: you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+  
+  YARI is distributed in the hope that it will be useful, but WITHOUT
+  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+  or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+  License for more details.
+  
+  You should have received a copy of the GNU General Public License
+  along with YARI. If not, see <http://www.gnu.org/licenses/>.
+  
 */
 
 #include "hash.h"
 
 uint multiadd_hashcode (char *s) ;
 uint murmur3 (const char *key, uint len) ;
+uint *href (hash_t *h, char *key, uint code) ;
 
 extern ulong COLLISIONS;
 extern off_t MMAP_MOVES;
@@ -37,25 +38,66 @@ int main (int argc, char *argv[]) {
   //HASH_FUNC = getprm(prm,"F=",0);
   //HASH_PROB = getprm(prm,"P=",0);
   //HASH_LOAD = getprm(prm,"L=",0.5);
+
+  if (!strcmp(argv[1], "-uniq")) {
+    ix_t *C = new_vec(0,sizeof(ix_t)), *c;
+    hash_t *H = open_hash (0,0);
+    char *line = NULL;
+    size_t sz = 0;
+    while (getline (&line, &sz, stdin) > 0) {
+      uint id = key2id(H,line);
+      if (id > len(C)) C = resize_vec (C, id);
+      C[id-1].i = id;
+      C[id-1].x ++;
+    }
+    sort_vec (C, cmp_ix_X);
+    for (c = C; c < C+nkeys(H); ++c)
+      printf ("%.0f\t%s", c->x, id2key(H,c->i));
+    if (line) free (line);
+    free_hash (H);
+    free_vec (C);
+    return 0;
+  }
+
   
   if (argc < 3) {
     fprintf (stderr, 
-	     "usage: testhash -load HASH < ids\n"
-	     "                -dump HASH > pairs\n"
-	     "                -vrfy HASH < pairs\n"
-	     "                -k2i  HASH key\n"
-	     "                -i2k  HASH id\n"
-	     "                -dbg  HASH\n"
+	     "usage: dict     -load DICT < ids\n"
+	     "                -dump DICT > pairs\n"
+	     "                -vrfy DICT < pairs\n"
+	     "                -keys DICT > ids\n"
+	     "                -drop DICT < ids > new\n"
+	     "                -keep DICT < ids > old\n"
+	     "                 -add DICT < ids\n"
+	     "               -merge DICT += DICT2\n"
+	     "               -batch DICT += DICT2\n"
+	     "           -diff,tail DICT - DICT2\n"
+	     "                 -k2i DICT key\n"
+	     "                 -i2k DICT id\n"
+	     "                 size DICT\n"
+	     "                 -dbg DICT\n"
 	     "                -rand 1-4 logN\n"
+	     "                -uniq ... faster uniq\n"
 	     );
     return 1;
+  }
+  
+  //if (!strcmp(argv[1], "lock")) { MAP_MODE |= MAP_LOCKED;   ++argv; --argc; }
+  //if (!strcmp(argv[1], "prep")) { MAP_MODE |= MAP_POPULATE; ++argv; --argc; }
+  
+  if (!strcmp(argv[1], "-keys")) {
+    hash_t *h = open_hash (argv[2], "r");
+    uint i, n = nkeys(h);
+    for (i = 1; i <= n; ++i) puts (id2key(h,i));
+    free_hash (h);      
+    return 0;
   }
   
   if (!strcmp(argv[1], "-dump")) {
     hash_t *h = open_hash (argv[2], "r");
     uint i, n = nkeys(h);
     fprintf (stderr, "%s: %d keys\n", argv[2], n);
-    for (i = 1; i <= n; ++i) printf ("%10d %s\n", i, id2key(h,i));
+    for (i = 1; i <= n; ++i) printf ("%d\t%s\n", i, id2key(h,i));
     free_hash (h);      
     return 0;
   }
@@ -65,8 +107,8 @@ int main (int argc, char *argv[]) {
     vtime();
     hash_t *h = open_hash (argv[2], "w");
     ulong done = 0;
-    char key[10000];
-    while (fgets(key, 10000, stdin)) {
+    char key[100000];
+    while (fgets(key, 100000, stdin)) {
       key [strlen(key)-1] = 0; // chop newline
       //uint dup = has_key (h, key);
       uint id  = key2id  (h, key); assert (id);
@@ -85,8 +127,8 @@ int main (int argc, char *argv[]) {
   if (!strcmp(argv[1], "-vrfy")) {
     hash_t *h = open_hash (argv[2], "r");
     uint id; ulong done = 0;
-    char line[10000], key[10000];
-    while (fgets(line, 10000, stdin)) {
+    char line[100000], key[100000];
+    while (fgets(line, 100000, stdin)) {
       uint nf = sscanf (line, "%d %s", &id, key); assert (nf == 2); 
       uint id2 = has_key (h, key); 
       //char *k2 = id2key (h, id); 
@@ -98,24 +140,113 @@ int main (int argc, char *argv[]) {
     return 0;
   }
   
+  if (!strcmp(argv[1], "-drop")) {
+    hash_t *h = coll_exists (argv[2]) ? open_hash (argv[2], "r!") : NULL;
+    char key[100000], *eol;
+    while (fgets(key, 100000, stdin)) {
+      if ((eol = strchr(key,'\n'))) *eol = '\0'; // chop newline
+      if (!h || !has_key (h, key)) puts(key);
+    }
+    free_hash (h);
+    return 0;
+  }
+
+  if (!strcmp(argv[1], "-keep")) {
+    hash_t *h = open_hash (argv[2], "r!");
+    char key[100000];
+    while (fgets(key, 100000, stdin)) {
+      key [strlen(key)-1] = 0; // chop newline
+      if (has_key (h, key)) printf ("%s\n", key);
+    }
+    free_hash (h);
+    return 0;
+  }
+
+  
+  if (!strcmp(argv[1], "-add")) {
+    hash_t *h = open_hash (argv[2], "a!");
+    char key[100000]; ulong done = 0;
+    while (fgets(key, 100000, stdin)) {
+      key [strlen(key)-1] = 0; // chop newline
+      key2id (h,key);
+      if (!(++done%1000)) show_progress(done/1000,0,"K keys added");
+    }
+    free_hash (h);
+    return 0;
+  }
+  
+  if (!strcmp(argv[1], "-merge") && !strcmp(argv[3],"+=")) {
+    hash_t *A = open_hash (argv[2], "a!");
+    hash_t *B = open_hash (argv[4], "r");
+    uint i, nB = nkeys(B), nA = nkeys(A);
+    fprintf (stderr, "merge: %s [%d] += %s [%d]\n", A->path, nA, B->path, nB);
+    for (i = 1; i <= nB; ++i) { // for each key in the table
+      key2id (A, id2key (B,i));
+      if (0 == i%10) show_progress (i, nB, "keys merged");
+    }
+    fprintf (stderr, "done: %s [%d]\n", A->path, nkeys(A));
+    free_hash (A); free_hash (B);
+    return 0;
+  }
+  
+  if (!strcmp(argv[1], "-batch") && !strcmp(argv[3],"+=")) {
+    char **keys = hash_keys (argv[4]);
+    hash_t *A = open_hash (argv[2], "a");
+    uint i, nB = len(keys), nA = nkeys(A);
+    fprintf (stderr, "batch merge: %s [%d] += %s [%d]\n", A->path, nA, argv[4], nB);
+    uint *ids = keys2ids (A,keys);
+    fprintf (stderr, "done: %s [%d]\n", A->path, nkeys(A));
+    for (i = 0; i < nB; ++i) if (keys[i]) free(keys[i]);
+    free_vec (keys); free_vec (ids);
+    free_hash (A);
+    return 0;
+  }
+  
+  if (!strcmp(argv[1], "-diff") && !strcmp(argv[3],"-")) {
+    char *tail = strstr (argv[1], "tail");
+    hash_t *A = open_hash (argv[2], "r");
+    hash_t *B = open_hash (argv[4], "r!");
+    uint i, nB = nkeys(B), nA = nkeys(A), nD = 0;
+    fprintf (stderr, "diff: %s [%d] - %s [%d]\n", A->path, nA, B->path, nB);
+    for (i = nA; i >= 1; --i) { // for each key in A
+      char *key = id2key(A,i);
+      uint code = A->code[i];
+      uint *inB = href(B,key,code);
+      if (!*inB) { ++nD; puts(key); }
+      else if (tail) break; // stop on 1st key in B
+    }
+    fprintf (stderr, "diff: %d in %s - %s\n", nD, A->path, B->path);
+    free_hash (A); free_hash (B);
+    return 0;
+  }
+
   if (!strcmp(argv[1], "-k2i")) {
     hash_t *h = open_hash (argv[2], "r");
     char *key = argv[3];
     printf ("%10d %s\n", key2id (h,key), key);
     return 0;
   }
-
+  
   if (!strcmp(argv[1], "-i2k")) {
     hash_t *h = open_hash (argv[2], "r");
     uint i = atoi(argv[3]);
     printf ("%10d %s\n", i, id2key (h,i));
     return 0;
   }
-  
+
+  if (!strcmp(argv[1], "size")) {
+    hash_t *h = open_hash (argv[2], "r");
+    printf ("%d\n", nkeys(h));
+    free_hash (h);
+    return 0;
+  }
   
   if (!strcmp(argv[1], "-dbg")) {
     hash_t *h = open_hash (argv[2], "r");
     uint *I = h->indx, n = len(I), i;
+    printf ("keys: %u\n", nvecs(h->keys));
+    printf ("code: %u\n", len(h->code));
+    printf ("indx: %u\n", len(h->indx));
     printf ("#%9s %10s %10s %10s %s\n", "id", "slot", "code%n", "code", "key");
     for (i = 0; i < n; ++i) {
       if (I[i]) {
@@ -140,6 +271,9 @@ int main (int argc, char *argv[]) {
     printf(" %lu random numbers ", i);
     return 0;
   }
+    
+  fprintf (stderr, "ERROR\n");
+  return 0;
 
   ulong lines = 0; 
   char *path = argv[1], phrase[10000];

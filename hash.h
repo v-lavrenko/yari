@@ -1,22 +1,22 @@
 /*
-
-   Copyright (C) 1997-2014 Victor Lavrenko
-
-   All rights reserved. 
-
-   THIS SOFTWARE IS PROVIDED BY VICTOR LAVRENKO AND OTHER CONTRIBUTORS
-   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-   FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-   COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-   INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-   (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-   SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-   HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-   STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
-   OF THE POSSIBILITY OF SUCH DAMAGE.
-
+  
+  Copyright (c) 1997-2016 Victor Lavrenko (v.lavrenko@gmail.com)
+  
+  This file is part of YARI.
+  
+  YARI is free software: you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+  
+  YARI is distributed in the hope that it will be useful, but WITHOUT
+  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+  or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+  License for more details.
+  
+  You should have received a copy of the GNU General Public License
+  along with YARI. If not, see <http://www.gnu.org/licenses/>.
+  
 */
 
 #include "coll.h"
@@ -32,6 +32,7 @@ typedef struct {
   uint   *indx; // indx[code] -> id
   uint   *code; // code[id] = hashcode
   coll_t *keys; // keys[id] = string 
+  char mlock;
   //char   *data;
 } hash_t; 
 
@@ -40,10 +41,17 @@ typedef struct {
 hash_t *open_hash (char *path, char *access);
 void    free_hash (hash_t *h) ;
 hash_t *copy_hash (hash_t *src) ;
+hash_t *reopen_hash (hash_t *h, char *access);
 
+char *id2str (hash_t *h, uint id) ; // strdup (key2id | itoa(id))
 char *id2key (hash_t *h, uint i) ;
 uint  key2id (hash_t *h, char *key) ; 
 uint has_key (hash_t *h, char *key) ;
+uint id2id (hash_t *src, uint id, hash_t *trg) ;
+uint *keys2ids (hash_t *h, char **keys) ; // batch version of key2id
+char **hash_keys (char *path) ; // list all keys in a hashtable
+uint *hash2hash (char *src, char *trg, char *access) ; // map ids: src -> trg 
+uint *backmap (uint *map); // inverse map: map[i]==j <-> inv[j]==i
 
 //unsigned keyIn (hash_t *t, char *key) ;
 //hash_t *hnew (unsigned num_els, char *path) ;
@@ -53,8 +61,11 @@ uint has_key (hash_t *h, char *key) ;
 //hash_t *hread (char *path) ;
 //unsigned hsizeof (hash_t *t) ;
 
-inline uint murmur3 (const char *key, uint len) ;
-inline uint murmur3uint (uint key) ;
+uint murmur3 (const char *key, uint len) ;
+uint murmur3uint (uint key) ;
+uint multiadd_hashcode (char *s) ;
+uint OneAtATime (const char *key, uint len) ;
+uint SBox (const char *key, uint len) ;
 
 //inline uint OneAtATime (const char *key, uint len) ;
 //inline uint SBox (const char *key, uint len) ;

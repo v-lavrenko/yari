@@ -1,22 +1,22 @@
 /*
-
-   Copyright (C) 1997-2014 Victor Lavrenko
-
-   All rights reserved. 
-
-   THIS SOFTWARE IS PROVIDED BY VICTOR LAVRENKO AND OTHER CONTRIBUTORS
-   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-   FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-   COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-   INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-   (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-   SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-   HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-   STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
-   OF THE POSSIBILITY OF SUCH DAMAGE.
-
+  
+  Copyright (c) 1997-2016 Victor Lavrenko (v.lavrenko@gmail.com)
+  
+  This file is part of YARI.
+  
+  YARI is free software: you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+  
+  YARI is distributed in the hope that it will be useful, but WITHOUT
+  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+  or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+  License for more details.
+  
+  You should have received a copy of the GNU General Public License
+  along with YARI. If not, see <http://www.gnu.org/licenses/>.
+  
 */
 
 #include <utime.h>
@@ -24,9 +24,9 @@
 
 off_t MIN_OFFS = 8;
 
-int coll_exists (char *path) { return file_exists (cat(path,"/coll.vecs")); }
+int coll_exists (char *path) { return file_exists ("%s/coll.vecs", path); }
 
-time_t coll_modified (char *path) { return file_modified (cat(path,"/coll.vecs")); }
+time_t coll_modified (char *path) { return file_modified ("%s/coll.vecs",path); }
 
 static inline coll_t *open_coll_inmem () {
   coll_t *c = safe_calloc (sizeof(coll_t)); 
@@ -44,20 +44,21 @@ coll_t *copy_coll (coll_t *src) {
 coll_t *open_coll (char *path, char *access) {
   if (!path) return open_coll_inmem ();
   coll_t *c = safe_calloc (sizeof(coll_t));
-  if (*access != 'r') mkdir (path, S_IRWXU | S_IRWXG | S_IRWXO);
+  if (*access != 'r') { mkdir (path, S_IRWXU | S_IRWXG | S_IRWXO); utime (path, NULL); }
   c->access = strdup (access);
   c->path = path = strdup (path);
-  FILE *info = fopen(cat(path,"/coll.info"), "r");
+  char x[9999];
+  FILE *info = fopen(fmt(x,"%s/coll.info",path), "r");
   if (!info || !fscanf(info,"vers: %d\n", &(c->version))) c->version = COLL_VERSION;
   if (!info || !fscanf(info,"rows: %d\n", &(c->rdim)))    c->rdim = 0;
   if (!info || !fscanf(info,"cols: %d\n", &(c->cdim)))    c->cdim = 0;
   if (info) fclose(info);
   if (c->version != COLL_VERSION) { fprintf (stderr, "ERROR: version of %s: %d != %d\n", path, c->version, COLL_VERSION); exit(1); }
-  c->vecs = open_mmap (cat(path,"/coll.vecs"), access, MAP_SIZE);
-  c->offs = open_vec (cat(path,"/coll.offs"), access, sizeof(off_t));
+  c->vecs = open_mmap (fmt(x,"%s/coll.vecs",path), access, MAP_SIZE);
+  c->offs = open_vec (fmt(x,"%s/coll.offs",path), access, sizeof(off_t));
   if (access[1] == '+') {
-    c->prev = open_vec (cat(path,"/coll.prev"), access, sizeof(uint));
-    c->next = open_vec (cat(path,"/coll.next"), access, sizeof(uint));
+    c->prev = open_vec (fmt(x,"%s/coll.prev",path), access, sizeof(uint));
+    c->next = open_vec (fmt(x,"%s/coll.next",path), access, sizeof(uint));
   } else c->prev = c->next = NULL;
   if (len(c->offs) == 0) { // new matrix => initialize it
     c->offs = resize_vec (c->offs,1); 
@@ -84,7 +85,8 @@ void free_coll (coll_t *c) {
   free_vec (c->prev);
   free_vec (c->next);
   if (c->access[0] != 'r') {
-    FILE *info = safe_fopen(cat(c->path,"/coll.info"), "w");
+    char x[9999];
+    FILE *info = safe_fopen(fmt(x,"%s/coll.info",c->path), "w");
     fprintf(info,"vers: %d\n", COLL_VERSION);
     fprintf(info,"rows: %d\n", c->rdim);
     fprintf(info,"cols: %d\n", c->cdim);
@@ -94,6 +96,14 @@ void free_coll (coll_t *c) {
   free (c->path);
   free (c->access);
   free (c);
+}
+
+coll_t *reopen_coll (coll_t *c, char *access) {
+  char *path = c->path ? strdup(c->path) : NULL;
+  free_coll (c);
+  c = open_coll (path, access);
+  if (path) free (path);
+  return c;
 }
 
 void rm_coll (coll_t *c) {
@@ -108,31 +118,31 @@ void empty_coll (coll_t *c) {
   while (++i <= n) del_vec (c,i);
 }
 
-inline static void *get_chunk_inmem (coll_t *c, uint id) {
+static inline void *get_chunk_inmem (coll_t *c, uint id) {
   return (id < len(c->offs)) ? (NULL + c->offs[id]) : NULL; 
 }
 
-inline static void del_chunk_inmem (coll_t *c, uint id) {
+static inline void del_chunk_inmem (coll_t *c, uint id) {
   if (id >= len(c->offs)) return;
   free (NULL + c->offs[id]);
   c->offs[id] = 0; 
 }
 
-inline static void *map_chunk_inmem (coll_t *c, uint id, off_t size) {
+static inline void *map_chunk_inmem (coll_t *c, uint id, off_t size) {
   if (id >= len(c->offs)) c->offs = resize_vec (c->offs, id+1);
   void *trg = safe_realloc (NULL + c->offs[id], size);
   c->offs[id] = trg - NULL; 
   return trg;
 }
 
-inline static void put_chunk_inmem (coll_t *c, uint id, void *buf, off_t size) {
+static inline void put_chunk_inmem (coll_t *c, uint id, void *buf, off_t size) {
   if (id >= len(c->offs)) c->offs = resize_vec (c->offs, id+1);
   void *trg = safe_realloc (NULL + c->offs[id], size);
   memcpy (trg, buf, size);
   c->offs[id] = trg - NULL; 
 }
 
-inline off_t chunk_sz (coll_t *c, uint id) {
+off_t chunk_sz (coll_t *c, uint id) {
   assert (c->path && has_vec (c,id));
   uint next = c->next ? c->next[id] : (id+1) % len(c->offs);
   return c->offs[next] - c->offs[id];
@@ -140,7 +150,7 @@ inline off_t chunk_sz (coll_t *c, uint id) {
 
 // unlink id from its chunk, allocate chunk to preceding id
 // use only on collections opened as 'a+' or 'w+'
-inline void del_chunk (coll_t *c, uint id) {
+void del_chunk (coll_t *c, uint id) {
   if (!c->path) return del_chunk_inmem (c,id);
   if (!has_vec(c,id)) return;
   if (c->next) {
@@ -171,11 +181,11 @@ static inline void mov_chunk (coll_t *c, uint id, off_t sz) { // NEVER call dire
   }
   c->offs[id] = c->offs[0];              // old end of heap => our offset
   c->offs[0] += align8(sz);              // new end of heap 
-  expand_mmap (c->vecs, c->offs[0]);     // make sure file is big enough
+  grow_mmap_file (c->vecs, c->offs[0]);  // make sure file is big enough
 }
 
 // return pointer to chunk linked by id, or NULL
-inline void *get_chunk_old (coll_t *c, uint id) {
+void *get_chunk (coll_t *c, uint id) {
   if (!c->path) return get_chunk_inmem(c,id);
   if (!has_vec(c,id)) return NULL;
   uint next = c->next ? c->next[id] : (id+1) % len(c->offs);
@@ -184,7 +194,7 @@ inline void *get_chunk_old (coll_t *c, uint id) {
 }
 
 // return a copy of chunk linked by id, or NULL => must be freed
-inline void *get_chunk (coll_t *c, uint id) {
+void *get_chunk_pread (coll_t *c, uint id) {
   if (!c->path) return get_chunk_inmem(c,id);
   if (!has_vec(c,id)) return NULL;
   uint next = c->next ? c->next[id] : (id+1) % len(c->offs);
@@ -198,47 +208,48 @@ inline void *get_chunk (coll_t *c, uint id) {
   return trg;
 }
 
-inline static void *map_chunk (coll_t *c, uint id, off_t size) {
+static inline void *map_chunk (coll_t *c, uint id, off_t size) {
   if (!c->path) return map_chunk_inmem (c,id,size);
   mov_chunk (c, id, size);
   return move_mmap (c->vecs, c->offs[id], size);
 }
 
-inline void put_chunk_old (coll_t *c, uint id, void *src, off_t size) {
+void put_chunk (coll_t *c, uint id, void *src, off_t size) {
   if (!c->path) return put_chunk_inmem (c,id,src,size);
-  void *trg = map_chunk (c, id, size);
+  mov_chunk (c, id, size);
+  void *trg = move_mmap (c->vecs, c->offs[id], size); 
   memcpy (trg, src, size);
 }
 
-inline void put_chunk (coll_t *c, uint id, void *chunk, off_t size) {
+void put_chunk_pwrite (coll_t *c, uint id, void *chunk, off_t size) {
   if (!c->path) return put_chunk_inmem (c,id,chunk,size);
   mov_chunk (c, id, size);
   safe_pwrite (c->vecs->file, chunk, size, c->offs[id]);
 }
 
-vec_t nullvec = {0, 0, 0, 0};
+vec_t nullvec = {0, 0, 0, 0, {}};
 
-inline void *get_vec_old (coll_t *c, uint id) {
+void *get_vec (coll_t *c, uint id) {
   vec_t *hdr = get_chunk (c, id);
   return hdr ? copy_vec (hdr->data) : new_vec (0, 0);
 }
 
-inline void *get_vec (coll_t *c, uint id) {
-  vec_t *hdr = get_chunk (c, id);
+void *get_vec_read (coll_t *c, uint id) {
+  vec_t *hdr = get_chunk_pread (c, id);
   if (!hdr) return new_vec (0,0);
   hdr->file = 0; // TODO: FIX THIS!
   return hdr->data;
 }
 
 /* redundant: new get_vec() will always copy */
-inline void *get_vec_ro (coll_t *c, uint id) {
+void *get_vec_ro (coll_t *c, uint id) {
   vec_t *hdr = get_chunk (c, id);
   return hdr ? hdr->data : (&nullvec)->data;
 }
 /**/
 
 /* redundant: new get_vec() will always pread */
-inline void *get_vec_mp (coll_t *c, uint id) { // thread-safe
+void *get_vec_mp (coll_t *c, uint id) { // thread-safe
   if (!has_vec(c,id)) return new_vec (0, sizeof(ix_t));
   if (!c->path) { // in-memory
     vec_t *vec = NULL + c->offs[id];
@@ -259,13 +270,13 @@ inline void *get_vec_mp (coll_t *c, uint id) { // thread-safe
 /**/
 
 /**/
-inline void *get_or_new_vec (coll_t *c, uint id, uint esize) {
+void *get_or_new_vec (coll_t *c, uint id, uint esize) {
   vec_t *hdr = get_chunk (c, id);
   return hdr ? copy_vec (hdr->data) : new_vec (0, esize);
 }
 /**/
 
-inline void del_vec (coll_t *c, uint id) { del_chunk (c, id); }
+void del_vec (coll_t *c, uint id) { del_chunk (c, id); }
 
 static inline void update_dims (coll_t *c, uint id, ix_t *V, uint n, uint sz) {
   if (id > c->rdim) c->rdim = id;
@@ -273,7 +284,7 @@ static inline void update_dims (coll_t *c, uint id, ix_t *V, uint n, uint sz) {
 }
 
 /**/
-inline void put_vec_old (coll_t *c, uint id, void *vec) {
+void put_vec (coll_t *c, uint id, void *vec) {
   if (!vec || !len(vec)) return del_vec (c,id);
   vec_t *src = vect(vec);
   update_dims (c, id, vec, src->count, src->esize);
@@ -285,18 +296,18 @@ inline void put_vec_old (coll_t *c, uint id, void *vec) {
 }
 /**/
 
-inline void put_vec (coll_t *c, uint id, void *vec) {
+void put_vec_write (coll_t *c, uint id, void *vec) {
   if (!vec || !len(vec)) return del_vec (c,id);
   vec_t *src = vect(vec);
   off_t size = sizeof(vec_t) + src->count * src->esize;
   uint file = src->file; // TODO: FIX THIS
   src->file = 2; // should be 2 for vectors in a collection
-  put_chunk (c, id, src, size);
+  put_chunk_pwrite (c, id, src, size);
   update_dims (c, id, vec, src->count, src->esize);
   src->file = file;
 }
 
-inline void *map_vec (coll_t *c, uint id, uint n, uint sz) { // TODO : remove this (used by transpose only)
+void *map_vec (coll_t *c, uint id, uint n, uint sz) { // TODO : remove this (used by transpose only)
   off_t size = (off_t)sizeof(vec_t) + ((off_t) n) * sz;
   vec_t *vec = map_chunk (c, id, size);
   vec->count = n;  
@@ -304,6 +315,14 @@ inline void *map_vec (coll_t *c, uint id, uint n, uint sz) { // TODO : remove th
   vec->esize = sz;  
   vec->file = 2;
   return vec->data;
+}
+
+uint len_vec (coll_t *M, uint id) { 
+  if (!has_vec(M,id)) return 0;
+  void *V = get_vec(M,id); 
+  uint n = len(V); 
+  free_vec(V); 
+  return n; 
 }
 
 /*

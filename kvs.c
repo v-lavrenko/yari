@@ -1,22 +1,22 @@
 /*
-
-   Copyright (C) 1997-2014 Victor Lavrenko
-
-   All rights reserved. 
-
-   THIS SOFTWARE IS PROVIDED BY VICTOR LAVRENKO AND OTHER CONTRIBUTORS
-   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-   FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-   COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-   INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-   (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-   SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-   HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-   STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
-   OF THE POSSIBILITY OF SUCH DAMAGE.
-
+  
+  Copyright (c) 1997-2016 Victor Lavrenko (v.lavrenko@gmail.com)
+  
+  This file is part of YARI.
+  
+  YARI is free software: you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+  
+  YARI is distributed in the hope that it will be useful, but WITHOUT
+  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+  or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+  License for more details.
+  
+  You should have received a copy of the GNU General Public License
+  along with YARI. If not, see <http://www.gnu.org/licenses/>.
+  
 */
 
 #include "math.h"
@@ -26,21 +26,22 @@
 #define Inf 999999999
 
 void dump_raw_ret (char *C, char *RH) {
-  coll_t *c = open_coll (C, "r");
-  hash_t *h = open_hash (RH, "r");
-  char qryid[100], docid[100], line[1000];
-  while (fgets (line, 999, stdin)) {
+  coll_t *c = open_coll (C, "r+");
+  hash_t *h = open_hash (RH, "r!");
+  char qryid[9999], docid[999], line[10000], *eol;
+  while (fgets (line, 9999, stdin)) {
     if (*line == '#') continue;
+    if ((eol = strchr(line,'\n'))) *eol = '\0';
     if (2 != sscanf (line, "%s %s", qryid, docid)) continue;
     uint i = key2id(h,docid);
     char *raw = get_chunk(c,i);
-    printf ("<DOC id=\"%s\"> %s",qryid,raw);
+    printf ("%s\t%s\n",line,raw);
   }
   free_coll(c); free_hash(h);
 }
 
 void dump_raw (char *C, char *RH, char *id) {
-  coll_t *c = open_coll (C, "r");
+  coll_t *c = open_coll (C, "r+");
   hash_t *h = *RH ? open_hash (RH, "r") : NULL;
   uint no = id ? getprm(id,"no=",0) : 0;
   uint i = no ? no : *id ? key2id(h,id) : 1;
@@ -52,11 +53,11 @@ void dump_raw (char *C, char *RH, char *id) {
   free_coll(c); free_hash(h);
 }
 
-void load_raw (char *C, char *RH) { // 
+void load_raw (char *C, char *RH) { 
   uint done = 0;
-  char buf[1<<24]; 
-  coll_t *c = open_coll (C, "w");
-  hash_t *rh = open_hash (RH, "r");
+  char *buf = malloc (1<<24);
+  coll_t *c = open_coll (C, "w+");
+  hash_t *rh = open_hash (RH, "r!");
   while (read_doc (stdin, buf, 1<<24, "<DOC", "</DOC>")) {
     char *rowid = get_xml_docid (buf);
     uint id = key2id (rh, rowid), sz = strlen (buf) + 1;
@@ -70,33 +71,148 @@ void load_raw (char *C, char *RH) { //
     }
   }
   fprintf (stderr, "[%.0fs] %d strings\n", vtime(), nvecs(c));
-  free_coll (c); free_hash (rh); 
+  free_coll (c); free_hash (rh); free (buf);
 }
 
-void load_json (char *C, char *RH) { // 
-  uint done = 0, skip = 0, dups = 0;
-  char *json = malloc(1<<24);
-  coll_t *c = open_coll (C, "w");
-  hash_t *rh = open_hash (RH, "r");
-  while (fgets (json, 1<<24, stdin)) { // assume one-per-line
+void load_json (char *C, char *RH, char *prm) { // 
+  char *skip = strstr(prm,"skip"), *join = strstr(prm,"join");
+  char *addk = strstr(prm,"addkeys");
+  uint done = 0, nodoc = 0, noid = 0, dups = 0, SZ = 1<<24;  
+  char *json = malloc(SZ);
+  coll_t *c = open_coll (C, "a+");
+  hash_t *rh = open_hash (RH, (addk ? "a!" : "r!"));
+  while (fgets (json, SZ, stdin)) { // assume one-per-line
+    if (!(++done%10000)) show_progress (done, 0, "JSON records");
     uint sz = strlen (json);
-    if (json[sz-1] == '\n') json[sz-1] = 0;
-    char *docid = json_value (json, "docid"); assert (docid);
-    uint id = key2id (rh, docid);
+    if (json[sz-1] == '\n') json[--sz] = '\0';
+    char *docid = json_value (json, "docid"); 
+    if (!docid) docid = json_value (json, "id");
+    if (!docid && ++nodoc < 5) { fprintf (stderr, "ERR: no docid in: %s\n", json); continue; }
+    uint id = key2id (rh, docid); 
     free(docid);
-    if (!id) { ++skip; continue; }
-    if (has_vec (c,id)) { ++dups; continue; }
-    put_chunk (c, id, json, sz);
-    if (!(++done%20000)) {
-      if (done%1000000) fprintf (stderr, ".");
-      else fprintf (stderr, "[%.0fs] %d strings\n", vtime(), done); 
+    if (!id) { ++noid; continue; }
+    char *old = get_chunk (c,id);
+    if (old && skip) continue;
+    if (old && join) { // append old JSON to new JSON
+      char *close = endchr (json,'}',sz); if (!close) fprintf (stderr, "ERR: %s\n", json); // have: {new}{old}
+      char *open = strchr (old,'{');      if (!open)  fprintf (stderr, "ERR: %s\n", old);  // want: {new,old}
+      strncpy (close,open,SZ-(close-json));
+      *close = ',';
+      sz = strlen (json);
+      ++dups;
     }
+    //if (has_vec(c,id)) ++dups; else 
+    put_chunk (c, id, json, sz+1);
   }
   free_coll (c); free_hash (rh); free(json);
-  fprintf (stderr, "[%.0fs] OK: %d, skip: %d, dups: %d\n", 
-	   vtime(), done, skip, dups);
+  fprintf (stderr, "[%.0fs] OK: %d, noid: %d, dups: %d\n", 
+	   vtime(), done, noid, dups);
 }
 
+static inline char *merge_blobs (char *buf, char *a, char *b) {
+  uint aSZ = strlen(a), bSZ = strlen(b), sz = aSZ + bSZ + 1;
+  if (len(buf) < sz) buf = resize_vec (buf, sz);
+  memcpy (buf, a, aSZ);
+  memcpy (buf+aSZ, b, bSZ);
+  char *close = endchr (buf,'}',aSZ); if (close) *close = ',';
+  char *open  = strchr (buf+aSZ,'{'); if (open)  *open  = ' ';
+  assert (open && close);
+  buf [sz-1] = 0; // null-terminate
+  //fprintf (stderr, "\na[%d]:%s\nb[%d]:%s\nc[%d]:%s\n", aSZ, a, bSZ, b, sz, buf);
+  return buf;
+}
+
+void merge_colls (char *_C, char *_A, char *_B) { // C = A + B
+  char *buf = new_vec (1<<24, sizeof(char));
+  coll_t *C = open_coll (_C, "w+");
+  coll_t *A = open_coll (_A, "r+");
+  coll_t *B = open_coll (_B, "r+");
+  uint nA = nvecs(A), nB = nvecs(B), n = MAX(nA,nB), i;
+  fprintf (stderr, "merge: %s[%d] + %s[%d] -> %s\n", _A, nA, _B, nB, _C);
+  for (i=1; i<=n; ++i) {
+    char *a = get_chunk(A,i), *b = get_chunk(B,i);
+    if (a && b) buf = merge_blobs (buf,a,b);
+    char *c = (a && b) ? buf : a ? a : b;
+    uint sz = c ? (strlen(c)+1) : 0;
+    if (c) put_chunk (C, i, c, sz);
+    if (!(i%10)) show_progress (i,n,"blobs merged");
+  }
+  fprintf (stderr, "done: %s[%d]\n", _C, nvecs(C));
+  free_coll(A); free_coll(B); free_coll(C); free_vec(buf);
+}
+
+/*
+void assert_inv_map (uint *A, uint *B) {
+  uint a, b, nA = len(A), nB = len(B);
+  fprintf (stderr, "assert: A -> B\n"); for (a=1; a<=nA; ++a) { b = A[a-1]; if (b) assert ((b <= nB) && (B[b-1] == a)); }
+  fprintf (stderr, "assert: B -> A\n"); for (b=1; b<=nB; ++b) { a = B[b-1]; if (a) assert ((a <= nA) && (A[a-1] == b)); }
+}
+uint *inv = backmap (map); assert_inv_map (map, inv);
+for (j=1; j<=nj; ++j) {
+  if (!(j%10)) show_progress (j,nj,"blobs rekeyed");
+  i = inv[j-1];
+  if (!i) continue; // key not in A[H]
+  char *b = get_chunk(B,i);
+  if (b) put_chunk (A, j, b, strlen(b)+1);
+ } 
+ free_vec(inv); 
+*/
+
+void rekey_coll (char *_A, char *_H, char *_B, char *_G, char *prm) { // A[j] = B[i] where H[j] = G[i]
+  char *access = strstr(prm,"addnew") ? "a!" : "r!";
+  uint *map = hash2hash (_G, _H, access);
+  coll_t *A = open_coll (_A, "w+");
+  coll_t *B = open_coll (_B, "r+");
+  uint i, j, nB = nvecs(B); assert (nB <= len(map));
+  fprintf (stderr, "rekey: %s[%d] -> %s using map[%d]\n", _B, nB, _A, len(map));
+  for (i=1; i<=nB; ++i) {
+    if (!(i%10)) show_progress (i,nB,"blobs rekeyed");
+    j = map[i-1];
+    if (!j) continue; // key not in A[H]
+    char *b = get_chunk(B,i);
+    if (b) put_chunk (A, j, b, strlen(b)+1);
+  }
+  fprintf (stderr, "done: %s[%d]\n", _A, nvecs(A));
+  free_coll(A); free_coll(B); free_vec(map); 
+}
+
+void do_merge (char *A, char *H, char *B, char *G, char *prm) { // A[j] += B[i] where key = H[j] = G[i]
+  char *A1 = fmtn(999,"%s.1.%d",A,getpid());
+  char *A2 = fmtn(999,"%s.2.%d",A,getpid());
+  rekey_coll (A1, H, B, G, prm);
+  if (coll_exists (A)) {
+    merge_colls (A2, A1, A);
+    mv_dir (A2, A);
+    rm_dir (A1);
+  } else mv_dir (A1, A);
+  free (A1); free (A2);
+}
+
+void do_merge2 (char *_A, char *_H, char *_B, char *_G, char *prm) { // A[j] += B[i] where H[j] = G[i]
+  char *access = strstr(prm,"addnew") ? "a!" : "r!";
+  uint *map = (_G&&_H) ? hash2hash (_G, _H, access) : NULL;
+  char *buf = new_vec (1<<24, sizeof(char));
+  coll_t *A = open_coll (_A, "a+");
+  coll_t *B = open_coll (_B, "r+");
+  //hash_t *H = *_H ? open_hash (_H, mode) : NULL;
+  //hash_t *G = *_G ? open_hash (_G, "r") : NULL;
+  uint nB = nvecs(B), nA = nvecs(A), i;
+  fprintf (stderr, "merging %s[%d] += %s[%d]", _A, nA, _B, nB);
+  if (map) fprintf (stderr, ", mapping ids: %s -> %s[%s]\n", _G, _H, access);
+  else     fprintf (stderr, ", assuming ids are compatible\n");
+  if (map && len(map) < nB) { fprintf (stderr, "ERROR: %s [%d] > [%d] in map\n", _B, nB, len(map));  assert (0); }
+  for (i=1; i<=nB; ++i) {
+    if (!(i%10)) show_progress (i,nB,"blobs merged");
+    uint j = map ? map[i-1] : i; // if no map: same ids in A,B
+    //uint j = (H&&G) ? id2id (G, i, H) : i;
+    if (!j) continue; // not addnew and key not in A[H]
+    char *a = get_chunk(A,j), *b = get_chunk(B,i);
+    if (a && b) b = buf = merge_blobs (buf,a,b);
+    if (b) put_chunk (A, j, b, strlen(b)+1);
+  }
+  free_coll(A); free_coll(B); free_vec(buf); free_vec(map); // free_hash(H); free_hash(G); 
+  fprintf (stderr, "\n");
+}
 
 ix_t *do_qry (char *QRY, char *DICT, char *prm) {
   hash_t *dict = open_hash (DICT, "r");
@@ -135,7 +251,7 @@ void do_sort (ix_t *ret, char *ORDER, char *prm) {
   char *asc = strstr(prm,"asc");
   coll_t *O = open_coll (ORDER, "r+");
   ix_t *ord = get_vec_ro(O,1);
-  float *order = vec2full (ord, 0);
+  float *order = vec2full (ord, 0, 0);
   vec_x_full (ret, '=', order);
   sort_vec (ret, (asc ? cmp_ix_x : cmp_ix_X));
   free_vec (order); free_coll (O); 
@@ -162,11 +278,11 @@ void do_pairs (ix_t *rnk, char *RANKS, char *PAIRS) {
   mv_dir (RANKs, RANKS);
 }
 
-void do_out (ix_t *rnk, char *TEXT, char *RNDR){
+void do_out (ix_t *rnk, char *TEXT, char *RNDR){ // unsafe: system()
   ix_t *r;
   //hash_t *dict = (DICT && *DICT) ? open_hash (DICT, "r")  : NULL;
   //coll_t *docs = (DOCS && *DOCS) ? open_coll (DOCS, "r+") : NULL;
-  coll_t *text = open_coll (TEXT, "r");
+  coll_t *text = open_coll (TEXT, "r+");
   system("mkdir src");
   for (r = rnk; r < rnk + len(rnk); ++r) {
     uint rank = r-rnk+1;
@@ -268,7 +384,7 @@ void ddrag (ixy_t *rnk, ixy_t *seed, coll_t *docs, float thresh) {
 void sdrag (ixy_t *rnk, ixy_t *seed, coll_t *sims, float thresh) {
   ixy_t *d, *end = rnk + len(rnk);
   ix_t *_sim = get_vec (sims, seed->i); // similarity of seed to all
-  float *sim = vec2full (_sim, num_rows (sims));
+  float *sim = vec2full (_sim, num_rows (sims), 0);
   //fprintf (stderr, "dragging %d (%c):", seed->i, (seed->y ? '+' : '-'));
   for (d = seed+1; d < end; ++d) { // for all docs following seed
     assert (d->i < len(sim));
@@ -584,7 +700,7 @@ typedef struct { uint set; uint doc; float sim; float rel; } rnk_t;
 
 coll_t *RELS = NULL, *RETS = NULL, *DOCS = NULL, *INVL = NULL, *SIMS = NULL, *SIMT = NULL;
 
-ix_t *centroid (coll_t *vecs) { 
+ix_t *centroid (coll_t *vecs) {  // thread-unsafe: static
   static ix_t *avg = NULL;
   if (avg) return avg;
   uint N = num_rows (vecs);
@@ -814,7 +930,7 @@ ix_t *examples_for_set (uint set, rnk_t *rnk, char *prm) {
   return pos;
 }
 
-void rnk_drag_svm (rnk_t *rnk, char *prm) {
+void rnk_drag_svm (rnk_t *rnk, char *prm) { // thread-unsafe: centroid + system()
   uint set, m = rnk_max_set (rnk);
   save_svm_vec (0, centroid(DOCS), "./train.vecs", "w");
   for (set = 0; set <= m; ++set) {
@@ -855,7 +971,7 @@ ix_t *qry_centr (ix_t *docs) {
   return qry;
 }
 
-ix_t *qry_diff (ix_t *pos) {
+ix_t *qry_diff (ix_t *pos) { // thread-unsafe: centroid
   ix_t *c = centroid (DOCS);
   ix_t *p = qry_centr (pos); // average of the positives
   ix_t *h = vec_x_vec (p, '-', c);
@@ -863,7 +979,7 @@ ix_t *qry_diff (ix_t *pos) {
   return h;
 }
 
-ix_t *qry_logr (ix_t *docs, char *prm) {
+ix_t *qry_logr (ix_t *docs, char *prm) { // thread-unsage: centroid
   float p = getprm (prm,"smooth=",0.9);
   ix_t *bg = centroid (DOCS);          vec_x_num (bg, '/', sum(bg));
   ix_t *lm = qry_centr (docs);
@@ -873,7 +989,7 @@ ix_t *qry_logr (ix_t *docs, char *prm) {
   return lr;
 }
 
-ix_t *qry_clarity (ix_t *docs, char *prm) {
+ix_t *qry_clarity (ix_t *docs, char *prm) { // thread-unsafe: centroid
   float p = getprm (prm,"smooth=",0.9);
   ix_t *bg = centroid (DOCS);          vec_x_num (bg, '/', sum(bg));
   ix_t *lm = qry_centr (docs);
@@ -896,7 +1012,7 @@ ix_t *qry_gain (ix_t *pos, ix_t *neg) {
   return qry;
 }
 
-ix_t *rnk_qry (ix_t *pos, char *prm) {
+ix_t *rnk_qry (ix_t *pos, char *prm) { // thread-unsafe: qry_diff qry_clarity
   uint qlen = getprm(prm,"len=",0);
   //strstr(prm,"gain") ? qry_gain (pos, neg) : 
   ix_t *qry = (strstr(prm,"clar") ? qry_clarity (pos, prm) :
@@ -908,7 +1024,7 @@ ix_t *rnk_qry (ix_t *pos, char *prm) {
   return qry;
 }
 
-void rnk_drag_qry (rnk_t *rnk, char *prm) { 
+void rnk_drag_qry (rnk_t *rnk, char *prm) {  // thread-unsafe: rnk_qry
   float thresh = getprm (prm, "thresh=", -Inf); 
   uint set, m = rnk_max_set (rnk);
   for (set = 0; set <= m; ++set) {
@@ -925,7 +1041,7 @@ void rnk_drag_qry (rnk_t *rnk, char *prm) {
   } 
 }
 
-void rnk_drag (rnk_t *rnk, rnk_t *r, char *prm) {
+void rnk_drag (rnk_t *rnk, rnk_t *r, char *prm) { // thread-unsafe: rnk_drag_qry
   //printf ("%c>%d\n", (r->rel ? '+' : '-'), set);
   r->set = r->rel;
   r->sim = Inf;
@@ -944,14 +1060,14 @@ rnk_t *rnk_find_miss (rnk_t *rnk, uint set) {
   return NULL;
 }
 
-float rnk_single_drag (rnk_t *rnk, uint q, char *prm) {
+float rnk_single_drag (rnk_t *rnk, uint q, char *prm) { // thread-unsafe: rnk_drag
   printf ("\nQuery %d: %d rels\n", q, rnk_count('r',rnk,1));
   rnk_t *r = rnk_find_miss (rnk, 1); // r should be in set 1 but isn't
   rnk_drag (rnk,r,prm);
   return rnk_eval_multi (rnk,"F1");
 }
 
-float rnk_round_robin (rnk_t *rnk, uint q, char *prm) {
+float rnk_round_robin (rnk_t *rnk, uint q, char *prm) { // thread-unsafe: rnk_drag
   int set, m = rnk_max_set (rnk);
   uint rels = len(rnk)-rnk_count('r',rnk,0), sets = rnk_num_sets(rnk);
   int drags = getprm(prm,"drags=",0), minset = getprm(prm,"minset=",0);
@@ -971,7 +1087,7 @@ float rnk_round_robin (rnk_t *rnk, uint q, char *prm) {
 }
 
 /*
-uint rnk_recall_1st (rnk_t *rnk, char *prm) {
+uint rnk_recall_1st (rnk_t *rnk, char *prm) { // thread-unsafe: rnk_drag
   float goal = getprm (prm, "F1=", 0.9); // target performance
   uint pdrags = 0, ndrags = 0;
   while (rnk_eval(rnk,"F1") < goal) {
@@ -996,7 +1112,7 @@ uint rnk_recall_1st (rnk_t *rnk, char *prm) {
   return pdrags + ndrags;
 }
 
-uint rnk_inorder (rnk_t *rnk, char *prm) {
+uint rnk_inorder (rnk_t *rnk, char *prm) { // thread-unsafe: rnk_drag
   float goal = getprm (prm, "F1=", 0.9); // target performance
   uint pdrags = 0, ndrags = 0;
   while (rnk_eval(rnk,"F1") < goal) {
@@ -1012,12 +1128,13 @@ uint rnk_inorder (rnk_t *rnk, char *prm) {
 */
 
 void do_rnk (char *_RELS, char *_RETS, char *_DOCS, char *_INVL, char *_SIMS, char *prm) {
+  char buf[999];
   RELS = open_coll (_RELS, "r+"); // relevance judgments
   RETS = open_coll (_RETS, "r+"); // old ranked lists
   DOCS = open_coll (_DOCS, "r+"); // document vectors
   INVL = open_coll (_INVL, "r+"); // inverted lists
   SIMS = open_coll (_SIMS, "r+"); // doc-to-doc similarities
-  SIMT = open_coll (cat(_SIMS,".T"), "r+");
+  SIMT = open_coll (fmt(buf,"%s.T",_SIMS), "r+");
   uint q = 0, nq = num_rows (RETS);
   double avg = 0;
   for (q=1; q <= nq; ++q) {
@@ -1059,12 +1176,18 @@ void do_stats (char *_M, char *_H) {
 }
 
 char *usage = 
-  "plug                          - optional [parameters] are in brackets\n"
+  "kvs                           - optional [parameters] are in brackets\n"
   "  -m 256                      - set mmap size to 256MB\n"
   "  -rs 1                       - set random seed to 1\n"
-  "  -dump XML HASH [id]         - dump strings from collection XML\n"
+  "  -dump XML [HASH id]         - dump all [id] from collection XML\n"
   "  -load XML HASH              - stdin -> collection XML indexed by HASH\n"
-  "  -json JSON HASH             - stdin -> collection JSON indexed by HASH\n"
+  "  -json JSON HASH [prm]       - stdin -> collection JSON indexed by HASH\n"
+  "                                prm: skip, join duplicates, addkeys\n"
+  //"  -merge C = A + B            - C[i] = A[i] + B[i] (concatenates records)\n"
+  //"  -rekey A a = B b [addnew]   - A[j] = B[i] where key = a[j] = b[i]\n"
+  //"   merge A += B [prm]         - A[j] += B[i] (concat, assume ids compatible)\n"
+  "   merge A a += B b [prm]     - A[j] += B[i] (concat) where key = a[j] = b[i]\n"
+  "                                prm: addnew ... add new keys if not in a\n"
   "  -stat XML HASH              - stats (cf,df) from collection XML -> stdout\n"
   "  -dmap XML HASH              - stdin: qryid docid, stdout: qryid XML[docid]\n"
   "  -qry 'query' DICT stem=L    - parse query\n"
@@ -1098,7 +1221,17 @@ int main (int argc, char *argv[]) {
     if (!strcmp (a(0), "-m")) MAP_SIZE = ((ulong) atoi (a(1))) << 20;
     if (!strcmp (a(0), "-rs")) srandom (atoi(a(1)));
     if (!strcmp (a(0), "-load")) load_raw (a(1), a(2));
-    if (!strcmp (a(0), "-json")) load_json (a(1), a(2));
+    if (!strcmp (a(0), "-json")) load_json (a(1), a(2), a(3));
+    //if (!strcmp (a(0), "-merge") &&
+    //!strcmp (a(2), "="))     merge_colls (a(1), a(3), a(5));
+    //if (!strcmp (a(0), "-rekey") &&
+    //!strcmp (a(3), "="))     rekey_coll (a(1), a(2), a(4), a(5), a(6));
+    if (!strcmp (a(0), "merge") && 
+	!strcmp (a(3), "+="))    do_merge (a(1), a(2), a(4), a(5), a(6));
+    if (!strcmp (a(0), "merge2") && 
+	!strcmp (a(3), "+="))    do_merge2 (a(1), a(2), a(4), a(5), a(6));
+    //if (!strcmp (a(0), "merge") && 
+    //!strcmp (a(2), "+="))    do_merge (a(1), NULL, a(3), NULL, a(4));
     if (!strcmp (a(0), "-dump")) dump_raw (a(1), a(2), a(3));
     if (!strcmp (a(0), "-dmap")) dump_raw_ret (a(1), a(2));
     if (!strcmp (a(0), "-stat")) do_stats (a(1), a(2));
@@ -1118,4 +1251,3 @@ int main (int argc, char *argv[]) {
   if (ret) free_vec (ret);
   return 0;
 }
-

@@ -1,34 +1,34 @@
 /*
-
-   Copyright (C) 1997-2014 Victor Lavrenko
-
-   All rights reserved. 
-
-   THIS SOFTWARE IS PROVIDED BY VICTOR LAVRENKO AND OTHER CONTRIBUTORS
-   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-   FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-   COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-   INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-   (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-   SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-   HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-   STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
-   OF THE POSSIBILITY OF SUCH DAMAGE.
-
+  
+  Copyright (c) 1997-2016 Victor Lavrenko (v.lavrenko@gmail.com)
+  
+  This file is part of YARI.
+  
+  YARI is free software: you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+  
+  YARI is distributed in the hope that it will be useful, but WITHOUT
+  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+  or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+  License for more details.
+  
+  You should have received a copy of the GNU General Public License
+  along with YARI. If not, see <http://www.gnu.org/licenses/>.
+  
 */
 
 #include <math.h>
 #include "matrix.h"
 #include "svm.h"
 
-inline uint tri (uint i, uint j) { // dense lower-triangular matrix
+uint tri (uint i, uint j) { // dense lower-triangular matrix
   if (i >= j) return i*(i-1)/2 + j;
   else        return j*(j-1)/2 + i;
 }
 
-inline uint trilen (uint n) { return (ceil(sqrt(1+8*n)) - 1) / 2; } // n = i(i+1)/2
+uint trilen (uint n) { return (ceil(sqrt(1+8*n)) - 1) / 2; } // n = i(i+1)/2
 
 static inline void L1 (ix_t *X) { vec_x_num (X,'/',sum(X)); }
 
@@ -161,8 +161,8 @@ ix_t *cdescent (ix_t *_Y, coll_t *XT, ix_t *W, char *prm) {
   uint N = num_cols (XT), V = num_rows (XT);
   if (!W) W = const_vec (V, 0);
   ix_t *_P = cols_x_vec (XT, W); // initial predictions
-  float *P = vec2full (_P, N); // predictions 
-  float *Y = vec2full (_Y, N); // truth
+  float *P = vec2full (_P, N, 0); // predictions 
+  float *Y = vec2full (_Y, N, 0); // truth
   float *X = new_vec (N+1, sizeof(float)); // inv list
   float *L = new_vec (N+1, sizeof(float)); // left cumulative loss
   float *R = new_vec (N+1, sizeof(float)); // right cumulative loss

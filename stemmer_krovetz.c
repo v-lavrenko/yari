@@ -1,40 +1,125 @@
 /*
 
-  Copyright (c) 1997-2006 University of Massachusetts. All rights reserved.
+------  http://lexicalresearch.com/software.html ------
 
-  Redistribution and use in source and binary forms, with or without
-  modification, are permitted provided that the following conditions
-  are met:
+Kstem is a morphology routine for information retrieval.
+It is designed to return a root rather than a truncated
+word form, and to group word forms on the basis of semantics.
+The code is open-source, and is licensed under the LGPL.
 
-    1. Redistributions of source code must retain the above copyright
-       notice, this list of conditions and the following disclaimer.
+Kstem Documentation
+-------------------
 
-    2. Redistributions in binary form must reproduce the above copyright
-       notice, this list of conditions and the following disclaimer in
-       the documentation and/or other materials provided with the
-       distribution.
+Kstem is a morphological analyzer that reduces morphological variants to a
+root form.  For example, `elephants'->`elephant', `amplification'->`amplify',
+and `european'->`europe'.  This type of reduction is the norm in information
+retrieval, and is referred to as "stemming".  Unlike previous stemmers, Kstem
+tries to avoid conflating variants that have different meanings.  For example
+`memorial' is related to `memory', and `memorize' is also related to `memory',
+but reducing those variants to `memory' would also conflate `memorial' with
+`memorize'.  For more information, please see "Viewing Morphology as an Inference
+Process", by Robert Krovetz, Proceedings of the ACM-SIGIR Conference on Research
+and Development in Information Retrieval, pp. 191-202, 1993.
 
-    3. The names "CIIR", "UMass" and "University of Massachusetts"
-       must not be used to endorse or promote products derived from
-       this software without specific prior written permission.
-       To obtain permission, contact info@ciir.cs.umass.edu
+The primary advantage of Kstem over previous stemmers (e.g, the
+Porter stemmer) is that it returns words instead of truncated word forms.
+It is also much easier to modify, and very flexible.  It will allow any
+word form to be kept as is, and it will allow any word form to be conflated
+to any other word form.  In general, Kstem requires a word to be in the
+lexicon (the basic list of words that the system knows about) before it
+will reduce one word form to another.  Some endings are highly productive,
+and Kstem will remove them even if the root form is not found in the
+lexicon (e.g., `-ness', `-ly').  If a variant is explicitly mentioned in
+the lexicon, it is assumed to be unrelated to the (presumed) root, and
+the conflation is not done.  For example, the lexicon needs to contain
+the word `curly', or it would be reduced to the presumed root, `cur'.
+Similarly, the word `factorial' needs to be included, or it would be
+reduced to `factory' (by analogy to `matrimonial'->`matrimony').  In
+contrast, we want to allow `immunity'->`immune', but avoid reducing
+`station'->`state', or `authority'->`author'.  This is done by making
+sure that the root form (`immune') is mentioned in the lexicon, and
+omitting any variant (`immunity') that you want to be related to that root.
 
-  THIS SOFTWARE IS PROVIDED BY THE UNIVERSITY OF MASSACHUSETTS AND OTHER
-  CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING,
-  BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND
-  FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
-  THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
-  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-  POSSIBILITY OF SUCH DAMAGE.
+There are instances in which we need an explicit mention of which variant
+is related to a root.  For example, irregular morphology (`matrices'->`matrix')
+or cases in which the reduction would not be permitted due to length
+restrictions (`doing'->`do').  A direct-conflation file is used to allow
+these reductions to be performed.  This file can also be used to over-ride
+the normal operation of the system.  That is, if the user wants one word
+form to be reduced to another, this file can be used to "hard-wire" that
+result.  It consists of a list of pairs between the original word form and
+the word form that results.  This file should be used with care - it is
+possible to repeatedly stem a file and obtain different results than
+stemming it just once (in general, once a file is stemmed, stemming it
+again will not change it).
 
-*/
+The routine requires several files that store the basic lexicon, and explicit
+conflations due to irregular morphology.  The environment variable STEM_DIR
+should be set to the name of the directory where those files are located.
+The list of files is as follows:
 
-/*
+   head_word_list.txt   -   the basic list of words in the lexicon
+
+   dict_supplement.txt  -   this is an additional list of words that
+                            can be used without entailing a modification
+                            of the basic word list.  This is used to
+                            allow (or prevent) domain specific conflations.
+
+   e_exception_words.txt -   this is used to determine whether to retain an
+                            "e" at the end of a word.  For example, `suites'
+                            is reduced to `suite', but `suited' to `suit'.
+                            This list tells us which words are in that category.
+
+   direct_conflations.txt - this allows us to directly conflate one word form
+                            to another.  It is used to allow `doing'->`do',
+                            which would normally not be allowed because of
+                            length restrictions, and to provide a way to
+                            over-ride the normal rules used by the system.
+
+   country_nationality.txt - this is a list of conflations between nationalities
+                             and countries (e.g., `British'->`Britain') or
+                             words relatng to continents (`European'->`Europe').
+                             It *could* be part of the direct-conflations file,
+                             but it is kept separate for ease of modification.
+
+   proper_nouns.txt     -   this is a list of proper nouns that we do not want
+                            to have stemmed (e.g., `Italy', `Athens', and
+                            `Inverness').  Just as the country_nationality file
+                            is kept separate from the direct_conflation file,
+                            this is kept separate from the dict_supplement
+                            file for the same reason.
+
+I have set the file permissions for all of the lexicon files to be read-only,
+except for dict_supplement.txt and direct_conflations.txt.  Those are the
+only files you need to change.  If a word is being stemmed and you do not
+want it to be stemmed, then add it to the dict_supplement file.  For example,
+if xyzness was being stemmed to xyz and you didn't want that to happen,
+add "xyzness" (without the quotes) to the dict_supplement.txt file.  If
+you want a particular reduction to occur, add it in the direct_conflation
+file.  For example, if you want "won" to be converted to "win", then add
+the line: "won win" to the direct_conflation file.
+
+To use Kstem, you must first make a call to read_dict_info().  This loads the
+above files into memory.  The stemmer is then called by saying: stem(word, thestem),
+where "word" and "thestem" are pointers to characters (char *).  The user is
+responsible for allocating storage for the input word and the result (thestem).
+Both read_dict_info and stem are of type VOID.
+
+The distribution includes the above mentioned files, as well as public-kstem.c
+(the source code file), test-kstem.c (a routine to interactively determine the
+value returned for any word-form), kstem-file.c (example source code for stemming
+all the words in a file), and a makefile.  It also includes hash.c and hash.h,
+which support the use of hash tables.
+
+This release of Kstem uses a modified public-domain list of words as the
+head_word_list, and the list is still being refined to obtain the best
+performance.  It should be considered a beta-release of the system,
+and several roots and variants may be missing from the file.
+
+For comments and questions about Kstem, please contact Bob Krovetz
+(kstem@lexicalresearch.com)
+
+
    This is a stemmer that handles inflectional morphology and the
    most common forms of derivational morphology.  It first checks a 
    word against the dictionary, and if it is found it leaves it alone.
@@ -132,7 +217,8 @@
    12/8/94 (MIK) Added the unit testing code
 
    3/20/95 (RJK) Fixed bug with -ble, -nce, -ncy.
-   */
+
+*/
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -1933,25 +2019,37 @@ stemht_init_flag = FALSE;
 free(stemht);
 }
 
-void kstem_stemmer (char *word, char *stem) {
+////////////////////////// YARI-specific below /////////////////////////
+
+void lock (int *x) ; // link with synq.c
+void unlock (int *x) ;
+void kstem_stemmer (char *word, char *stem) { // thread-safe (locks)
+  static int KSTEM = 0;
+  lock (&KSTEM);
   char *tmp = kstem_stem(word);
   strcpy(stem,tmp);
+  unlock (&KSTEM);
 }
 
 #ifdef MAIN
 
-int main(int argc, char *argv[]) {
-  char word[80];
-  char *thestem;
+int main (int argc, char *argv[]) {
+  char line[9999];
+  (void) argc;
+  (void) argv;
   
-  do  {
-    gets(word);
-    if (*word == '\0') break;
+  while (fgets (line,9999,stdin)) {
     
-    thestem = kstem_stem(word);
+    if (*line == '#') continue; // skip comments
+    char *nl = strchr (line,'\n'), *toks = line;
+    if (nl) *nl = '\0'; // strip newline
     
-    printf("%s -> %s\n", word,thestem);
-  } while(!feof(stdin));
+    while (word = next_token(&toks," \t")) {
+      char *stem = kstem_stem (word);
+      printf(" %s", stem);
+    }
+    printf ("\n");
+  }
   
   return(0);
 }

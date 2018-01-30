@@ -1,24 +1,24 @@
 /*
-
-   Copyright (C) 1997-2014 Victor Lavrenko
-
-   All rights reserved. 
-
-   THIS SOFTWARE IS PROVIDED BY VICTOR LAVRENKO AND OTHER CONTRIBUTORS
-   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-   FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-   COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-   INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-   (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-   SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-   HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-   STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
-   OF THE POSSIBILITY OF SUCH DAMAGE.
-
+  
+  Copyright (c) 1997-2016 Victor Lavrenko (v.lavrenko@gmail.com)
+  
+  This file is part of YARI.
+  
+  YARI is free software: you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+  
+  YARI is distributed in the hope that it will be useful, but WITHOUT
+  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+  or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+  License for more details.
+  
+  You should have received a copy of the GNU General Public License
+  along with YARI. If not, see <http://www.gnu.org/licenses/>.
+  
 */
-
+#define _GNU_SOURCE
 #include <assert.h>
 #include <string.h>
 #include <stdio.h>
@@ -28,6 +28,20 @@
 #include "textutil.h"
 
 char *default_ws = " \t\r\n~`!@#$%^&*()_-+=[]{}|\\:;\"'<>,.?/";
+
+char *endchr (char *s, char c, uint n) { // faster strrchr
+  char *p = s + n - 1; // end of string
+  while (p > s && *p != c) --p;
+  return p > s ? p : NULL;
+}
+
+char *strRchr (char *beg, char *end, char key) {
+  if (!key || !end || end < beg) return beg;
+  while (end > beg && *end != key) --end;
+  return end;
+}
+
+char *strchr1 (char *s, char c) { s = strchr(s,c); return s ? s+1 : 0; }
 
 // in str replace any occurence of chars from what[] with 'with'
 void csub (char *str, char *what, char with) {
@@ -43,8 +57,19 @@ void csub (char *str, char *what, char with) {
   //  *t = 0;
 }
 
+// change any occurence of 'what' to 'with' inside quotes
+void cqsub (char *str, char what, char with, char quot) {
+  char in_quot = 0;
+  while (*str) {
+    if (*str == what && in_quot) *str = with;
+    if (*str == quot) in_quot = !in_quot;
+    ++str;
+  }
+}
+
 // in str replace any occurence of chars from punctuation[] with nothing
 void squeeze (char *str, char *what) {
+  if (!str) return;
   if (!what) what = default_ws;
   char *s, *t; 
   for (t=s=str; *s; ++s) if (!strchr (what, *s)) *t++ = *s;
@@ -63,6 +88,25 @@ void cgrams (char *str, uint lo, uint hi, uint step, char *buf, uint eob) {
       *b++ = ' ';
     }
   *b = 0;
+}
+
+char *tsv_value (char *line, uint col) { // FIXME!!!
+  uint f;
+  for (f = 1; f < col && line; ++f) line = strchr1 (line, '\t');
+  if (!line) return NULL;
+  uint length = strcspn (line, "\t\r\n");
+  return strndup(line,length);
+}
+
+uint split (char *str, char sep, char **_tok, uint ntoks) {
+  char **tok = _tok, **last = _tok + ntoks - 1;
+  *tok++ = str;
+  for (; *str; ++str) if (*str == sep) { 
+      *str++ = 0; 
+      *tok++ = str; 
+      if (tok > last) break;
+    }
+  return tok - _tok;
 }
 
 void chop (char *str, char *blanks) {
@@ -84,6 +128,28 @@ char *substr (char *s, uint n) {
   buf[n] = 0;
   return buf;
 }
+
+uint atou (char *s) { // string to integer (unsigned, decimal)
+  register uint U = 0, B = 10;
+  register int zero = '0', nine = '9';
+  for (; *s >= zero && *s <= nine; ++s) // only leading digits
+    U = B*U + (*s - zero);
+  return U;
+}
+
+void reverse (char *str, uint n) { 
+  char *beg = str-1, *end = str + n, tmp;
+  while (++beg < --end) { tmp = *beg; *beg = *end; *end = tmp; }
+}
+
+char *itoa (char*_a, uint i) {
+  char *a = _a;
+  while (i > 0) { *a++ = i%10 + '0'; i /= 10; }
+  *a = 0;
+  reverse (_a, a-_a);
+  return a;
+}
+
 
 // erase (overwrite with 'C') every occurence of A...B
 void erase_between (char *buf, char *A, char *B, int C) {
@@ -114,12 +180,79 @@ char *extract_between (char *buf, char *A, char *B){
   return result;
 }
 
-char *json_value (char *json, char *key) {
+char *parenthesized (char *str, char open, char close) {
+  int depth = 0; char *beg = strchr(str,open), *s; 
+  if (!beg) return NULL; // no opening paren
+  for (s = beg; *s; ++s) 
+    if      (*s == close && --depth == 0) break;
+    else if (*s == open)    ++depth;
+  if (!*s) return NULL; // no closing paren
+  return strndup (beg, s-beg+1);
+}
+
+char closing_paren (char open) {
+  return (open == '"' ? '"' :  open == '{' ? '}' : open == '[' ? ']' : 
+	  open == '(' ? ')' :  open == '<' ? '>' : '\0'); 
+}
+
+uint parenspn (char *str) { // span of parenthesized string starting at *str
+  char *s, open = *str, close = closing_paren (open);
+  int depth = 0; 
+  for (s = str; *s; ++s)
+    if      (*s == open)    ++depth;
+    else if (*s == close && --depth == 0) {++s; break;}
+  return s - str;
+}
+
+char *json_value (char *json, char *_key) { // { "key1": "val1", "key2": 2 } cat
+  if (!json || !_key) return NULL;
+  if (*_key == '"') assert ("don't pass quotes to json_value");
+  char x[999], *key = fmt(x,"\"%s\"",_key);
   char *val = strstr (json, key);
   if (!val) return NULL;
-  val += strlen(key);
-  if (*val == '"') ++val;
-  return extract_between (val, "\"", "\"");
+  val += strlen(key);       //if (*val == '"') ++val; // " after key
+  val += strspn (val," :"); // skip :
+  if (*val == '"') return extract_between (val, "\"", "\""); // string
+  if (*val == '{') return parenthesized (val, '{', '}'); // object
+  if (*val == '[') return parenthesized (val, '[', ']'); // list
+  return strndup(val,strcspn(val,",}]"));
+}
+
+double json_numval (char *json, char *_key) {
+  char *pos = "yes,true,positive,present"; // checked, ongoing
+  char *neg = "no,false,negative,absent"; // unknown, not present
+  char *val = json_value (json, _key);
+  double num = (!val || !*val) ? 0 : strstr(neg,val) ? 0 : strstr(pos,val) ? 1 : atof(val);
+  free (val); 
+  return num;
+}
+
+char *json_pair (char *json, char *_str) {
+  if (!json || !_str) return NULL;
+  char *str = strcasestr(json,_str);
+  if (!str) return NULL;
+  char *beg = strRchr(json,str,'"'), *end = strchr(str,'"')+1; 
+  if (beg == json || end == NULL+1) return NULL;
+  char *sep = end + strcspn(end,":,]}");
+  if (*sep == ':') { // "..str..": wantedValue
+    end = sep+1 + strspn(sep+1," "); // skip spaces
+    if (*end == '"') { end = strchr(end+1,'"'); assert(end); ++end; }
+    else                     end += strcspn(end,",}]"); // numeric, keyword, ?
+    //if (strchr("{[\"",*end)) end += parenspn(end); // {...} or [...] or "..."
+  } else { // "wantedKey": "...str..."
+    beg = strRchr(json,beg-1,':'); // key-value separator
+    beg = strRchr(json,beg-1,'"'); // closing of key 
+    beg = strRchr(json,beg-1,'"'); // opening of key
+  }
+  return strndup (beg, end-beg);
+}
+
+void json2text (char *json) { squeeze (json, "{}[]\""); }
+
+void purge_escaped (char *txt) { // remove \n, \\n etc
+  char *s = txt + strlen(txt);
+  while (--s > txt) 
+    if (s[-1] == '\\' || *s == '\\') *s = ' ';    
 }
 
 char *next_token (char **text, char *ws) {
@@ -132,6 +265,20 @@ char *next_token (char **text, char *ws) {
   return beg;
 }
 
+char *lowercase(char *_s) {
+  char *s = _s; 
+  if (s) for (; *s; ++s) *s = tolower((int) *s);
+  return _s;
+}
+
+char *uppercase(char *_s) {
+  char *s = _s; 
+  if (s) for (; *s; ++s) *s = toupper((int) *s);
+  return _s;
+}
+
+int cntchr (char *s, char c) { int n; for (n=0; *s; ++s) n += (*s == c); return n; }
+
 void lowercase_stemmer (char *word, char *stem) {
   char *s;
   strncpy (stem, word, 999);
@@ -140,10 +287,8 @@ void lowercase_stemmer (char *word, char *stem) {
 
 void stem_word (char *word, char *stem, char *type) {
   switch (*type) {
-  case 'P': porter_stemmer (word, stem); break;
   case 'K': kstem_stemmer (word, stem); break;
   case 'L': lowercase_stemmer (word,stem); break;
-  //case 'A': arabic_stemmer (word, stem); break;
   default: strncpy(stem,word,999);
   }
   //if (strcmp(word,stem)) printf ("%s: %s -> %s\n", type, word, stem);
@@ -164,7 +309,7 @@ hash_t *load_stoplist () {
   return H;
 }
 
-int stop_word (char *word) {
+int stop_word (char *word) { // thread-unsafe: static
   static hash_t *stops = NULL;
   if (!stops) stops = load_stoplist();
   //if (has_key(stops,word)) printf ("%s is a stopword\n", word);
@@ -190,7 +335,7 @@ void stem_toks (char **toks, char *type) {
   }
 }
 
-void stop_toks (char **toks) {
+void stop_toks (char **toks) { // thread-unsafe: static
   static hash_t *stops = NULL;
   if (!stops) stops = load_stoplist();
   char **v, **w, **end = toks+len(toks);
@@ -267,3 +412,150 @@ char *get_xml_docid (char *str) {
   chop (id, " \t"); // chop whitespace around docid
   return id;
 }
+
+// -------------------------- snippets --------------------------
+
+// returns SZ chars around 1st match of QRY in TEXT
+char *snippet1 (char *text, char *qry, int sz) {
+  int sz2 = (sz - strlen(qry)) / 2;
+  char *end = text + strlen(text);
+  char *beg = strcasestr(text,qry);
+  if (!beg) return NULL;
+  beg = MAX(text,beg-sz2);
+  end = MIN(end,beg+sz);
+  beg = MAX(text,end-sz);
+  return strndup (beg, end-beg);
+}
+
+char **strall (char *_text, char *qry) {
+  char **result = new_vec (0, sizeof(char*)); 
+  char *text = _text, *hit = 0; 
+  uint qlen = strlen(qry);
+  while ((hit = strstr(text,qry))) {
+    result = append_vec (result, &hit);
+    text = hit + qlen;
+  }
+  return result;
+}
+
+// return offsets in text of all occurrences of all words
+it_t *all_hits (char *_text, char **words) {
+  it_t *hits = new_vec (0, sizeof(it_t)); 
+  char **w, **wEnd = words + len(words);
+  for (w = words; w < wEnd; ++w) {
+    uint wlen = strlen(*w);
+    char *text = _text, *hit;
+    while ((hit = strstr(text,*w))) {
+      it_t h = {w-words, hit-_text};
+      hits = append_vec (hits, &h);
+      text = hit + wlen;
+    }
+  }
+  sort_vec (hits,cmp_it_t);
+  return hits;
+}
+
+uint *word_lengths (char **words) {
+  uint nw = len(words), i, *wlen = new_vec (nw, sizeof(uint)); 
+  for (i=0; i<nw; ++i) wlen[i] = strlen(words[i]);
+  return wlen;
+}
+
+// shortest span containing at least one hit for every word
+it_t range_hits (it_t *hits, uint *wlen) {
+  it_t *last = hits+len(hits)-1, *a = hits, *z = last, *h, *A=a, *Z=z;
+  int *seen = new_vec (len(wlen), sizeof(uint)), need = 0;
+  for (h=a; h<=z; ++h) ++seen [h->i]; // #times word [h->i] seen in hits [a..z]
+  while (a < z && seen[z->i] > 1) --seen [(z--)->i]; // --z while no words lost
+  while (1) {
+    while (z < last && seen[need] < 1) ++seen [(++z)->i]; // ++z until see needed word
+    while (a < last && seen[a->i] > 1) --seen [(a++)->i]; // ++a while no words lost
+    if (a >= last || z >= last) break;
+    if (z->t - a->t + wlen[z->i] < 
+	Z->t - A->t + wlen[Z->i]) { A=a; Z=z; }
+    --seen [need = a++->i];
+  }
+  free_vec(seen);
+  return (it_t) {A - hits, Z - hits};
+}
+
+it_t *range2hits (it_t *hits, it_t range, uint *wlen) {
+  int *seen = new_vec (len(wlen), sizeof(uint));
+  it_t *subset = new_vec (0, sizeof(it_t));
+  it_t *A = hits + range.i, *Z = hits + range.t, *h;
+  for (h = A; h <= Z; ++h) {
+    if (++seen[h->i] > 1) continue; // add each term only once
+    it_t hit = {h->t, h->t + wlen[h->i]};
+    subset = append_vec (subset, &hit);
+  }
+  return subset;
+}
+
+// find whitespace closest to position in text
+int nearest_ws (char *text, int position) {
+  int L = position, R = position;
+  while (isalnum (text[R])) ++R;
+  while (isalnum (text[L]) && L > 0) --L;
+  return (R-position <  position-L) ? R : L;
+}
+
+// expand each hit to sz chars 
+// TODO: adjust padding for JSON, XML, etc
+void widen_hits (it_t *hits, char *text, uint sz) {
+  uint N = strlen(text); it_t *h; 
+  for (h = hits; h < hits + len(hits); ++h) {
+    h->i = nearest_ws (text, MAX(0,((int)h->i)-sz/2));
+    h->t = nearest_ws (text, MIN(N,((int)h->t)+sz/2));
+  }
+}
+
+// merge overlapping hits 
+void merge_hits (it_t *hits, uint epsilon) {
+  it_t *L, *R, *end = hits + len(hits);
+  for (L = R = hits; R < end; ++R) {
+    if (L->t + epsilon > R->i) L->t = R->t; // L,R overlap => merge
+    else *L++ = *R;
+  }
+  len(hits) = L - hits;
+}
+
+// [{i,x}]: gap between hits[i] and hits[i-1] is x
+ix_t *gaps_between_hits (it_t *hits) {
+  uint i, n = len(hits);
+  ix_t *gaps = new_vec (n-1, sizeof(ix_t));
+  for (i=1; i<n; ++i) {
+    gaps[i-1].i = i;
+    gaps[i-1].x = hits[i].i - hits[i-1].t;
+  }
+  sort_vec (gaps, cmp_ix_X);
+  return gaps;
+}
+
+
+/*
+void fit_hits (it_t *hits, char *text, int sz) {
+  it_t *A = hits, *Z = hits+len(hits)-1, *h;
+  if (Z->t - A->i < sz) { // no need to cut down
+    A->t = Z->t; len(hits) = 1;
+    return widen_hits (hits, text, sz - (A->t - A->i));
+  }
+  int 
+  
+}
+*/
+
+/*
+
+
+it_t *hits2cuts (it_t *hits) {
+  it_t *cuts = new_vec (0, sizeof(it_t)), *h;
+  for (h = hits+1; h < hits+len(hits); ++h) {
+    it_t cut = {(h-1)->t+1
+  }
+  for (h = hits + best.i; h <= hits + best.t; ++h) {
+    it_t new = { h->t, h->t + wlen[h->i] };
+    keep = append_vec (keep, &new);
+  }
+  it_t *skip = new_vec
+}
+*/

@@ -1,22 +1,22 @@
 /*
-
-   Copyright (C) 2014 AENALYTICS LLC
-
-   All rights reserved. 
-
-   THIS SOFTWARE IS PROVIDED BY AENALYTICS LLC AND OTHER CONTRIBUTORS
-   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-   FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-   COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-   INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-   (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-   SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-   HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-   STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
-   OF THE POSSIBILITY OF SUCH DAMAGE.
-
+  
+  Copyright (c) 1997-2016 Victor Lavrenko (v.lavrenko@gmail.com)
+  
+  This file is part of YARI.
+  
+  YARI is free software: you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+  
+  YARI is distributed in the hope that it will be useful, but WITHOUT
+  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+  or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+  License for more details.
+  
+  You should have received a copy of the GNU General Public License
+  along with YARI. If not, see <http://www.gnu.org/licenses/>.
+  
 */
 
 #include "timeutil.h"
@@ -63,15 +63,14 @@ struct tm time2tm (time_t time) {
   return tm;
 }
 
-char *time2strf (char *format, time_t time) {
-  static char buf[100];
+char *time2strf (char *buf, char *format, time_t time) {
   struct tm tm = time2tm (time);
-  strftime (buf, 99, format, &tm);
+  strftime (buf, 199, format, &tm);
   return buf; 
 }
 
-char *time2str (time_t time) { 
-  return time2strf ("%F,%T", time); 
+char *time2str (char *buf, time_t time) { 
+  return time2strf (buf, "%F,%T", time);
 }
 
 int time2hour (time_t time) { 
@@ -101,3 +100,83 @@ time_t today_hhmm (time_t now, char *hhmm) {
   tm.tm_sec = 0;
   return mktime (&tm);
 }
+
+/*
+typedef struct {
+  time_t beg;
+  time_t last;
+  uint dots;
+} eta_t;
+
+inline void *show_eta (ulong done, ulong total, char *s, void *_state) {
+  eta_t *state = (eta_t *)_state;
+  if (!state) {
+    state = malloc (sizeof(eta_t));
+    state->beg = eta->last = time(0);
+    state->dots = 0;
+  }
+  time_t now = time(0); // 3 clock cycles, 3x faster than anything else
+  if (now == eta->last) return; // <1s since last invoke
+  eta->last = now;
+  if (eta->beg == 0) { eta->beg = now; return; }
+  fprintf (stderr, ".");
+  
+  return (void*) state;
+}
+
+inline void show_progress (ulong done, ulong total, char *s) { // thread-unsafe: static
+  static ulong dots = 0, prev = 0, line = 50;
+  static time_t last = 0, begt = 0;
+  time_t this = time(0);
+  //printf ("%d %d %d\n", this, last, CLOCKS_PER_SEC);
+  //if (this - last < CLOCKS_PER_SEC) return; 
+  if (this == last) return;
+  last = this;
+  fprintf (stderr, ".");
+  if (!begt) begt = this;
+  if (done < prev) prev = done; 
+  if (++dots < line) return;
+  double todo = total-done, di = done-prev, ds = this-begt, rpm = 60*di/ds, ETA = todo/rpm;
+  //double ETA = ((double)(N-n)) / ((n-m) * 60 / line); // minutes
+  if (!total) fprintf (stderr, "%ld %s @ %.0f / minute\n", done, s, rpm);
+  else {      fprintf (stderr, "%ld / %ld %s", done, total, s);
+    if (ETA < 60)        fprintf (stderr, " ETA: %.1f minutes\n", ETA);
+    else if (ETA < 1440) fprintf (stderr, " ETA: %.1f hours\n", ETA/60);
+    else                 fprintf (stderr, " ETA: %.1f days\n", ETA/1440);
+  }
+  prev = done;
+  begt = this;
+  dots = 0;
+}
+*/
+
+/*
+
+http://stackoverflow.com/questions/6498972/faster-equivalent-of-gettimeofday
+
+time (s) => 3 cycles
+ftime (ms) => 54 cycles
+gettimeofday (us) => 42 cycles
+clock_gettime (ns) => 9 cycles (CLOCK_MONOTONIC_COARSE)
+clock_gettime (ns) => 9 cycles (CLOCK_REALTIME_COARSE)
+clock_gettime (ns) => 42 cycles (CLOCK_MONOTONIC)
+clock_gettime (ns) => 42 cycles (CLOCK_REALTIME)
+clock_gettime (ns) => 173 cycles (CLOCK_MONOTONIC_RAW)
+clock_gettime (ns) => 179 cycles (CLOCK_BOOTTIME)
+clock_gettime (ns) => 349 cycles (CLOCK_THREAD_CPUTIME_ID)
+clock_gettime (ns) => 370 cycles (CLOCK_PROCESS_CPUTIME_ID)
+rdtsc (cycles) => 24 cycles
+
+http://www.systutorials.com/5086/measuring-time-accurately-in-programs/
+
+time (s) => 4ns
+ftime (ms) => 39ns
+gettimeofday (us) => 30ns
+clock_gettime (ns) => 26ns (CLOCK_REALTIME)
+clock_gettime (ns) => 8ns (CLOCK_REALTIME_COARSE)
+clock_gettime (ns) => 26ns (CLOCK_MONOTONIC)
+clock_gettime (ns) => 9ns (CLOCK_MONOTONIC_COARSE)
+clock_gettime (ns) => 170ns (CLOCK_PROCESS_CPUTIME_ID)
+clock_gettime (ns) => 154ns (CLOCK_THREAD_CPUTIME_ID
+
+*/

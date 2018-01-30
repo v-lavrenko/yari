@@ -1,22 +1,22 @@
 /*
-
-   Copyright (C) 1997-2014 Victor Lavrenko
-
-   All rights reserved. 
-
-   THIS SOFTWARE IS PROVIDED BY VICTOR LAVRENKO AND OTHER CONTRIBUTORS
-   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-   FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-   COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-   INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-   (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-   SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-   HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-   STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
-   OF THE POSSIBILITY OF SUCH DAMAGE.
-
+  
+  Copyright (c) 1997-2016 Victor Lavrenko (v.lavrenko@gmail.com)
+  
+  This file is part of YARI.
+  
+  YARI is free software: you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+  
+  YARI is distributed in the hope that it will be useful, but WITHOUT
+  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+  or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+  License for more details.
+  
+  You should have received a copy of the GNU General Public License
+  along with YARI. If not, see <http://www.gnu.org/licenses/>.
+  
 */
 
 #include "hash.h"
@@ -50,25 +50,32 @@ inline static hash_t *open_hash_inmem () {
 }
 
 hash_t *open_hash (char *_path, char *_access) {
+  if (!_path) return open_hash_inmem ();
   if (*_access != 'w' && file_exists (_path) && !file_exists ("%s/hash.code",_path)) { 
     fprintf (stderr, "\n\nERROR: %s is outdated, re-index or downgrade\n\n", _path);
     exit(1); 
   }
-  if (!_path) return open_hash_inmem ();
-  char *path = strdup (_path), *access = strdup(_access);
-  access[1] = 0; // make sure there's no '+' at the end
+  //int MAP_OLD = MAP_MODE; MAP_MODE |= MAP_POPULATE; // pre-load hashtable
+  char *path = strdup (_path), x[9999]; // 
+  char *access = strdup(_access);
+  //char *access = calloc(1,3); access[0] = _access[0]; access[1] = '!'; 
+  if (access[1] == '+') assert (0 && "[open_hash] invalid access+");
+  //access[1] = 0; // make sure there's no '+' at the end
   hash_t *h = safe_calloc (sizeof (hash_t));
   h->access = access;
   h->path = path;
-  h->keys = open_coll (path, access); 
-  h->code = open_vec (cat(path,"/hash.code"), access, sizeof(uint));
-  h->indx = open_vec (cat(path,"/hash.indx"), access, sizeof(uint));
+  h->keys = open_coll (path, access); // expect_random_access (h->keys->vecs,1<<20);
+  h->code = open_vec (fmt(x,"%s/hash.code",path), access, sizeof(uint));
+  h->indx = open_vec (fmt(x,"%s/hash.indx",path), access, sizeof(uint));
   if (0 == len(h->indx)) h->indx = resize_vec (h->indx, 1023);
+  //h->data = open_mmap (path, access, 0); grow_mmap (h->data, 0);
+  //MAP_MODE = MAP_OLD; // default MMAP flags
   return h;
 }
 
 void free_hash (hash_t *h) {
   if (!h) return;
+  //free_mmap (h->data);
   free_coll (h->keys);
   free_vec  (h->code);
   free_vec  (h->indx);
@@ -78,10 +85,23 @@ void free_hash (hash_t *h) {
   free (h);
 }
 
-inline char *id2key (hash_t *h, uint id) { return get_chunk (h->keys, id); }
+hash_t *reopen_hash (hash_t *h, char *access) {
+  char *path = h->path ? strdup(h->path) : NULL;
+  free_hash (h);
+  h = open_hash (path, access);
+  if (path) free (path);
+  return h;
+}
+
+char *id2str (hash_t *h, uint id) {
+  if (h) return strdup(id2key(h,id));
+  else return fmt (malloc(15),"%u",id);
+}
+
+char *id2key (hash_t *h, uint id) { return get_chunk (h->keys, id); }
 
 // find a slot in indx that is empty or matches the key
-inline uint *href (hash_t *h, char *key, uint code) {
+uint *href (hash_t *h, char *key, uint code) {
   uint *H = h->indx, N = len(h->indx), o = code % N, id; // c = code, i=1;
   while ((id = H[o])) { // stop if we find an empty slot
     if (h->code[id] == code) { // hashcode match for id
@@ -96,7 +116,9 @@ inline uint *href (hash_t *h, char *key, uint code) {
 }
 
 void hrehash (hash_t *h) {
-  uint id, n = nvecs(h->keys), N = next_pow2(2*len(h->indx)) - 1;
+  ulong N = next_pow2(2*(ulong)(len(h->indx))) - 1;
+  uint id, n = nvecs(h->keys);
+  //fprintf (stderr, " rehash:%s:2^%u ", h->path, ilog2(N+1));
   h->indx = resize_vec (h->indx, N);
   memset (h->indx, 0, ((ulong)N)*sizeof(uint));
   for (id = 1; id <= n; ++id) { // for each key in the table
@@ -114,26 +136,163 @@ uint has_key (hash_t *h, char *key) {
   return *slot;
 }
 
+static uint add_new_key (hash_t *h, char *key, uint code) {
+  uint id = nvecs(h->keys)+1;
+  put_chunk (h->keys, id, key, strlen(key)+1);
+  h->code = resize_vec (h->code, id+1);
+  h->code[id] = code;
+  return id;
+}
+
 uint key2id (hash_t *h, char *key) {
   if (!h || !key) return 0;
   uint code = murmur3 (key, strlen(key));
   uint *slot = href (h, key, code);
   if (*slot || h->access[0] == 'r') return *slot; // key already in table
-  uint id = nvecs(h->keys)+1;
-  put_chunk (h->keys, id, key, strlen(key)+1);
-  h->code = resize_vec (h->code, id+1);
-  h->code[id] = code;
+  uint id = add_new_key (h, key, code);
   if (id > 0.3*len(h->indx)) { hrehash(h); slot = href (h, key, code); }
   return (*slot = id);
 }
 
+uint id2id (hash_t *src, uint id, hash_t *trg) {
+  if (src == trg) return id;
+  if (!src || !trg) return 0;
+  char *key = id2key (src,id);
+  return key ? key2id (trg,key) : 0;
+}
+
+////////// batch version of key2id: sort + merge
+
+char **hash_keys (char *path) {
+  fprintf (stderr, "hash_keys (%s)", path);
+  hash_t *H = open_hash (path, "r");
+  uint i, nH = nkeys(H);
+  char **keys = new_vec (nH,sizeof(char*));
+  for (i=0; i<nH; ++i) {
+    keys[i] = strdup (id2key(H,i+1));
+    if (0==i%100) show_progress (i,nH,"keys fetched");
+  }
+  free (H); // free if opened
+  fprintf(stderr," done\n");
+  return keys;
+}
+
+// keys[i] -> {i,code(key)} sorted by code%M
+static it_t *keys2codes (char **keys, uint M) {
+  fprintf (stderr, "keys2codes(%d)", len(keys));
+  uint i, n = len(keys);
+  it_t *codes = new_vec (n,sizeof(it_t));
+  for (i=0; i<n; ++i) { 
+    char *key = keys[i];
+    codes[i].i = i; 
+    codes[i].t = murmur3 (key, strlen(key));
+    if (M) codes[i].t %= M;
+    if (0==i%10) show_progress (i,n,"keys2codes");
+  }
+  fprintf(stderr," sorting %d codes", n);
+  sort_vec (codes, cmp_it_t); // sort by code
+  fprintf(stderr," done\n");
+  return codes;
+}
+
+// {i,code} -> {i,id1}...{i,idN}  possible ids for code
+static it_t *codes2hypos (it_t *codes, uint *indx) {
+  fprintf (stderr, "codes2hypos(%d)\n", len(codes));
+  it_t *hypos = new_vec (0, sizeof(it_t)), *c;
+  uint N = len(indx), n = len(codes), hypo, done = 0;
+  for (c = codes; c < codes+n; ++c) {
+    ulong code = c->t;
+    while ((hypo = indx[code])) { // all ids in collision block
+      it_t new = (it_t) {c->i, hypo};
+      hypos = append_vec (hypos, &new);
+      code = (code + 1) % N;
+    }
+    if (0==++done%10) show_progress (done,n,"codes2hypos");
+  }
+  fprintf(stderr," sorting %d hypos", len(hypos));
+  sort_vec (hypos, cmp_it_t); // sort by hypothesized id
+  fprintf(stderr," done\n");
+  return hypos;
+}
+
+static uint *hypos2ids (it_t *hypos, char **keys, coll_t *hkeys) {
+  fprintf (stderr, "hypos2ids(%d)\n", len(hypos));
+  uint nk = len(keys), nh = len(hypos), done = 0;
+  uint *ids = new_vec(nk,sizeof(uint));
+  it_t *h, *hEnd = hypos+nh;
+  for (h = hypos; h < hEnd; ++h) {
+    assert (h->i < nk);
+    char *key = keys[h->i], *hkey = get_chunk (hkeys,h->t);
+    if (hkey && !strcmp (key,hkey)) ids [h->i] = h->t; // match
+    if (0==++done%10) show_progress (done,nh,"hypos2ids");
+  }
+  fprintf(stderr," done\n");
+  return ids;
+}
+
+static void fill_ids (char **keys, uint *ids, hash_t *h) {
+  fprintf (stderr, "fill_ids(%d) using %s\n", len(keys), h->path);
+  uint i, n = len(keys);
+  for (i = 0; i < n; ++i) {
+    if (!ids[i]) ids[i] = key2id(h,keys[i]);
+    if (0==i%10) show_progress (i,n,"key2id");
+  }
+  fprintf(stderr," done\n");
+}
+
+uint *keys2ids (hash_t *h, char **keys) {
+  //vtime();
+  it_t *codes = keys2codes (keys, len(h->indx));       //fprintf (stderr, "[%.2fs] keys -> codes[%d]\n", vtime(), len(codes));
+  it_t *hypos = codes2hypos (codes, h->indx);          //fprintf (stderr, "[%.2fs] codes -> hypos[%d]\n", vtime(), len(hypos));
+  uint *ids = hypos2ids (hypos, keys, h->keys);        //fprintf (stderr, "[%.2fs] hypos -> ids[%d]\n", vtime(), len(ids));
+  if (h->access[0] != 'r') fill_ids (keys, ids, h);    //fprintf (stderr, "[%.2fs] filled ids\n", vtime());
+  free_vec (codes); free_vec (hypos);
+  return ids;
+}
+
+uint *hash2hash2 (char *src, char *trg, char *access) {
+  fprintf (stderr, "hash2hash: %s -> %s [%s]\n", src, trg, access);
+  char **keys = hash_keys (src), **k;
+  hash_t *TRG = open_hash (trg, access);
+  uint *ids = keys2ids (TRG, keys);
+  for (k = keys; k < keys+len(keys); ++k) if (*k) free(*k);
+  free_vec (keys); 
+  free_hash (TRG);
+  return ids;
+}
+
+uint *hash2hash (char *src, char *trg, char *access) {
+  if (access[1] != '!') return hash2hash2 (src, trg, access);
+  hash_t *SRC = open_hash (src, "r");
+  hash_t *TRG = open_hash (trg, access);
+  uint id, n = nkeys(SRC), *ids = new_vec (n, sizeof(uint)), M = 1000000;
+  fprintf (stderr, "hash2hash: %s [%d] -> %s [%s]\n", src, n, trg, access);
+  for (id=1; id<=n; ++id) {
+    ids[id-1] = id2id (SRC, id, TRG);
+    if (0==id%M) show_progress (id/M,n/M,"M keys");
+  }
+  fprintf(stderr,"done: %s [%d]\n", trg, nkeys(TRG));
+  free_hash (SRC); free_hash (TRG);
+  return ids;
+}
+
+uint *backmap (uint *map) { // map[i-1]==j -> inv[j-1]==i
+  uint i, n = len(map), max = 0;
+  for (i=0; i<n; ++i) if (map[i] > max) max = map[i];
+  uint *inv = new_vec (max, sizeof(uint));
+  for (i=0; i<n; ++i) if (map[i]) inv [map[i]-1] = i+1;
+  return inv;
+}
+
+////////// END: batch key2id
+
 // adapted from http://www.team5150.com/~andrew/noncryptohashzoo/Murmur3.html
 
-inline uint rot ( uint x, char r ) { return (x << r) | (x >> (32 - r)); }
+uint rot ( uint x, char r ) { return (x << r) | (x >> (32 - r)); }
 
 #define mmix3(h,k) { k *= m1; k = rot(k,r1); k *= m2; h *= 3; h ^= k; }
 
-inline uint murmur3 (const char *key, uint len) {
+uint murmur3 (const char *key, uint len) {
   const uint m1 = 0x0acffe3d, m2 = 0x0e4ef5f3, m3 = 0xa729a897;
   const uint r1 = 11, r2 = 18, r3 = 18;
   uint h = len, k = 0;
@@ -156,7 +315,7 @@ inline uint murmur3 (const char *key, uint len) {
   return h;
 }
 
-inline uint murmur3uint (uint key) {
+uint murmur3uint (uint key) {
   const uint m1 = 0x0acffe3d, m2 = 0x0e4ef5f3, m3 = 0xa729a897;
   const uint r1 = 11, r2 = 18, r3 = 18;
   uint h = 4, k = key;
@@ -169,7 +328,7 @@ inline uint murmur3uint (uint key) {
 
 // good hashes from http://www.team5150.com/~andrew/noncryptohashzoo/
 
-inline uint OneAtATime (const char *key, uint len) {
+uint OneAtATime (const char *key, uint len) {
   register uint hash = 0;
   while (len--) {
     hash += ( *key++ );
@@ -182,7 +341,7 @@ inline uint OneAtATime (const char *key, uint len) {
   return ( hash );
 }
 
-inline uint multiadd_hashcode (char *s) {
+uint multiadd_hashcode (char *s) {
   //if (HASH_FUNC == 1) return murmur3 (s, strlen(s));
   //if (HASH_FUNC == 2) return OneAtATime (s, strlen(s));
   register uint result = 0; 
@@ -225,7 +384,7 @@ const uint SBoxTable[256] = {
   0xdbb4534a, 0xce01f5c8, 0x0c072b61, 0x5d59736a, 0x60291da4, 0x1fbe2c71, 0x2f11d09c, 0x9dce266a,
 };
 
-inline uint SBox (const char *key, uint len) {
+uint SBox (const char *key, uint len) {
   register uint h = len;
   for ( ; len & ~1; len -= 2, key += 2 )
     h = ( ( ( h ^ SBoxTable[(uint)key[0]] ) * 3 ) ^ SBoxTable[(uint)key[1]] ) * 3;
@@ -235,7 +394,7 @@ inline uint SBox (const char *key, uint len) {
   return h;
 }
 
-inline uint sfrand (uint seed) { return seed *= 16807; }
+uint sfrand (uint seed) { return seed *= 16807; }
 
 /*
 void hwrite (hash_t *t, char *_path) {

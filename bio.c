@@ -1,4 +1,23 @@
-// DNA sequence processing
+/*
+  
+  Copyright (c) 1997-2016 Victor Lavrenko (v.lavrenko@gmail.com)
+  
+  This file is part of YARI.
+  
+  YARI is free software: you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+  
+  YARI is distributed in the hope that it will be useful, but WITHOUT
+  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+  or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+  License for more details.
+  
+  You should have received a copy of the GNU General Public License
+  along with YARI. If not, see <http://www.gnu.org/licenses/>.
+  
+*/
 
 #include <math.h>
 #include "matrix.h"
@@ -22,7 +41,8 @@ static it_t parse_slice (char *slice, uint min, uint max) {
   return d;
 }
 
-void load_fasta (char *SEQS) { // TODO: compress 4 chars -> 1 byte + 1 byte footer
+// TODO: compress 4 chars -> 1 byte + 1 byte footer
+void load_fasta (char *SEQS) { // thread-unsafe: show_progress
   uint id = 0;
   char *buf = malloc(1<<30), *c;
   coll_t *C = open_coll (SEQS, "w+");   // id -> ATCGCGTCGGTTAAGGTCCATG
@@ -40,30 +60,30 @@ void load_fasta (char *SEQS) { // TODO: compress 4 chars -> 1 byte + 1 byte foot
 #define BIT(x,n) ((x<<(32-n))>>(31))
 #define ROT(x,n) ((x<<n)|(x>>(32-n)))
 
-inline char bits2c (uint b) { return (b==0) ? 'A' : (b==1) ? 'C' : (b==2) ? 'G' : 'T'; }
-inline uint c2bits (char c) { return (c=='A') ? 0 : (c=='C') ? 1 : (c=='G') ? 2 : 3; }
-inline uint c2rand (char c) { return ((c=='A') ? 0xc73ee513 : (c=='C') ? 0x3a5e13de : 
+char bits2c (uint b) { return (b==0) ? 'A' : (b==1) ? 'C' : (b==2) ? 'G' : 'T'; }
+uint c2bits (char c) { return (c=='A') ? 0 : (c=='C') ? 1 : (c=='G') ? 2 : 3; }
+uint c2rand (char c) { return ((c=='A') ? 0xc73ee513 : (c=='C') ? 0x3a5e13de : 
 				      (c=='G') ? 0xf67cc174 :            0x01ca1a35); }
 
-inline uint tucode (uint i, uint j) { return ROT(i,16) ^ j; }
+uint tucode (uint i, uint j) { return ROT(i,16) ^ j; }
 
-inline void bits2kmer (uint bits, char *mer, uint k) {
+void bits2kmer (uint bits, char *mer, uint k) {
   uint i; mer[k] = 0;
   for (i = 0; i < k; ++i) { mer[i] = bits2c (bits&3); bits >>= 2; }
 }
 
-inline uint kmer2bits (char *mer, uint k) {
+uint kmer2bits (char *mer, uint k) {
   uint bits = 0, i;
   for (i = 0; i < k; ++i) { bits = (bits << 2) | c2bits (mer[i]); }
   return bits;
 }
 
-inline uint update_kmer (uint bits, uint k, char add) {
+uint update_kmer (uint bits, uint k, char add) {
   uint truncate = (1LL << (k << 1)) - 1; // 2k lowest bits
   return ((bits << 2) | c2bits(add)) & truncate;
 } // L-shift old bits by 2, append 2 new bits, truncate to 2k
 
-inline uint update_buzz (uint bits, uint k, char add, char del) {
+uint update_buzz (uint bits, uint k, char add, char del) {
   uint head = c2rand(add), tail = c2rand(del);
   return ROT(bits,1) ^ head ^ ROT(tail,k); // buzhash
 }
@@ -91,7 +111,7 @@ ix_t *seq2posD (char *seq, uint k, hash_t *D) {
   return pos;
 }
 
-void seqs2kmer (char *_CODE, char *_SEQS, char *prm) {
+void seqs2kmer (char *_CODE, char *_SEQS, char *prm) { // thread-unsafe: show_progress
   coll_t *SEQS = open_coll (_SEQS, "r+");  // id -> ATCGAGTCGGTTAAGGTCCATG
   coll_t *CODE = open_coll (_CODE, "w+");  // id -> ATCG:1 TCGA:2 CGAG:3 ...
   uint i, ns = num_rows (SEQS), k = getprm(prm,"k=",10);
@@ -149,7 +169,7 @@ ix_t *pos2lsh (ix_t *pos, char *prm) {
   return result;
 }
 
-void mtx2mtx (char *_TRG, char *_SRC, char *prm) {
+void mtx2mtx (char *_TRG, char *_SRC, char *prm) { // thread-unsafe: show_progress
   coll_t *SRC = open_coll (_SRC, "r+");
   coll_t *TRG = open_coll (_TRG, "w+");
   char *freq = strstr(prm,"freq");
@@ -277,7 +297,7 @@ void dump_fasta (char *SEQS, char *_rows, char *_cols) {
 void dump_align (char *_SEQS, char *_POSS) {
   coll_t *SEQS = open_coll (_SEQS, "r+");  //
   coll_t *POSS = open_coll (_POSS, "r+");  //
-  jix_t *P = max_rows (POSS, 0), *L=P, *p; // [{seq,pos,wt} ]
+  jix_t *P = max_rows (POSS), *L=P, *p; // [{seq,pos,wt} ]
   for (p = P; p < P+len(P); ++p) if (p->i < L->i) L = p; // leftmost sequence
   for (p = P; p < P+len(P); ++p) {
     char *seq = get_chunk (SEQS,p->j);

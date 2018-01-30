@@ -1,22 +1,22 @@
 /*
-
-   Copyright (C) 1997-2014 Victor Lavrenko
-
-   All rights reserved. 
-
-   THIS SOFTWARE IS PROVIDED BY VICTOR LAVRENKO AND OTHER CONTRIBUTORS
-   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-   FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-   COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-   INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-   (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-   SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-   HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-   STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
-   OF THE POSSIBILITY OF SUCH DAMAGE.
-
+  
+  Copyright (c) 1997-2016 Victor Lavrenko (v.lavrenko@gmail.com)
+  
+  This file is part of YARI.
+  
+  YARI is free software: you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+  
+  YARI is distributed in the hope that it will be useful, but WITHOUT
+  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+  or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+  License for more details.
+  
+  You should have received a copy of the GNU General Public License
+  along with YARI. If not, see <http://www.gnu.org/licenses/>.
+  
 */
 
 #include "mmap.h"
@@ -68,11 +68,28 @@ void *append_vec (void *d, void *el) ;
 void *append_many (void *vec, void *els, uint k) ;
 void    sort_vec (void *d, int (*cmp) (const void *, const void *)) ;
 
+void *bsearch_vec (void *vec, uint id); // pointer to first el >= id
+
 void find_el (void *el, void *vec, int (*cmp) (const void *, const void *)) ;
 void *vec_el (void **vec, uint n) ;
 
 void *set_vec_el (void *vec, uint i, void *el) ;
 void *ref_vec_el (void **vec, uint i) ;
+
+int cmp_jix (const void *n1, const void *n2) ; // by increasing j then i
+int cmp_it_i (const void *n1, const void *n2) ; // by increasing i
+int cmp_it_t (const void *n1, const void *n2) ; // by increasing t
+int cmp_ix_i (const void *n1, const void *n2) ; // by increasing i
+int cmp_ix_I (const void *n1, const void *n2) ; // by decreasing i
+int cmp_ix_x (const void *n1, const void *n2) ; // by increasing x
+int cmp_ix_X (const void *n1, const void *n2) ; // by decreasing x
+int cmp_ixy_i (const void *n1, const void *n2) ; // by increasing id
+int cmp_ixy_x (const void *n1, const void *n2) ; // by increasing x
+int cmp_ixy_y (const void *n1, const void *n2) ; // by increasing y
+int cmp_ixy_X (const void *n1, const void *n2) ; // by decreasing x
+int cmp_ixy_Y (const void *n1, const void *n2) ; // by decreasing y
+int cmp_x (const void *n1, const void *n2) ; // increasing float
+int cmp_X (const void *n1, const void *n2) ; // decreasing float
 
 #endif
 

@@ -1,22 +1,22 @@
 /*
-
-   Copyright (C) 1997-2014 Victor Lavrenko
-
-   All rights reserved. 
-
-   THIS SOFTWARE IS PROVIDED BY VICTOR LAVRENKO AND OTHER CONTRIBUTORS
-   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-   FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-   COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-   INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-   (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-   SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-   HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-   STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
-   OF THE POSSIBILITY OF SUCH DAMAGE.
-
+  
+  Copyright (c) 1997-2016 Victor Lavrenko (v.lavrenko@gmail.com)
+  
+  This file is part of YARI.
+  
+  YARI is free software: you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+  
+  YARI is distributed in the hope that it will be useful, but WITHOUT
+  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+  or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+  License for more details.
+  
+  You should have received a copy of the GNU General Public License
+  along with YARI. If not, see <http://www.gnu.org/licenses/>.
+  
 */
 
 #include "vector.h"
@@ -42,6 +42,7 @@ typedef struct {
 #define nvecs(c) (len((c)->offs)-1)
 
 coll_t *open_coll (char *_path, char *access) ;
+coll_t *reopen_coll (coll_t *c, char *access) ;
 void free_coll (coll_t *c) ;
 void rm_coll (coll_t *c) ;
 void empty_coll (coll_t *M) ;
@@ -57,12 +58,13 @@ off_t chunk_sz (coll_t *c, uint id) ;
 
 #define has_vec(c,i) ((i) > 0 && (i) <= nvecs(c) && (c)->offs[(i)])
 void *get_vec (coll_t *c, uint id) ;
-inline void del_vec (coll_t *c, uint id) ;
-inline void put_vec (coll_t *c, uint id, void *vec) ;
+void del_vec (coll_t *c, uint id) ;
+void put_vec (coll_t *c, uint id, void *vec) ;
 void *next_vec (coll_t *c, uint *id);
 void *get_or_new_vec (coll_t *c, uint id, uint esize);
-inline void *get_vec_ro (coll_t *c, uint id) ;
+void *get_vec_ro (coll_t *c, uint id) ;
 void *get_vec_mp (coll_t *c, uint id) ;
+uint len_vec (coll_t *M, uint id) ;
 
 void defrag_coll (char *SRC, char *TRG) ;
 

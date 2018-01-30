@@ -1,5 +1,22 @@
 #!/usr/bin/gawk -f
 
+  # Copyright (c) 1997-2016 Victor Lavrenko (v.lavrenko@gmail.com)
+  
+  # This file is part of YARI.
+  
+  # YARI is free software: you can redistribute it and/or modify it
+  # under the terms of the GNU General Public License as published by
+  # the Free Software Foundation, either version 3 of the License, or
+  # (at your option) any later version.
+  
+  # YARI is distributed in the hope that it will be useful, but WITHOUT
+  # ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+  # or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+  # License for more details.
+  
+  # You should have received a copy of the GNU General Public License
+  # along with YARI. If not, see <http://www.gnu.org/licenses/>.
+
 function after(str,A)     { return match(str,A) ? substr(str,RSTART+RLENGTH) : "" }
 function before(str,Z)    { return match(str,Z) ? substr(str,1,RSTART-1) : "" }
 function between(str,A,Z) { return before(after(str,A),Z) }
