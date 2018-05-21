@@ -21,23 +21,25 @@ void fclose_files (FILE **file, char *pfx, char *clean) {
 }
 
 void do_shard (FILE *in, FILE **out, char *prm) {
-  //char *mur = strstr (prm,"murmur"), *mad = strstr (prm,"multiadd");
-  //hash_t *H = open_hash(0,0);
+  char *mur = strstr (prm,"murmur"), *mad = strstr (prm,"multiadd");
+  hash_t *H = open_hash(0,0);
   uint col = getprm (prm,"col=",0);
   char *key = getprms (prm,"key=","id",',');
   char *line = NULL;
   size_t sz = 0;
   while (getline (&line, &sz, in) > 0) {
     char *val = col ? tsv_value (line,col) : json_value (line,key);
-    uint code = multiadd_hashcode (val); // murmur3 (val, strlen(val)); key2id (H,val));
+    uint code = (mad ? multiadd_hashcode (val) :
+		 mur ? murmur3 (val, strlen(val)) : 
+		 key2id (H,val));
     uint bin =  code % len(out);
-    fprintf (out[bin], "%d %d '%s' %s\n", bin, code, val, line);
+    fprintf (out[bin], "%u %u '%s' %s", bin, code, val, line);
     //fputs (line, out[bin]);
     if (val) free (val);
   }
   if (line) free (line);
   if (key) free (key);
-  //if (H) free_hash(H);
+  if (H) free_hash(H);
 }
 
 /*

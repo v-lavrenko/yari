@@ -547,7 +547,8 @@ void sort_vecs (coll_t *c) {
 
 void scan_mtx (coll_t *rows, coll_t *cols, hash_t *rh, hash_t *ch) {
   while (1) {
-    jix_t *buf = scan_jix (stdin, MAP_SIZE/sizeof(jix_t), rh, ch);
+    uint size = MIN(4294967295,MAP_SIZE/sizeof(jix_t));
+    jix_t *buf = scan_jix (stdin, size, rh, ch);
     if (!len(buf)) {free_vec (buf); break;}
     if (rows) append_jix (rows, buf);
     if (cols) transpose_jix (buf);
