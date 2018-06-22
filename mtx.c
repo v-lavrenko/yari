@@ -78,6 +78,7 @@ void mtx_load (char *M, char *RH, char *CH, char *type, char *prm) {
   assert (rcv || svm || csv || txt || xml);
   char *skip = strstr(prm,"skip"), *repl = strstr(prm,"repl");
   char *Long = strstr(prm,"long"), *join = strstr(prm,"join");
+  char *sparse = strstr(prm,"sparse");
   char *p = getprms(prm,"p=","waa",',');
   char *pM = (p[0] == 'w') ? "w+" : (p[0] == 'a') ? "a+" : "r+";
   char *pR = (p[1] == 'w') ? "w"  : (p[1] == 'a') ? "a!" : "r!";
@@ -98,6 +99,7 @@ void mtx_load (char *M, char *RH, char *CH, char *type, char *prm) {
 		   svm ? parse_vec_svm (buf, &id, ch) :
 		   csv ? parse_vec_csv (buf, &id) : NULL);
       if (!vec) continue;
+      if (sparse) chop_vec (vec);
       uint row = csv ? nvecs(m)+1 : rh ? key2id(rh,id) : (uint) atoi(id);
       /*
       if (!row) ; // no id (read-only rowhash)
@@ -115,7 +117,8 @@ void mtx_load (char *M, char *RH, char *CH, char *type, char *prm) {
       mtx_append (m, row, vec, (join?'+' : skip?'s' : repl?'r' : Long?'l' : 'r'));
       free (id);
       free_vec (vec);
-      if (++done%100 == 0) show_progress (done, 0, "rows");
+      //if (++done%100 == 0)
+      show_progress (++done, 0, "rows");
     }
   m->rdim = rh ? nkeys(rh) : num_rows (m);
   m->cdim = ch ? nkeys(ch) : num_cols (m);
@@ -150,7 +153,7 @@ void mtx_print (char *prm, char *_M, char *RH, char *CH) {
   uint end_i = (rno || rid) ? beg_i : nr;
   for (i = beg_i; i <= end_i; ++i) {
     ix_t *vec = get_vec (M, i);
-    if (!len(vec) && !empty) { free_vec(vec); continue; }
+    if (!len(vec) && !empty && !csv) { free_vec(vec); continue; }
     char *rid = id2str(rh,i);
     if      (top) { trim_vec (vec, top); sort_vec (vec, cmp_ix_X); }
     if      (ids) printf ("%s\n", rid); 
