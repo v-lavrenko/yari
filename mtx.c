@@ -1423,11 +1423,13 @@ void mtx_print_letor_rcv (char *_RCV, char *_QRYS, char *_DOCS, char *prm) {
 }
 
 void mtx_print_letor (char *_RELS, char *_QRYS, char *_DOCS, char *prm) {
-  if (strstr (prm,"rcv")) return mtx_print_letor_rcv (_RELS, _QRYS, _DOCS, prm); 
+  if (strstr (prm,"rcv")) return mtx_print_letor_rcv (_RELS, _QRYS, _DOCS, prm);
+  char *keys = getprmp (prm, "keys=", NULL);
   float p = getprm (prm, "p=", 1); //, eps = 0.0001;
   coll_t *QRYS = open_coll (_QRYS, "r+");
   coll_t *DOCS = open_coll (_DOCS, "r+");
   coll_t *RELS = open_coll (_RELS, "r+");
+  hash_t *KEYS = keys ? open_hash (keys, "r") : NULL;
   uint q=0, n = num_rows(RELS), dim = num_cols (QRYS);
   while (++q <= n) {
     if (!has_vec (RELS,q)) continue;
@@ -1438,12 +1440,13 @@ void mtx_print_letor (char *_RELS, char *_QRYS, char *_DOCS, char *prm) {
       ix_t *L = vec_x_vec (Q,'-',D), *l;
       printf ("%+.0f qid:%d", r->x, q);
       for (l = L; l < L+len(L); ++l) printf (" %d:%.6f", l->i, powa(l->x,p));
-      printf (" # doc:%d\n", r->i);
+      if (KEYS) printf (" # %s:%s\n", id2key(KEYS,q), id2key(KEYS,r->i));
+      else      printf (" # doc:%d\n", r->i);
       free_vec (D); free_vec (L);
     }
     free_vec (Q); free_vec (R);
   }
-  free_coll (RELS); free_coll (QRYS); free_coll (DOCS); 
+  free_coll (RELS); free_coll (QRYS); free_coll (DOCS); free_hash (KEYS);
 }
 
 double mtx_letor_eval_x (coll_t *RELS, coll_t *QRYS, coll_t *DOCS, ix_t *W, char *prm) {
@@ -1482,7 +1485,7 @@ double mtx_letor_eval_x (coll_t *RELS, coll_t *QRYS, coll_t *DOCS, ix_t *W, char
     //printf ("%d %d ", q, (q == R->i)); print_vec_svm(R,0,0,0);
     free_vec (Q); free_vec (R); 
   }
-  printf ("accuracy: %.4f = %.4f / %d\n", (eval/nq), eval, nq);
+  if (!dump) printf ("accuracy: %.4f = %.4f / %d\n", (eval/nq), eval, nq);
   return eval/nq;
 }
 
