@@ -20,6 +20,7 @@
 */
 
 #include "hash.h"
+#include "timeutil.h"
 
 //float HASH_LOAD = 0.9; 
 //uint  HASH_FUNC = 0; // 0:multiadd 1:murmur3 2:OneAtATime
@@ -49,8 +50,16 @@ inline static hash_t *open_hash_inmem () {
   return h;
 }
 
+hash_t *open_hash_time() {
+  hash_t *h = open_hash_inmem ();
+  h->access[0] = 'T';
+  h->path = strdup("TIME");
+  return h;  
+}
+
 hash_t *open_hash (char *_path, char *_access) {
   if (!_path) return open_hash_inmem ();
+  if (!strcmp(_path,"TIME")) return open_hash_time();
   if (*_access != 'w' && file_exists (_path) && !file_exists ("%s/hash.code",_path)) { 
     fprintf (stderr, "\n\nERROR: %s is outdated, re-index or downgrade\n\n", _path);
     exit(1); 
@@ -76,11 +85,11 @@ hash_t *open_hash (char *_path, char *_access) {
 void free_hash (hash_t *h) {
   if (!h) return;
   //free_mmap (h->data);
-  free_coll (h->keys);
-  free_vec  (h->code);
-  free_vec  (h->indx);
-  free (h->access);
-  free (h->path);
+  if (h->keys) free_coll (h->keys);
+  if (h->code) free_vec  (h->code);
+  if (h->indx) free_vec  (h->indx);
+  if (h->access) free (h->access);
+  if (h->path) free (h->path);
   memset (h, 0, sizeof(hash_t));
   free (h);
 }
@@ -94,11 +103,15 @@ hash_t *reopen_hash (hash_t *h, char *access) {
 }
 
 char *id2str (hash_t *h, uint id) {
-  if (h) return strdup(id2key(h,id));
-  else return fmt (malloc(15),"%u",id);
+  if (!h) return fmt (malloc(15),"%u",id);
+  if (h->access[0] == 'T') return time2str (malloc(20), id);
+  return strdup(id2key(h,id));
 }
 
-char *id2key (hash_t *h, uint id) { return get_chunk (h->keys, id); }
+char *id2key (hash_t *h, uint id) {
+  if (h->access[0] == 'T') assert (0 && "id2key() not supported for TIME dictionaries");
+  return get_chunk (h->keys, id);
+}
 
 // find a slot in indx that is empty or matches the key
 uint *href (hash_t *h, char *key, uint code) {
@@ -146,6 +159,7 @@ static uint add_new_key (hash_t *h, char *key, uint code) {
 
 uint key2id (hash_t *h, char *key) {
   if (!h || !key) return 0;
+  if (h->access[0] == 'T') return str2time (key);
   uint code = murmur3 (key, strlen(key));
   uint *slot = href (h, key, code);
   if (*slot || h->access[0] == 'r') return *slot; // key already in table
