@@ -52,10 +52,10 @@ testvec: testvec.c mmap.c vector.c
 
 testcoll: testcoll.c mmap.c vector.c coll.c
 
-dict: dict.c mmap.c vector.c coll.c hash.c
+dict: dict.c mmap.c vector.c coll.c hash.c timeutil.c
 
 mtx: mtx.c mmap.c vector.c coll.c hash.c matrix.c svm.c \
-	textutil.c stemmer_krovetz.c maxent.c synq.c
+	textutil.c stemmer_krovetz.c maxent.c synq.c timeutil.c
 
 stem: stem.c stemmer_krovetz.c synq.c mmap.c
 
