@@ -39,7 +39,7 @@ int main (int argc, char *argv[]) {
   //HASH_PROB = getprm(prm,"P=",0);
   //HASH_LOAD = getprm(prm,"L=",0.5);
 
-  if (!strcmp(argv[1], "-uniq")) {
+  if (argc > 1 && !strcmp(argv[1], "-uniq")) {
     ix_t *C = new_vec(0,sizeof(ix_t)), *c;
     hash_t *H = open_hash (0,0);
     char *line = NULL;
