@@ -35,6 +35,7 @@ void mtx_copy (char *SRC, char *TRG) {
     void   *vec = get_vec(S,id);
     if (len(vec)) put_vec(T,id,vec);
     if (!(id%10)) show_progress (id, n, "rows");
+    free_vec(vec);
   }
   free_coll (S); free_coll (T);
 }
