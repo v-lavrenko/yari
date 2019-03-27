@@ -16,6 +16,7 @@
 
 float BP(float in, float out) {return in ? (10000.0 * (out / in - 1.0)) : 0; }
 float LP(float in, float out) {return (in>0 && out>0) ? log(out/in) : 0; }
+float CP(float in, float out) {return round(100 * (out - in)); }
 
 ix_t *prev_open(ix_t *p, ix_t *P) {
   while (!beg_of_day(p,P)) --p;
@@ -54,6 +55,7 @@ ix_t *find_exit (ix_t *p, ix_t *P, float _gain, float _loss, char trail, uint wa
 // while (!end_of_day(q,last) && (q->x < hi) && (q->x > lo)) ++q;
 
 int ts_targets (char *TRG, char *PRC, char *prm) {
+  // char *side  = getprmp(prm,"side=","-"); 
   char *trail = getprmp(prm,"trail=","-");
   char *exits = strstr(prm,"exits"); //, *day = strstr(prm,"day");
   char *binary = strstr(prm,"binary"); // binarize to +/- 1
@@ -204,20 +206,61 @@ void f_anchor (ix_t *P, char anchor) { // gain from open / close / min / max
   }
 }
 
+void f_deltas (ix_t *P, char unit, char *intraday) { // unit = Basis,Log,Cents
+  ix_t *p=P-1, *last = P+len(P)-1;
+  float in = P->x;
+  while (++p <= last) {
+    float out = p->x;
+    if (intraday && beg_of_day(p,P)) in = out;
+    p->x = (unit == 'B' ? BP(in,out) :
+	    unit == 'L' ? LP(in,out) : CP(in,out));
+    in = out;
+  }
+}
+
 int ts_signals (char *SIG, char *PRC, char *prm) {
   uint wait = str2seconds (getprmp (prm,"wait=","0"));
+  char *intraday = strstr (prm,"intraday");
+  char *deltas = getprmp (prm,"deltas:","");
   char *type = getprmp (prm,"type=","-");
   coll_t *P = open_coll (PRC, "r+"), *S = open_coll (SIG, "w+");
   uint id, n = num_rows(P);
   for (id = 1; id <=n; ++id) {
     ix_t *V = get_vec (P,id);
-    if (wait) f_window (V, wait, *type);
-    else f_anchor (V, *type);
+    if   (*deltas) f_deltas (V, *deltas, intraday);
+    else if (wait) f_window (V, wait, *type);    
+    else           f_anchor (V, *type);
     put_vec (S,id,V);
     free_vec(V);
     if (!(id%10)) show_progress (id, n, "rows");
   }
   free_coll (P); free_coll (S);
+  return 0;
+}
+
+int ts_mpaste (char *TIC, char **_M, uint nM) {
+  uint m; hash_t *H = open_hash (TIC, "r"); 
+  ix_t **V = new_vec (nM, sizeof(ix_t*));
+  coll_t **M = new_vec (nM, sizeof(coll_t*));
+  for (m = 0; m < nM; ++m) M[m] = open_coll (_M[m], "r+");
+  uint r, nr = num_rows(M[0]);
+  for (m = 0; m < nM; ++m) assert (num_rows(M[m]) == nr);
+  for (r = 1; r <= nr; ++r) {
+    char *tic = id2key(H,r), _[999];
+    for (m = 0; m < nM; ++m) V[m] = get_vec_ro(M[m], r);
+    uint c, nc = len(V[0]);
+    for (m = 0; m < nM; ++m) assert (len(V[m]) == nc);
+    for (c = 0; c < nc; ++c) {
+      printf ("%s %s", tic, time2str(_,V[0][c].i));
+      for (m = 0; m < nM; ++m) printf (" %.2f", V[m][c].x);
+      //for (m = 0; m < nM; ++m) assert (V[m][c].i == V[0][c].i);
+      char *tag = (beg_of_day(V[0]+c,V[0]) ? "open" :
+    		   end_of_day(V[0]+c,V[0]+nc-1) ? "close" : "");
+      printf (" %s\n", tag);
+    }
+  }
+  for (m = 0; m < nM; ++m) free_coll (M[m]);
+  free_hash(H);
   return 0;
 }
 
@@ -239,12 +282,44 @@ int ts_paste (char *_A, char *_B, char *TIC) {
   return 0;
 }
 
+int ts_csv (char *_M, char *_H, char *prm) {
+  char *fmt = strstr(prm,"round") ? "%c%.0f" : "%c%.4f";
+  char tab = !strncmp(prm,"tsv",3) ? '\t' : ',';
+  coll_t *M = open_coll(_M, "r+");
+  hash_t *H = open_hash(_H, "r");
+  uint id, n = num_rows(M);
+  for (id = 1; id <= n; ++id) {
+    char *tick = id2key(H,id), buf[99];
+    ix_t *V = get_vec_ro(M,id), *last = V+len(V)-1, *v;
+    if (id == 1) { 
+      printf("Tick,Day");
+      assert (V < last);
+      for (v = V; v <= last; ++v) {
+	printf ("%c%s", tab, time2strf(buf,"%T",v->i));
+        if (end_of_day(v,last)) {
+	  assert (v > V);
+	  break;
+	}
+      }
+    }
+    for (v = V; v <= last; ++v) {
+      if (beg_of_day(v,V)) printf("\n%s,%s", tick, time2strf (buf, "%F", v->i));
+      printf(fmt, tab, v->x);
+    }
+  }
+  printf("\n");
+  free_coll(M); free_hash(H);
+  return 0;
+}
+
 char *usage =
   "ts T = targets:gain=BP,loss=BP,trail=^|v,wait=7h,exits,binary PRICES\n"
   "ts C = codes:bits=10,day PRICES\n"
   "ts S = signals:type=o|c|m|M|A|C,wait=0 PRICES\n"
+  "ts S = deltas:BP|LP|CP,intraday PRICES\n"
   "ts signs PRICES TICK\n"
-  "ts paste A B TICK\n"
+  "ts paste TICK M1 ... MN\n"
+  "ts csv:prm M TICK\n"
   ;
 
 #define arg(i) ((i < argc) ? argv[i] : NULL)
@@ -253,10 +328,12 @@ char *usage =
 int main (int argc, char *argv[]) {
   vtime();
   if (!strcmp(a(1),"signs")) return ts_signs(arg(2),arg(3));
-  if (!strcmp(a(1),"paste")) return ts_paste(arg(2),arg(3),arg(4));
+  if (!strcmp(a(1),"paste")) return ts_mpaste(arg(2),argv+3,argc-3);
+  if (!strncmp(a(1),"csv",3) || !strncmp(a(1),"tsv",3)) return ts_csv(arg(2),arg(3),a(1));
   if (argc < 4) { printf ("%s", usage); return 1; }
   else if (!strncmp(a(3), "targets", 4)) return ts_targets (arg(1), arg(4), arg(3));
   else if (!strncmp(a(3), "signals", 4)) return ts_signals (arg(1), arg(4), arg(3));
+  else if (!strncmp(a(3), "deltas", 6)) return ts_signals (arg(1), arg(4), arg(3));
   else if (!strncmp(a(3), "codes", 5)) return ts_codes (arg(1), arg(4), arg(3));
   return 0;
 }
