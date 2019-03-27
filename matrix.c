@@ -572,14 +572,26 @@ void print_mtx (coll_t *rows, hash_t *rh, hash_t *ch) {
   }
 }
 
+void print_binary_2(uint n, uint sz) {
+  for (; sz--; n>>=1) putchar(((n&1)?'+':'-'));
+}
+
+void print_binary(uint n, uint sz) {
+  uint mask = 1<<(sz-1);
+  for (; sz--; n<<=1) putchar(((n&mask)?'+':'-'));
+}
+
 void print_vec_rcv (ix_t *vec, hash_t *ids, char *vec_id, char *fmt) {
   if (!fmt) fmt = "%.6f";
+  uint binary = (*fmt == 'b') ? atoi(fmt+1) : 0;
   ix_t *v = vec, *end = vec + len(vec);
   for (v = vec; v < end; ++v) {
     char *id = id2str (ids, v->i);
-    printf ("%s\t%s\t", vec_id, id);
-    printf (fmt, v->x);
-    printf ("\n");
+    fputs(vec_id,stdout); putchar('\t');
+    fputs(id,stdout);     putchar('\t'); //printf ("%s\t%s\t", vec_id, id);
+    if (binary) print_binary((uint)(v->x), binary);
+    else printf (fmt, v->x);
+    putchar('\n');
     free (id);
   }
 }
