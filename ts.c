@@ -222,7 +222,7 @@ int ts_signals (char *SIG, char *PRC, char *prm) {
   uint wait = str2seconds (getprmp (prm,"wait=","0"));
   char *intraday = strstr (prm,"intraday");
   char *deltas = getprmp (prm,"deltas:","");
-  char *type = getprmp (prm,"type=","-");
+  char *type = getprmp (prm,"signals:","-");
   coll_t *P = open_coll (PRC, "r+"), *S = open_coll (SIG, "w+");
   uint id, n = num_rows(P);
   for (id = 1; id <=n; ++id) {
@@ -251,12 +251,12 @@ int ts_mpaste (char *TIC, char **_M, uint nM) {
     uint c, nc = len(V[0]);
     for (m = 0; m < nM; ++m) assert (len(V[m]) == nc);
     for (c = 0; c < nc; ++c) {
-      printf ("%s %s", tic, time2str(_,V[0][c].i));
-      for (m = 0; m < nM; ++m) printf (" %.2f", V[m][c].x);
+      printf ("%s\t%s", tic, time2str(_,V[0][c].i));
+      for (m = 0; m < nM; ++m) printf ("\t%.2f", V[m][c].x);
       //for (m = 0; m < nM; ++m) assert (V[m][c].i == V[0][c].i);
-      char *tag = (beg_of_day(V[0]+c,V[0]) ? "open" :
-    		   end_of_day(V[0]+c,V[0]+nc-1) ? "close" : "");
-      printf (" %s\n", tag);
+      char *tag = (beg_of_day(V[0]+c,V[0]) ? "\topen" :
+    		   end_of_day(V[0]+c,V[0]+nc-1) ? "\tclose" : "");
+      printf ("%s\n", tag);
     }
   }
   for (m = 0; m < nM; ++m) free_coll (M[m]);
@@ -312,12 +312,64 @@ int ts_csv (char *_M, char *_H, char *prm) {
   return 0;
 }
 
+void ts_rank_eval(xy_t *R, char *prm) {
+  double thr = getprm(prm,"thr=",40), sum = 0, x, y;
+  uint i, n = len(R), pos = 0, neg = 0;
+  for (i=1; i<n/2; ++i) {
+    x = R[n-i].x;
+    y = R[n-i].y;
+    sum += y;
+    if      (y >= +thr) ++pos;
+    else if (y <= -thr) ++neg;
+    if ((i > 100) && (sum / i < thr)) break;
+  }
+  printf(" %.4f %.0f %d %d+/%d/%d-\n", x, sum, i, pos, i-pos-neg, neg);
+}
+
+void ts_rank_tails(xy_t *R) {
+  uint i, n = len(R)-1;
+  double hsum = 0, tsum = 0; // cumulative sums over head and tail
+  for (i=0; i<n/2; ++i) R[i].y = (hsum += R[i].y) / (i+1);   // head
+  for (i=n; i>n/2; --i) R[i].y = (tsum += R[i].y) / (n-i+1); // tail
+  // when many ranks share x-value, take y-value from the last rank
+  for (i=n/2; i>0; --i) if (R[i-1].x == R[i].x) R[i-1].y = R[i].y; // head
+  for (i=n/2; i<n; ++i) if (R[i+1].x == R[i].x) R[i+1].y = R[i].y; // tail
+  // show values at top 100,200,... and bottom 100,200,...
+  uint top[19] = {100,150,200,300,500,700,1000,1500,2000,3000,5000,7000,10000,15000,20000,30000,50000,70000,99999}, N = len(R)-1;
+  for (i = 0; i < 19; ++i) printf(" %.0f", R[0+top[i]].y); // head ranks (small)
+  for (i = 19; i > 0; --i) printf(" %.0f", R[N-top[i-1]].y); // tail ranks (big)
+  printf ("\n");
+}
+
+int ts_rank (char *_SIG, char *_TRG, char *prm) {
+  char *show = getprmp(prm,"rank:","viz");
+  coll_t *TRG = open_coll (_TRG, "r+"), *SIG = open_coll (_SIG, "r+");
+  uint i, j, nT = num_rows(TRG), nS = num_rows(SIG); assert (nS == nT);
+  xy_t *R = new_vec(0,sizeof(xy_t));
+  for (i = 1; i <= nT; ++i) {
+    ix_t *T = get_vec_ro(TRG,i), *S = get_vec_ro(SIG,i);
+    uint LT = len(T), LS = len(S); assert (LT == LS);
+    for (j = 0; j < LT; ++j) {
+      ix_t *s = S+j, *t = T+j; assert (s->i == t->i);
+      xy_t new = {s->x, t->x};
+      R = append_vec (R, &new);
+    }
+  }
+  free_coll(TRG); free_coll(SIG);
+  sort_vec(R, cmp_xy_x);
+  printf ("%s %s", getprmp(_SIG,"/",_SIG), getprmp(_TRG,"/",_TRG));
+  if (*show == 'v') ts_rank_tails(R);
+  if (*show == 'e') ts_rank_eval(R,prm);
+  return 0;
+}
+
 char *usage =
   "ts T = targets:gain=BP,loss=BP,trail=^|v,wait=7h,exits,binary PRICES\n"
   "ts C = codes:bits=10,day PRICES\n"
-  "ts S = signals:type=o|c|m|M|A|C,wait=0 PRICES\n"
+  "ts S = signals:close|open|min|Max|Avg|CC,wait=0 PRICES\n"
   "ts S = deltas:BP|LP|CP,intraday PRICES\n"
   "ts signs PRICES TICK\n"
+  "ts rank SIG TRG\n"
   "ts paste TICK M1 ... MN\n"
   "ts csv:prm M TICK\n"
   ;
@@ -328,11 +380,12 @@ char *usage =
 int main (int argc, char *argv[]) {
   vtime();
   if (!strcmp(a(1),"signs")) return ts_signs(arg(2),arg(3));
+  if (!strncmp(a(1),"rank",4)) return ts_rank(arg(2),arg(3),a(1));
   if (!strcmp(a(1),"paste")) return ts_mpaste(arg(2),argv+3,argc-3);
   if (!strncmp(a(1),"csv",3) || !strncmp(a(1),"tsv",3)) return ts_csv(arg(2),arg(3),a(1));
   if (argc < 4) { printf ("%s", usage); return 1; }
-  else if (!strncmp(a(3), "targets", 4)) return ts_targets (arg(1), arg(4), arg(3));
-  else if (!strncmp(a(3), "signals", 4)) return ts_signals (arg(1), arg(4), arg(3));
+  else if (!strncmp(a(3), "targets", 7)) return ts_targets (arg(1), arg(4), arg(3));
+  else if (!strncmp(a(3), "signals", 7)) return ts_signals (arg(1), arg(4), arg(3));
   else if (!strncmp(a(3), "deltas", 6)) return ts_signals (arg(1), arg(4), arg(3));
   else if (!strncmp(a(3), "codes", 5)) return ts_codes (arg(1), arg(4), arg(3));
   return 0;
