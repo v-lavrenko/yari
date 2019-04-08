@@ -263,6 +263,11 @@ int cmp_ixy_Y (const void *n1, const void *n2) { // by decreasing y
   float y1 = ((ixy_t*)n1)->y, y2 = ((ixy_t*)n2)->y;
   return (y1 > y2) ? -1 : (y1 < y2) ? +1 : 0; }
 
+int cmp_xy_x (const void *n1, const void *n2) { return -cmp_xy_X (n1,n2); }
+int cmp_xy_X (const void *n1, const void *n2) { // by decreasing x
+  float x1 = ((xy_t*)n1)->x, x2 = ((xy_t*)n2)->x;
+  return (x1 > x2) ? -1 : (x1 < x2) ? +1 : 0; }
+
 int cmp_x (const void *n1, const void *n2) { return -cmp_X (n1,n2); }
 int cmp_X (const void *n1, const void *n2) { return *((float*)n2) - *((float*)n1); }
 
