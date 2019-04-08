@@ -88,6 +88,8 @@ int cmp_ixy_x (const void *n1, const void *n2) ; // by increasing x
 int cmp_ixy_y (const void *n1, const void *n2) ; // by increasing y
 int cmp_ixy_X (const void *n1, const void *n2) ; // by decreasing x
 int cmp_ixy_Y (const void *n1, const void *n2) ; // by decreasing y
+int cmp_xy_x (const void *n1, const void *n2) ; // by increasing x
+int cmp_xy_X (const void *n1, const void *n2) ; // by decreasing x
 int cmp_x (const void *n1, const void *n2) ; // increasing float
 int cmp_X (const void *n1, const void *n2) ; // decreasing float
 
