@@ -21,35 +21,9 @@
 
 #include <stdio.h>
 #include <string.h>
+#include "hl.h"
 
-// http://ascii-table.com/ansi-escape-sequences.php
-#define ESC        "\033["
-#define CLS        ESC"2J"ESC"1;1H"
-#define RESET      ESC"0m"
-#define BOLD       ESC"1m"
-#define NORMAL     ESC"2m"
-#define UNDER      ESC"4m"
-#define BLINK      ESC"5m"
-#define INVERSE    ESC"7m"
-#define fg_BLACK   ESC"30m"
-#define fg_RED     ESC"31m"
-#define fg_GREEN   ESC"32m"
-#define fg_YELLOW  ESC"33m"
-#define fg_BLUE    ESC"34m"
-#define fg_MAGENTA ESC"35m"
-#define fg_CYAN    ESC"36m"
-#define fg_WHITE   ESC"37m"
-#define bg_BLACK   ESC"40m"
-#define bg_RED     ESC"41m"
-#define bg_GREEN   ESC"42m"
-#define bg_YELLOW  ESC"43m"
-#define bg_BLUE    ESC"44m"
-#define bg_MAGENTA ESC"45m"
-#define bg_CYAN    ESC"46m"
-#define bg_WHITE   ESC"47m"
-
-
-char *color (char c) {
+char *hl_color (char c) {
   switch (c) {
   case 'k': return fg_BLACK;
   case 'r': return fg_RED;
@@ -90,7 +64,7 @@ int main (int argc, char *argv[]) {
   while (fgets (line, 999999, stdin)) {
     char *eol = index (line,'\n'), *clr = "";
     if (eol) *eol = 0;
-    for (a = argv; a < end; ++a) if (strstr(line,*a+2)) clr = color(**a);
+    for (a = argv; a < end; ++a) if (strstr(line,*a+2)) clr = hl_color(**a);
     printf ("%s%s%s\n", clr, line, ((*clr)?RESET:""));
   }
   return 1;
