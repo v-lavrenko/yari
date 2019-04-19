@@ -170,6 +170,14 @@ void scan_mtx_rcv (FILE *in, coll_t *M, hash_t *R, hash_t *C, char how, char ver
   }
 }
 
+void dedup_vec (ix_t *vec) {
+  if (!vec || !len(vec)) return;
+  ix_t *a = vec-1, *b = vec, *end = vec + len(vec);
+  while (++a < end) if (a->i > b->i) *++b = *a;
+  a = resize_vec (vec, b - vec + 1);
+  assert (a == vec);
+}
+
 void uniq_vec (ix_t *vec) {
   if (!vec || !len(vec)) return;
   ix_t *a, *b, *end = vec + len(vec);
@@ -537,7 +545,7 @@ void sort_vecs (coll_t *c) {
   for (i = 1; i <= n; ++i) {
     ix_t *vec = get_vec (c, i);
     sort_vec (vec, cmp_ix_i); // rsort?
-    uniq_vec (vec);
+    dedup_vec (vec); //uniq_vec (vec);
     chop_vec (vec);
     put_vec (c, i, vec);
     free_vec (vec);
@@ -736,6 +744,14 @@ uint num_cols (coll_t *c) {
     if (j > N) N = j;
   }
   return (c->cdim = N);
+}
+
+uint *row_ids(coll_t *rows) { // list of non-empty row ids
+  uint id = 0, nr = num_rows (rows);
+  uint *X = new_vec (0, sizeof(uint));
+  for (id = 1; id <= nr; ++id)
+    if (has_vec(rows,id)) X = append_vec (X,&id);
+  return X;
 }
 
 uint *len_rows (coll_t *rows) {
