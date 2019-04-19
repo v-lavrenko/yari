@@ -48,7 +48,8 @@ ix_t *vec_find (ix_t *vec, uint i) ;
 ix_t *vec_set (ix_t *vec, uint id, float x) ;
 float vec_get (ix_t *vec, uint id) ;
 
-void uniq_vec (ix_t *vec) ;
+void dedup_vec (ix_t *vec) ; // skip duplicate ids (keep 1st) 
+void uniq_vec (ix_t *vec) ; // merge duplicate ids (add weights)
 void chop_vec (ix_t *vec) ;
 void trim_vec (ix_t *vec, int k) ;
 void trim_vec2(ix_t *vec, int k) ;
@@ -100,6 +101,7 @@ coll_t *transpose (coll_t *M) ;
 uint last_id (ix_t *vec) ;
 uint num_rows (coll_t *rows) ;
 uint num_cols (coll_t *rows) ;
+uint *row_ids(coll_t *rows) ; // list of non-empty row ids
 uint *len_rows (coll_t *rows) ;
 uint *len_cols (coll_t *rows) ;
 float *sum_rows (coll_t *rows, float p) ;
