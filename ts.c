@@ -18,6 +18,8 @@ float BP(float in, float out) {return in ? (10000.0 * (out / in - 1.0)) : 0; }
 float LP(float in, float out) {return (in>0 && out>0) ? log(out/in) : 0; }
 float CP(float in, float out) {return round(100 * (out - in)); }
 
+float addBP(float p, float bp) { return p * bp2gain(bp); }
+
 ix_t *prev_open(ix_t *p, ix_t *P) {
   while (!beg_of_day(p,P)) --p;
   return MAX(p,P);
@@ -363,6 +365,136 @@ int ts_rank (char *_SIG, char *_TRG, char *prm) {
   return 0;
 }
 
+int ts_oplay (char *_PRICES, char *_TICK, char *prm) {
+  float JUMP = getprm(prm,"jump=",100);
+  float BACK = getprm(prm,"back=",0.5) * JUMP;
+  char *LONG = strstr(prm,"long");
+  coll_t *PRICES = open_coll(_PRICES,"r+");
+  hash_t *TICK = open_hash(_TICK,"r");
+  int i, nr = num_rows(PRICES);
+  //printf ("%s\t%s\t\t%s\t\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+  //"BP","DAY","beg","stock","close","open","base","in","out","end");
+  for (i = 1; i <= nr; ++i) {
+    char *tick = id2key(TICK,i);
+    ix_t *P = get_vec (PRICES,i), *last = P+len(P)-1, *p;
+    float hi = 0, lo = 0, lo_open = 0, hi_open = 0;
+    ix_t *min=P, *max=P, *open=P, *close=P, *in=0, *out=0;
+    for (p = P; p <= last; ++p) {
+      if (beg_of_day(p,P)) {
+	min = max = open = p;
+	in = out = 0;
+	close = p>P ? p-1 : p;
+	lo_open =  LONG && (BP(close->x,open->x) < -JUMP);
+	hi_open = !LONG && (BP(close->x,open->x) > +JUMP);
+      }
+      if (p->x > max->x) max = p;
+      if (p->x < min->x) min = p;
+      if (lo_open && !in && BP(min->x,p->x) > +BACK) { in = p; hi = addBP(p->x,+JUMP); lo = addBP(p->x,-BACK); } // hi = close->x; lo = min->x; }
+      if (hi_open && !in && BP(max->x,p->x) < -BACK) { in = p; hi = addBP(p->x,+BACK); lo = addBP(p->x,-JUMP); } // hi = max->x; lo = close->x; }
+      if (in && !out && p->x >= hi) {p->x = hi; out = p;} // LMT order
+      if (in && !out && p->x <= lo) {p->x = lo; out = p;} // LMT order
+      //if (in && !out && (p->x >= hi || p->x <= lo)) out = p; // STP order
+      if (in && end_of_day(p,last)) {
+	if (!out) out = p;
+	float bp = LONG ? BP(in->x,out->x) : -BP(in->x,out->x);
+	ix_t *ref = LONG ? min : max;
+	char x1[12], x2[9], x3[9];
+	char *day = time2strf(x1,"%F",in->i);
+	char *_in = time2strf(x2,"%T",in->i);
+	char *_out= time2strf(x3,"%T",out->i);
+	//char *I = time2str(x1,in->i), *O = time2str(x2,out->i);
+	printf ("%.0f\t%s\t%s\t%s\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%s\n",
+		bp, day, _in, tick, close->x, open->x, ref->x, in->x, out->x, _out);
+      }
+    }
+    free_vec(P);
+  }
+  free_coll(PRICES); free_hash(TICK);
+  return 0;
+}
+
+/*
+int ts_oplay2 (char *_MKT, char *_TICK, char *prm) {
+  float JUMP = getprm(prm,"jump=",100);
+  float BACK = getprm(prm,"back=",0.5) * JUMP;
+  char *LONG = strstr(prm,"long");
+  hash_t *TICK = open_hash(_TICK,"r");
+  coll_t *MKT = open_coll(_MKT,"r+");
+  uint *t, *T = row_ids(MKT), *lastT = T+len(T)-1; // times
+  uint s, ns = num_cols(MKT), sz = sizeof(float); // stocks
+  float *open  = new_vec(ns+1,sz), *close = new_vec(ns+1,sz);
+  float *min   = new_vec(ns+1,sz), *max   = new_vec(ns+1,sz);
+  char *buy = new_vec(ns+1,1), *sell = new_vec(ns+1,1);
+  float *in = new_vec(ns+1,sz), *out = new_vec(ns+1,sz);
+  float *hi = new_vec(ns+1,sz), *lo = new_vec(ns+1,sz);
+  for (t = T; t <= lastT; ++t) { // *t is a time when we have a quote
+    uint t_open  = (t == T) || (t[0] - t[-1] > OVERNIGHT);
+    uint t_close = (t == lastT) || (t[1] - t[0] > OVERNIGHT);
+    ix_t *Q = get_vec_ro(MKT,*t); // quotes for all tickers at time *t
+    float *P = vec2full (Q, ns, 0);
+    for (s = 1; s <= ns; ++s) {
+      if (t_open) {
+	if (t == T) close[s] = P[s]; // special case
+	min[s] = max[s] = open[s] = P[s];
+	in[s] = out[s] = hi[s] = lo[s] = 0; 
+	buy[s]  =  LONG && (BP(close[s],open[s]) < -JUMP); // low open: go long
+	sell[s] = !LONG && (BP(close[s],open[s]) > +JUMP); // hi open: go short
+      }
+      if (P[s] < min[s]) min[s] = P[s];
+      if (P[s] > max[s]) max[s] = P[s];
+      if (!in[s] && buy[s]  && BP(min[s],P[s]) > +BACK) { in[s] = P[s]; hi[s] = close[s]; lo[s] = min[s]; }
+      if (!in[s] && sell[s] && BP(max[s],P[s]) < -BACK) { in[s] = P[s]; hi[s] = max[s]; lo[s] = close[s]; }
+      if (in[s] && !out[s] && P[s] <= lo[s]) out[s] = lo[s]; // out[s] ... STP order
+      if (in[s] && !out[s] && P[s] >= hi[s]) out[s] = hi[s]; // LMT order
+      if (in[s] && t_close) {
+	if (!out[s]) out[s] = P[s];
+	float bp = LONG ? BP(in[s],out[s]) : -BP(in[s],out[s]);
+	float ref = LONG ? min[s] : max[s];
+	char *tick = id2key(TICK,s);
+	char _[15], *day = time2strf(_,"%F",*t);
+	printf ("%.0f\t%s\t%s\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\n",
+		bp, day, tick, close[s], open[s], ref, in[s], out[s]);
+      }
+      if (t_close) close[s] = P[s];
+    }
+    free_vec(P);
+  }
+  free_coll(MKT); free_hash(TICK);
+  free_vec(open); free_vec(close); free_vec(min); free_vec(max);
+  free_vec(in); free_vec(out);     free_vec(hi); free_vec(lo);
+  free_vec(buy); free_vec(sell);
+  return 0;
+}
+*/
+
+/*
+int ts_merge (char *_TRG, char *_SRC, char *_TIC, char *prm) {
+  coll_t *TRG = open_coll(_TRG,"a+");
+  coll_t *SRC = open_coll(_SRC,"r+");
+  hash_t *TIC = open_hash(_TIC,"r");
+  int i, nT = num_rows(TRG), nS = num_rows(SRC); 
+  for (i = 1; i <= nS; ++i) {
+    if (!has_vec(TRG,i)) ; // WAT DO?
+    if (!has_vec(SRC,i)) ; // WAT DO?
+    ix_t *X = get_vec_ro(TRG,i); 
+    ix_t *Y = get_vec_ro(SRC,i); 
+    ixy_t *S = join(X,Y,0), *s;
+    for (s = S; s < S+len(S); ++s) {
+      if (s->x && s->y && ABS(s->x - s->y) > 0.01) {
+	char *tic = id2key(TIC,i), buf[99];
+	char *time = time2str(buf,s->i);
+	printf ("%s %s %.2f <> %.2f\n", tic, time, s->x, s->y);
+      }
+      else if (s->y && !s->x) s->x = s->y;
+    }
+    ix_t *T = ixy_to_ix_and_free(S);
+    put_vec(TRG,i,T);
+    free_vec(T);
+  }
+  free_coll(TRG); free_coll(SRC); free_hash(TIC);
+}
+*/
+
 char *usage =
   "ts T = targets:gain=BP,loss=BP,trail=^|v,wait=7h,exits,binary PRICES\n"
   "ts C = codes:bits=10,day PRICES\n"
@@ -370,6 +502,8 @@ char *usage =
   "ts S = deltas:BP|LP|CP,intraday PRICES\n"
   "ts signs PRICES TICK\n"
   "ts rank SIG TRG\n"
+  "ts oplay PRICES TICK\n"
+  //  "ts osim PRICES.T TICK\n"   // too slow, replaced by perday.awk
   "ts paste TICK M1 ... MN\n"
   "ts csv:prm M TICK\n"
   ;
@@ -379,7 +513,9 @@ char *usage =
 
 int main (int argc, char *argv[]) {
   vtime();
-  if (!strcmp(a(1),"signs")) return ts_signs(arg(2),arg(3));
+  if (!strncmp(a(1),"signs",5)) return ts_signs(arg(2),arg(3));
+  if (!strncmp(a(1),"oplay",5)) return ts_oplay(arg(2),arg(3),a(1));
+  //if (!strncmp(a(1),"osim",4)) return ts_oplay2(arg(2),arg(3),a(1));
   if (!strncmp(a(1),"rank",4)) return ts_rank(arg(2),arg(3),a(1));
   if (!strcmp(a(1),"paste")) return ts_mpaste(arg(2),argv+3,argc-3);
   if (!strncmp(a(1),"csv",3) || !strncmp(a(1),"tsv",3)) return ts_csv(arg(2),arg(3),a(1));
