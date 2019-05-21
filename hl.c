@@ -44,7 +44,7 @@ char *hl_color (char c) {
   case '*': return BOLD;
   case '_': return UNDER;
   case '~': return INVERSE;
-  case '!': return BLINK;
+  case '#': return BLINK;
     //case 'r': return CLS;
     //case 'r': return RESET;
   }
@@ -54,7 +54,7 @@ char *hl_color (char c) {
 char *usage = 
   "hl 'Y:string' ... highlight in red any line of stdin that contains 'string'\n"
   "                  R:red G:green B:blue C:cyan M:magenta Y:yellow W:white K:black\n"
-  "                  lowercase:foreground, *:bold _:underline ~:inverse !:blink\n"
+  "                  lowercase:foreground, *:bold _:underline ~:inverse #:blink\n"
   ;
 
 
