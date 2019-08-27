@@ -27,6 +27,7 @@ char *endchr (char *s, char c, uint n) ; // faster strrchr
 void csub (char *str, char *what, char with) ; 
 void cqsub (char *str, char what, char with, char quot) ;
 
+void noeol (char *str); // remove trailing newline
 void chop (char *str, char *blanks) ; // remove head/tail blanks
 
 char *substr (char *str, uint n) ; // str[0:n) in a static buffer
@@ -51,7 +52,8 @@ char *extract_between (char *buf, char *A, char *B) ;
 char *next_token (char **text, char *ws) ;
 
 char *tsv_value (char *str, uint col) ; // 
-uint split (char *str, char sep, char **_tok, uint ntoks) ;
+char **split (char *str, char sep) ;
+uint split2 (char *str, char sep, char **_tok, uint ntoks) ;
 
 int read_doc (FILE *in, char *buf, int n, char *beg, char *end) ;
 
