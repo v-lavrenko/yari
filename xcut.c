@@ -20,79 +20,88 @@
 */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include "vector.h"
+#include "hash.h"
 #include "textutil.h"
 
-char *usage = 
-  "hl 'Y:string' ... highlight in red any line of stdin that contains 'string'\n"
-  "                  R:red G:green B:blue C:cyan M:magenta Y:yellow W:white K:black\n"
-  "                  lowercase:foreground, *:bold _:underline ~:inverse #:blink\n"
-  ;
-
-
-int *col_offs (char *line) {
-  int n = 1; 
-  for (s = line; *s; ++s) if (*s == tab) ++n; // count tabs
-  int nums = calloc(n,sizeof(int))
+int *col_names (char **cols, int n, char *hdr) {
+  hdr += strspn(hdr," #"); // skip initial
+  hdr = strdup(hdr);
+  char **F = split(hdr,'\t');
+  int *nums = calloc(n,sizeof(int)), i, j, NF = len(F);
+  for (i=0; i<n; ++i) {
+    for (j=0; j<NF; ++j)
+      if (!strcmp(cols[i],F[j])) nums[i] = j+1;
+    if (!nums[i]) {
+      fprintf(stderr,"ERROR: no field '%s' in: '%s'\n", cols[i], hdr);
+      exit(1);
+    }
+  }
+  free_vec(F);
+  free(hdr);
+  return nums;
 }
 
-int *col_nums (char **cols, int n) {
-  int *nums = calloc(n,sizeof(int)), i;
+int *col_nums (char **cols, int n, char *hdr) {
+  int i; char *s;
+  for (i=0; i<n; ++i)
+    for (s=cols[i]; *s; ++s)
+      if (!isdigit(*s)) return col_names (cols, n, hdr);
+  int *nums = calloc(n,sizeof(int));
   for (i=0; i<n; ++i) nums[i] = atoi(cols[i]);
   return nums;
 }
 
-int *col_names (char **cols, int n, char *hdr) {
-  int *nums = calloc(n,sizeof(int)), i, j;
-  hdr += strspn(hdr," #"); // skip initial
-  for (i=0; i<n; ++i) {
-    
+void cut_tsv (char *line, int *cols, int n) {
+  char **F = split(line,'\t');
+  int i, NF = len(F);
+  for (i = 0; i < n; ++i) {
+    int c = cols[i];
+    char *val = (c > 0 && c <= NF) ? F[c-1] : "";
+    char sep = (i < n-1) ? '\t' : '\n';
+    fputs (val,stdout);
+    fputc (sep,stdout);
+  }
+  free_vec(F);
+}
+
+void cut_json (char *line, char **cols, int n) {
+  int i;
+  for (i = 0; i < n; ++i) {
+    char *val = json_value (line, cols[i]);
+    char sep = (i < n-1) ? '\t' : '\n';
+    if (val) { fputs(val,stdout); free (val); }
+    fputc (sep, stdout);
+  }
+}
+ 
+int json_like (char *line) { return line[strspn(line," ")] == '{'; }
+ 
+void cut_stdin (char **cols, int n) {
+  size_t sz = 999999;
+  int *nums = NULL, nb = 0;
+  char *line = malloc(sz), type = 0;
+  while (0 < (nb = getline(&line,&sz,stdin))) {
+    if (line[nb-1] == '\n') line[nb-1] = '\0';
+    if (!type) {
+      type = json_like (line) ? 'J' : 'T';
+      if (type == 'T') nums = col_nums (cols, n, line);
+    }
+    if (type == 'J') cut_json(line, cols, n);
+    if (type == 'T') cut_tsv (line, nums, n);
   }
 }
 
-void cut_col_num (char *line, char **cols, int n) {
-  
-  char *tsv_value (char *line, uint col)
-  
-}
-
-
-
-static void hl_line(char *line, char **hl, int n) {
-  char *clr = NULL, **h = NULL;
-  for (h = hl; h < hl+n; ++h)
-    if (strstr(line,*h+2)) clr = hl_color(**h);
-  if (clr) fputs(clr, stdout);   // start color
-  fputs(line,stdout);            // full line
-  if (clr) fputs(RESET, stdout); // end color
-  fputc('\n',stdout);
-  //printf ("%s%s%s\n", clr, line, ((*clr)?RESET:""));  
-}
-
-void hl_subs(char *line, char *h) {
-  int l = strlen(h)-2; assert(l>0);
-  while (1) {
-    char *beg = strstr(line,h+2);
-    if (!beg) break;
-    fwrite(line,beg-line,1,stdout); // part before match
-    fputs(hl_color(*h), stdout);    // start color 
-    fputs(h+2, stdout);             // match itself
-    fputs(RESET, stdout);           // end color
-    line = beg + l;                 // part after match
-  }
-  fputs(line,stdout);
-  fputc('\n',stdout);
-}
+char *usage = 
+  "xcut 3 2 17        ... print columns 3, 2, 17 from TSV on stdin\n"
+  "xcut age size type ... stdin = TSV with a header or lines of JSON\n"
+  ;
 
 int main (int argc, char *argv[]) {
-  char line[1000000];
   if (argc < 2) return fprintf (stderr, "\n%s\n", usage);
-  while (fgets (line, 999999, stdin)) {
-    char *eol = index (line,'\n');
-    if (eol) *eol = 0;
-    if (argv[1][1] == '@') hl_subs (line, argv[1]); // highlight substrings
-    else hl_line (line, argv, argc); // highlight whole lines
-  }
+  cut_stdin(argv+1,argc-1);
   return 0;
 }
