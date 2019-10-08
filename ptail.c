@@ -2,12 +2,22 @@
 #include <stdlib.h>
 #include <time.h>
 
+#define arg(i) ((i < argc) ? argv[i] : "")
+
+double getprm (char *params, char *name, double def) {
+  if (!(params && name)) return def;
+  unsigned n = strlen (name);
+  char *p = strstr (params, name);
+  return p ? atof (p + n) : def;
+}
+
 int main (int argc, char *argv[]) {
   char *BUF = NULL;
   size_t N = 0;
-  double step = (argc > 1) ? atof(argv[1]) : 2;
+  double step = getprm(arg(1),"p=",2);
+  unsigned int seed = getprm(arg(1),"s=",time(0));
   unsigned int thresh = 1<<31;
-  srandom(time(0));
+  srandom(seed);
   while (getline(&BUF, &N, stdin) > 0) 
     if (random() < thresh) {
       fputs(BUF,stdout);
