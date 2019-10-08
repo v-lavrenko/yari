@@ -98,7 +98,18 @@ char *tsv_value (char *line, uint col) { // FIXME!!!
   return strndup(line,length);
 }
 
-uint split (char *str, char sep, char **_tok, uint ntoks) {
+char **split (char *str, char sep) {
+  char **F = new_vec (0, sizeof(char*)), *s = str-1;
+  F = append_vec(F,&str);
+  while (*++s) if (*s == sep) {
+      *s++ = '\0'; // null-terminate previous field
+      F = append_vec(F,&s); // next field
+      --s;
+    }
+  return F;
+}
+
+uint split2 (char *str, char sep, char **_tok, uint ntoks) {
   char **tok = _tok, **last = _tok + ntoks - 1;
   *tok++ = str;
   for (; *str; ++str) if (*str == sep) { 
@@ -107,6 +118,11 @@ uint split (char *str, char sep, char **_tok, uint ntoks) {
       if (tok > last) break;
     }
   return tok - _tok;
+}
+
+void noeol (char *str) {
+  char *eol = strchr(str,'\n');
+  if (eol) *eol = '\0';
 }
 
 void chop (char *str, char *blanks) {

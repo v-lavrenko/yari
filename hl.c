@@ -21,6 +21,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <assert.h>
 #include "hl.h"
 
 char *hl_color (char c) {
@@ -44,7 +45,7 @@ char *hl_color (char c) {
   case '*': return BOLD;
   case '_': return UNDER;
   case '~': return INVERSE;
-  case '!': return BLINK;
+  case '#': return BLINK;
     //case 'r': return CLS;
     //case 'r': return RESET;
   }
@@ -54,18 +55,43 @@ char *hl_color (char c) {
 char *usage = 
   "hl 'Y:string' ... highlight in red any line of stdin that contains 'string'\n"
   "                  R:red G:green B:blue C:cyan M:magenta Y:yellow W:white K:black\n"
-  "                  lowercase:foreground, *:bold _:underline ~:inverse !:blink\n"
+  "                  lowercase:foreground, *:bold _:underline ~:inverse #:blink\n"
   ;
 
+static void hl_line(char *line, char **hl, int n) {
+  char *clr = NULL, **h = NULL;
+  for (h = hl; h < hl+n; ++h)
+    if (strstr(line,*h+2)) clr = hl_color(**h);
+  if (clr) fputs(clr, stdout);   // start color
+  fputs(line,stdout);            // full line
+  if (clr) fputs(RESET, stdout); // end color
+  fputc('\n',stdout);
+  //printf ("%s%s%s\n", clr, line, ((*clr)?RESET:""));  
+}
+
+void hl_subs(char *line, char *h) {
+  int l = strlen(h)-2; assert(l>0);
+  while (1) {
+    char *beg = strstr(line,h+2);
+    if (!beg) break;
+    fwrite(line,beg-line,1,stdout); // part before match
+    fputs(hl_color(*h), stdout);    // start color 
+    fputs(h+2, stdout);             // match itself
+    fputs(RESET, stdout);           // end color
+    line = beg + l;                 // part after match
+  }
+  fputs(line,stdout);
+  fputc('\n',stdout);
+}
 
 int main (int argc, char *argv[]) {
-  char line[1000000], **a, **end = argv + argc;
+  char line[1000000];
   if (argc < 2) return fprintf (stderr, "\n%s\n", usage);
   while (fgets (line, 999999, stdin)) {
-    char *eol = index (line,'\n'), *clr = "";
+    char *eol = index (line,'\n');
     if (eol) *eol = 0;
-    for (a = argv; a < end; ++a) if (strstr(line,*a+2)) clr = hl_color(**a);
-    printf ("%s%s%s\n", clr, line, ((*clr)?RESET:""));
+    if (argv[1][1] == '@') hl_subs (line, argv[1]); // highlight substrings
+    else hl_line (line, argv, argc); // highlight whole lines
   }
-  return 1;
+  return 0;
 }
