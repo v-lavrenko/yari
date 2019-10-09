@@ -142,12 +142,13 @@ int ts_codes (char *COD, char *PRC, char *prm) {
 }
 
 // ------------------------ simple signals ------------------------
-    
+
 static double window_avg (ix_t *q, ix_t *p) {
-  double A = 0, N = p - q;
+  double A = 0, N = MAX(1,p-q);
   while (++q <= p) A += q->x;
-  return A / N;
+  return A / (N?N:1);
 }
+
 static double window_min (ix_t *q, ix_t *p) {
   double A = p->x;
   while (++q <= p) A = MIN(A,q->x);
@@ -161,14 +162,14 @@ static double window_max (ix_t *q, ix_t *p) {
 }
 
 double window_var (ix_t *q, ix_t *p) {
-  double N = p-q, SX = 0, SX2 = 0, X;
+  double N = MAX(1,p-q), SX = 0, SX2 = 0, X;
   while (++q <= p) { X = q->x; SX += X; SX2 += X*X; }
   double EX = SX/N, VX = SX2/N - EX*EX;
   return sqrt(VX);
 }
 
 static double window_CC (ix_t *q, ix_t *p) {
-  double N = p-q, SX = 0, SY = 0, SXY = 0, SX2 = 0, SY2 = 0;
+  double N = MAX(1,p-q), SX = 0, SY = 0, SXY = 0, SX2 = 0, SY2 = 0;
   double X0 = p->i, Y0 = p->x, X, Y;
   while (++q <= p) {
     X = q->i - X0; SX += X; SX2 += X*X; 
@@ -185,26 +186,27 @@ void f_window (ix_t *P, uint window, char aggregator) { // avg / min / max in wi
   while (--p >= P) { // back-to-front
     uint T = p->i - window; // time of start of window
     for (q = p; q >= P && q->i >= T; --q); // q+1 is start of window
+    ix_t *last = (p-1)>q ? p-1 : p;
     switch(aggregator) {
-    case 'A': p->x = BP(window_avg(q,p), p->x); break; // BP(..., p->x)
-    case 'm': p->x = BP(window_min(q,p), p->x); break;
-    case 'M': p->x = BP(window_max(q,p), p->x); break;
+    case 'A': p->x = window_avg(q,last); break; // BP(..., p->x)
+    case 'm': p->x = window_min(q,last); break;
+    case 'M': p->x = window_max(q,last); break;
     case 'C': p->x = window_CC(q,p); break;
     }
   }
 }
 
-void f_anchor (ix_t *P, char anchor) { // gain from open / close / min / max
-  ix_t *p = P-1, *last = P+len(P)-1; float A = P->x; 
+void f_anchor (ix_t *P, char anchor) { // open / close / day-min / day-max
+  ix_t *p = P-1, *last = P+len(P)-1; float A = P->x, prev = P->x;
   while (++p <= last) {
-    if (anchor != 'c' && beg_of_day(p,P)) A = p->x;
-    float bp = BP(A,p->x); // gain from anchor point to now
+    if (anchor != 'c' && beg_of_day(p,P)) A = p->x; // 
+    prev = A; 
     switch(anchor) {
     case 'c': if (end_of_day(p,last)) A = p->x; break; // yesterday's close
     case 'M': if (p->x > A) A = p->x; break; // day max
     case 'm': if (p->x < A) A = p->x; break; // day min
     }
-    p->x = bp;
+    p->x = prev; // use previous anchor, except on day-open
   }
 }
 
@@ -220,8 +222,29 @@ void f_deltas (ix_t *P, char unit, char *intraday) { // unit = Basis,Log,Cents
   }
 }
 
+void f_tt_EOD (ix_t *P) {
+  ix_t *last = P+len(P)-1, *p = last+1, *eod = last;
+  while (--p >= P) {
+    if (end_of_day(p,last)) eod = p;
+    p->x = ((double)eod->i - (double)p->i) / 3600; // exp((p->i - eod->i) / hl);
+  }
+}
+
+void f_tt_BP (ix_t *P, float BP) { // time-to-BP
+  float gain = bp2gain(BP);
+  ix_t *p = P+len(P);
+  while (--p >= P) {
+    ix_t *q = p; float thresh = gain * p->x; // threshold
+    if (BP>0) while (q >= P && q->x < thresh) --q;
+    if (BP<0) while (q >= P && q->x > thresh) --q;
+    p->x = (q>=P) ? log((double)p->i - (double)q->i) : 20;
+  }
+}
+
 int ts_signals (char *SIG, char *PRC, char *prm) {
   uint wait = str2seconds (getprmp (prm,"wait=","0"));
+  float ttBP = getprm (prm,"ttBP=",0);
+  char *ttEOD = strstr (prm,"ttEOD");
   char *intraday = strstr (prm,"intraday");
   char *deltas = getprmp (prm,"deltas:","");
   char *type = getprmp (prm,"signals:","-");
@@ -230,7 +253,9 @@ int ts_signals (char *SIG, char *PRC, char *prm) {
   for (id = 1; id <=n; ++id) {
     ix_t *V = get_vec (P,id);
     if   (*deltas) f_deltas (V, *deltas, intraday);
-    else if (wait) f_window (V, wait, *type);    
+    else if (ttEOD) f_tt_EOD (V);
+    else if (ttBP) f_tt_BP (V, ttBP);
+    else if (wait) f_window (V, wait, *type);
     else           f_anchor (V, *type);
     put_vec (S,id,V);
     free_vec(V);
@@ -244,6 +269,9 @@ int ts_mpaste (char *TIC, char **_M, uint nM) {
   uint m; hash_t *H = open_hash (TIC, "r"); 
   ix_t **V = new_vec (nM, sizeof(ix_t*));
   coll_t **M = new_vec (nM, sizeof(coll_t*));
+  printf ("#TICK\tYYYY-MM-DD,HH:MM:SS");
+  for (m = 0; m < nM; ++m) printf ("\t%s", _M[m]);
+  printf ("\n");
   for (m = 0; m < nM; ++m) M[m] = open_coll (_M[m], "r+");
   uint r, nr = num_rows(M[0]);
   for (m = 0; m < nM; ++m) assert (num_rows(M[m]) == nr);
@@ -257,30 +285,12 @@ int ts_mpaste (char *TIC, char **_M, uint nM) {
       for (m = 0; m < nM; ++m) printf ("\t%.2f", V[m][c].x);
       //for (m = 0; m < nM; ++m) assert (V[m][c].i == V[0][c].i);
       char *tag = (beg_of_day(V[0]+c,V[0]) ? "\topen" :
-    		   end_of_day(V[0]+c,V[0]+nc-1) ? "\tclose" : "");
+    		   end_of_day(V[0]+c,V[0]+nc-1) ? "\tclose" : "\t");
       printf ("%s\n", tag);
     }
   }
   for (m = 0; m < nM; ++m) free_coll (M[m]);
   free_hash(H);
-  return 0;
-}
-
-int ts_paste (char *_A, char *_B, char *TIC) {
-  coll_t *A = open_coll (_A, "r+"), *B = open_coll (_B, "r+");
-  hash_t *H = open_hash (TIC, "r");
-  uint id, n = num_rows(A);
-  for (id = 1; id <= n; ++id) {
-    char *tic = id2key(H,id), _[999];
-    ix_t *a = get_vec_ro (A,id), *b = get_vec_ro (B,id);
-    uint i, na = len(a), nb = len(b); assert (na == nb);
-    for (i = 0; i < na; ++i) {
-      assert (b[i].i == a[i].i);
-      char *tag = (beg_of_day(a+i,a) ? "open" : end_of_day(a+i,a+na-1) ? "close" : "");
-      printf ("%s %s %.2f %.2f %s\n", tic, time2str(_,a[i].i), a[i].x, b[i].x, tag);
-    }
-  }
-  free_coll (A); free_coll (B); free_hash(H);
   return 0;
 }
 
@@ -637,3 +647,23 @@ void f_ema (ix_t *P, float a) { // EMA with half-life a
 
     //char buf[999];
     //printf ("open: %ld %d %s %.2f\n", (p-P), p->i, time2str(buf,p->i), p->x);
+
+/* --------------- superceded by mpaste ---------------
+int ts_paste (char *_A, char *_B, char *TIC) {
+  coll_t *A = open_coll (_A, "r+"), *B = open_coll (_B, "r+");
+  hash_t *H = open_hash (TIC, "r");
+  uint id, n = num_rows(A);
+  for (id = 1; id <= n; ++id) {
+    char *tic = id2key(H,id), _[999];
+    ix_t *a = get_vec_ro (A,id), *b = get_vec_ro (B,id);
+    uint i, na = len(a), nb = len(b); assert (na == nb);
+    for (i = 0; i < na; ++i) {
+      assert (b[i].i == a[i].i);
+      char *tag = (beg_of_day(a+i,a) ? "open" : end_of_day(a+i,a+na-1) ? "close" : "");
+      printf ("%s %s %.2f %.2f %s\n", tic, time2str(_,a[i].i), a[i].x, b[i].x, tag);
+    }
+  }
+  free_coll (A); free_coll (B); free_hash(H);
+  return 0;
+}
+*/
