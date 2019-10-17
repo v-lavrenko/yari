@@ -131,7 +131,7 @@ void svm_classify (char *_Y, char *_W, char *_K) {
   for (n = 1; n <= N; ++n) {
     ix_t *k = get_vec (K,n), *tmp=0;
     ix_t *y = rows_x_vec (W, k);             free_vec(k);
-    if (0) y = svm_1v1(tmp=y);               free_vec(tmp);
+    if (0) {y = svm_1v1(tmp=y);}             free_vec(tmp);
     put_vec (Y,n,y);                         free_vec(y);
   }  
   free_coll(K);
