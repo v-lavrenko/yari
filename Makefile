@@ -22,9 +22,10 @@ f64=-D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE
 LIB=-lm -lpthread
 
 opt ?= -g # make opt=-O3 (optimised) or opt=-pg (profile)
+warn=-W -Wall -Wno-unused-result -Wno-implicit-fallthrough
 
-#CC=gcc -m64 $(opt) -W -Wall -Wno-unused-result -I . -o $@ $(f64) -fopenmp
-CC=gcc -m64 $(opt) -W -Wall -Wno-unused-result -I . -o $@ $(f64) 
+#CC=gcc -m64 $(opt) $(warn) -I . -o $@ $(f64) -fopenmp
+CC=gcc -m64 $(opt) $(warn) -I . -o $@ $(f64) 
 
 exe = testmmap testvec testcoll dict mtx stem kvs hl bio shard pval ts ptail xcut
 
