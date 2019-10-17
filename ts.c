@@ -269,9 +269,9 @@ int ts_mpaste (char *TIC, char **_M, uint nM) {
   uint m; hash_t *H = open_hash (TIC, "r"); 
   ix_t **V = new_vec (nM, sizeof(ix_t*));
   coll_t **M = new_vec (nM, sizeof(coll_t*));
-  printf ("#TICK\tYYYY-MM-DD,HH:MM:SS");
+  printf ("TICK\tTimestamp");
   for (m = 0; m < nM; ++m) printf ("\t%s", _M[m]);
-  printf ("\n");
+  printf ("\ttag\n");
   for (m = 0; m < nM; ++m) M[m] = open_coll (_M[m], "r+");
   uint r, nr = num_rows(M[0]);
   for (m = 0; m < nM; ++m) assert (num_rows(M[m]) == nr);
