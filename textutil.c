@@ -518,10 +518,10 @@ int nearest_ws (char *text, int position) {
 // expand each hit to sz chars 
 // TODO: adjust padding for JSON, XML, etc
 void widen_hits (it_t *hits, char *text, uint sz) {
-  uint N = strlen(text); it_t *h; 
+  int N = strlen(text); it_t *h; 
   for (h = hits; h < hits + len(hits); ++h) {
-    h->i = nearest_ws (text, MAX(0,((int)h->i)-sz/2));
-    h->t = nearest_ws (text, MIN(N,((int)h->t)+sz/2));
+    h->i = nearest_ws (text, MAX(0,((int)h->i)-(int)(sz/2)));
+    h->t = nearest_ws (text, MIN(N,((int)h->t)+(int)(sz/2)));
   }
 }
 
