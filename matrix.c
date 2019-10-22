@@ -2137,9 +2137,9 @@ double evl_AUC (ixy_t *evl, double neg) {
 }
 
 xy_t maxF1 (ix_t *system, ix_t *truth, double b) {
-  xy_t best = {0,0};
-  ixy_t *evl = join (system, truth, -Infinity);
-  sort_vec (evl, cmp_ixy_X); // sort by decreasing system scores
+  xy_t best = {0,0}; // b=99 ignores Precision, b=0.01 ignores Recall
+  ixy_t *evl = join (system, truth, -Infinity); 
+  sort_vec (evl, cmp_ixy_X); // sort: descending system score
   double RR = 0, rel = num_rel (evl);
   ixy_t *e = evl-1, *end = evl+len(evl);
   while (++e < end) if (e->y > 0 && e->x > -Infinity) { 
@@ -2151,6 +2151,36 @@ xy_t maxF1 (ix_t *system, ix_t *truth, double b) {
   free_vec (evl);
   return best;
 }
+
+/*
+// return {i,x,y} = best {feature, threshold, F1}
+ixy_t rules_cut (coll_t *XX, ix_t *Y, ix_t *mask, float b, char low) {
+  if (mask) filter_and (Y=copy_vec(Y), mask);
+  ixy_t best = {0,0,0};
+  uint i, n = num_rows(XX);
+  for (i = 1; i<= n; ++i) {
+    ix_t *X = get_vec(XX,i);
+    if (mask) filter_and(X,mask);
+    if (low) num_x_vec(0,'-',X);      // negate if ascending
+    xy_t this = maxF1(X,Y,b);         // X  thresh  F-value
+    if (this.y > best.y) best = (ixy_t) {i, this.x, this.y};
+    free_vec(X);
+  }
+  if (mask) free_vec(Y);
+  return best; 
+}
+
+ixy_t *rules_chain (coll_t *XX, ix_t *Y, char *prm) {
+  ixy_t RA = rule_cut(XX,Y,100,0); // -----|-+-+-+- +++++ recall above thr
+  ixy_t PA = rule_cut(XX,Y,.01,0); // ----- -+-+-+-|+++++ precision above
+  ixy_t RZ = rule_cut(XX,Y,100,1); // +++++ -+-+-+-|----- recall below thr
+  ixy_t PZ = rule_cut(XX,Y,.01,1); // +++++|-+-+-+- ----- precision below
+  ixy_t best = RA;
+  if (PA.y > best.y) best = PA;
+  if (RZ.y > best.y) best = RZ;
+  if (PZ.y > best.y) best = PZ;
+}
+*/
 
 double F1 (ix_t *system, ix_t *truth) {
   ixy_t *evl = join (system, truth, -Infinity);
