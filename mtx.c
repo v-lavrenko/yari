@@ -1721,7 +1721,7 @@ char *usage =
   "                          rid=ABC   ... only row with id=ABC (rno=N for row number)\n"
   "                          empty     ... include empty rows (for csv,svm,txt)\n"
   "                          fmt=' %f' ... csv number format (must be last parameter)\n"
-  " print:f1[prm] Sys Tru  - evaluation: recall, precision, F1, AP\n"
+  " print:f1[prm] Sys Tru  - evaluation: recall, precision, F1, AP, maxF1\n"
   "                          prm: top=K,b=1,thresh=X\n"
   " print:evl Sys Tru      - dump evaluation info for trec_eval\n"
   " print:roc Sys Tru prm  - ROC curve: False-Alarm/Recall/Precision/F1 vs threshold\n"
