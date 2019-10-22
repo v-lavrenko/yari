@@ -97,7 +97,8 @@ void cut_stdin (char **cols, int n) {
 
 char *usage = 
   "xcut 3 2 17        ... print columns 3, 2, 17 from TSV on stdin\n"
-  "xcut age size type ... stdin = TSV with a header or lines of JSON\n"
+  "xcut age size type ... use 1st line to map age -> column number\n"
+  "xcut age size type ... stdin = {JSON} records one-per-line\n"
   ;
 
 int main (int argc, char *argv[]) {
