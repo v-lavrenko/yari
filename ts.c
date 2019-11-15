@@ -375,6 +375,70 @@ int ts_rank (char *_SIG, char *_TRG, char *prm) {
   return 0;
 }
 
+float *window_fn (uint n, char *type) {
+  char *hann = strstr(type,"hann"), *welch = strstr(type,"welch");
+  uint i = 0;
+  float *W = new_vec(n,sizeof(float)), w;
+  for (i=0; i<n; ++i) {
+    double x = ((double)i)/n;
+    if (hann)       { w = sin(PI*x); W[i] = w*w; }
+    else if (welch) { w = 2*x - 1;   W[i] = 1-w*w; }
+    else                             W[i] = 1;
+  }
+  return W;
+}
+
+int ts_windows (char *_RESULT, char *_SERIES, char *prm) {
+  uint Len = getprm(prm,"len=",10);
+  uint hop = getprm(prm,"hop=",1);
+  coll_t *SERIES = open_coll(_SERIES,"r+");
+  coll_t *RESULT = open_coll(_RESULT,"w+");
+  uint i, nr = num_rows(SERIES), nw = 0, NW = 0, j;
+  float *w = window_fn(Len,prm);
+  ix_t *W = const_vec(Len,0);
+  for (i=1; i<=nr; ++i) {
+    ix_t *S = get_vec_ro(SERIES,i), *last = S+len(S)-Len, *s;
+    if (i == 1) NW = nr * (last-S) / hop; // estimate
+    for (s = S; s <= last; s+=hop) {
+      for (j=0; j<Len; ++j) W[j].x = w[j] * s[j].x;
+      put_vec(RESULT,++nw,W);
+      if (!(nw%1000)) show_progress (nw, NW, "windows");
+    }
+  }
+  free_coll(SERIES);
+  free_coll(RESULT);
+  free_vec(w);
+  free_vec(W);
+  return 0;
+}
+
+int ts_motifs (char *_MOTIFS, char *_SIM, char *prm) {
+  uint far = getprm(prm,"far=",0);
+  coll_t *SIM = open_coll(_SIM,"r+");
+  jix_t *motifs = new_vec(0,sizeof(jix_t));
+  float *SUPPORT = sum_rows (SIM, 1);
+  uint nr = num_rows(SIM), nm = 0;
+  while (1) {
+    uint id = maxf(SUPPORT) - SUPPORT;
+    if (!SUPPORT[id]) break;
+    jix_t new = {++nm, id, SUPPORT[id]};
+    motifs = append_vec (motifs, &new);
+    ix_t *S = get_vec_ro(SIM,id), *s;
+    for (s = S; s < S+len(S); ++s) SUPPORT[s->i] = 0; // remove similar
+    uint a = (id <= far) ? 1 : (id-far), z = MIN(id+far,nr);
+    for (id = a; id <= z; ++id) SUPPORT[id] = 0; // remove nearby
+    show_progress(nm,nr,"motifs");
+  }
+  coll_t *MOTIFS = open_coll(_MOTIFS,"w+");
+  append_jix (MOTIFS, motifs);
+  MOTIFS->cdim = nr;
+  free_coll(MOTIFS);
+  free_coll(SIM);
+  free_vec(motifs);
+  free_vec(SUPPORT);
+  return 0;
+}
+
 int ts_oplay (char *_PRICES, char *_TICK, char *prm) {
   float JUMP = getprm(prm,"jump=",100);
   float BACK = getprm(prm,"back=",0.5) * JUMP;
@@ -510,6 +574,8 @@ char *usage =
   "ts C = codes:bits=10,day PRICES\n"
   "ts S = signals:close|open|min|Max|Avg|CC,wait=0 PRICES\n"
   "ts S = deltas:BP|LP|CP,intraday PRICES\n"
+  "ts W = windows:len=10,hop=1 SERIES\n"
+  "ts M = motifs SIMS\n"
   "ts signs PRICES TICK\n"
   "ts rank SIG TRG\n"
   "ts oplay PRICES TICK\n"
@@ -532,8 +598,10 @@ int main (int argc, char *argv[]) {
   if (argc < 4) { printf ("%s", usage); return 1; }
   else if (!strncmp(a(3), "targets", 7)) return ts_targets (arg(1), arg(4), arg(3));
   else if (!strncmp(a(3), "signals", 7)) return ts_signals (arg(1), arg(4), arg(3));
-  else if (!strncmp(a(3), "deltas", 6)) return ts_signals (arg(1), arg(4), arg(3));
+  else if (!strncmp(a(3), "deltas", 5)) return ts_signals (arg(1), arg(4), arg(3));
   else if (!strncmp(a(3), "codes", 5)) return ts_codes (arg(1), arg(4), arg(3));
+  else if (!strncmp(a(3), "windows", 6)) return ts_windows (arg(1), arg(4), arg(3));
+  else if (!strncmp(a(3), "motifs", 5)) return ts_motifs (arg(1), arg(4), arg(3));
   return 0;
 }
 
