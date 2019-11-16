@@ -650,7 +650,7 @@ ix_t *parse_vec_svm (char *str, char **id, hash_t *ids) {
 }
 
 void print_vec_csv (ix_t *vec, uint ncols, char *fmt) {
-  if (!fmt || !*fmt) fmt = " %5.2f";
+  if (!fmt || !*fmt) fmt = "\t%.2f";
   if (!ncols && len(vec)) ncols = vec[len(vec)-1].i;
   float *full = vec2full (vec, ncols, 0), *end = full+len(full), *f;
   for (f = full+1; f < end; ++f) printf (fmt, *f);
@@ -952,9 +952,9 @@ void free_stats (stats_t *s) {
 
 stats_t *blank_stats (int df, int cf, int s2, uint n) {
   stats_t *s    = new_vec (1, sizeof(stats_t));
-  if (df) s->df = new_vec (n, sizeof(uint));
-  if (cf) s->cf = new_vec (n, sizeof(float));
-  if (s2) s->s2 = new_vec (n, sizeof(float));
+  if (df) s->df = new_vec (n, sizeof(ulong));
+  if (cf) s->cf = new_vec (n, sizeof(double));
+  if (s2) s->s2 = new_vec (n, sizeof(double));
   return s;
 }
 
@@ -1018,7 +1018,7 @@ void dump_stats (stats_t *s, hash_t *dict) {
   //FILE *out = safe_fopen (file, "w");
   while (++w <= nw) {
     char *key = id2str(dict,w);
-    printf ("%15s %5d %10.2f\n", key, s->df[w], s->cf[w]);
+    printf ("%15s %5ld %10.2f\n", key, s->df[w], s->cf[w]);
     free (key);
   }
   //fclose (out);
@@ -1075,9 +1075,9 @@ void weigh_vec_clarity (ix_t *vec, stats_t *s) {
   }
 }
 
-ix_t *doc2lm (ix_t *doc, float *cf, double mu, double lambda) { // thread-unsafe: static
+ix_t *doc2lm (ix_t *doc, double *cf, double mu, double lambda) { // thread-unsafe: static
   static ix_t *BG = NULL;
-  if (!BG) { BG = full2vec (cf); vec_x_num (BG, '/', sum(BG)); }
+  if (!BG) { BG = double2vec (cf); vec_x_num (BG, '/', sum(BG)); }
   double dl = sum(doc), a = lambda / (dl?dl:1);
   ix_t *LM = (mu ? vec_add_vec (1, doc,  mu, BG)
 	      :    vec_add_vec (a, doc, 1-a, BG));
@@ -1089,8 +1089,8 @@ void weigh_vec_lmj (ix_t *vec, stats_t *s) {
   ix_t *v, *end = vec + len(vec);
   float dl = sum (vec), odds = s->b / (1 - s->b);
   for (v = vec; v < end; ++v) {
-    float Pvd = v->x / dl;
-    float Pv = vget (s->cf, v->i, 1) / s->nposts;
+    double Pvd = v->x / dl;
+    double Pv = vget (s->cf, v->i, 1) / s->nposts;
     v->x = log (1 + odds * Pvd / Pv);
   }
 }
@@ -1098,8 +1098,8 @@ void weigh_vec_lmj (ix_t *vec, stats_t *s) {
 void weigh_vec_lmd (ix_t *vec, stats_t *s) {
   ix_t *v, *end = vec + len(vec);
   for (v = vec; v < end; ++v) {
-    float Pvd = v->x / s->k; // yes, this is correct
-    float Pv = vget (s->cf, v->i, 1) / s->nposts;
+    double Pvd = v->x / s->k; // yes, this is correct
+    double Pv = vget (s->cf, v->i, 1) / s->nposts;
     v->x = log (1 + Pvd / Pv);
   }
 }
@@ -1107,63 +1107,69 @@ void weigh_vec_lmd (ix_t *vec, stats_t *s) {
 void weigh_vec_idf (ix_t *vec, stats_t *s) {
   ix_t *v, *end = vec + len(vec);
   for (v = vec; v < end; ++v) {
-    uint df = vget (s->df, v->i, 1), nd = s->ndocs;
-    float idf = log ((0.5 + nd) / df) / log (1.0 + nd);
+    ulong df = vget (s->df, v->i, 1), nd = s->ndocs;
+    double idf = log ((0.5 + nd) / df) / log (1.0 + nd);
     v->x = v->x * idf;
   }
 }
 
 void weigh_vec_inq (ix_t *vec, stats_t *s) {
   ix_t *v, *end = vec + len(vec);
-  float dl = sum (vec), avgdl = s->nposts / s->ndocs;
+  double dl = sum (vec), avgdl = s->nposts / s->ndocs;
   for (v = vec; v < end; ++v) {
-    uint df = vget (s->df, v->i, 1), nd = s->ndocs;
-    float idf = log ((0.5 + nd) / df) / log (1.0 + nd);
-    float ntf = v->x / (v->x + 0.5 + 1.5 * dl / avgdl);
+    ulong df = vget (s->df, v->i, 1), nd = s->ndocs;
+    double idf = log ((0.5 + nd) / df) / log (1.0 + nd);
+    double ntf = v->x / (v->x + 0.5 + 1.5 * dl / avgdl);
     v->x = ntf * idf; // 0.4 + 0.6 * ntf * idf ... problems
   }
 }
 
 void weigh_vec_ntf (ix_t *vec, stats_t *s) {
   ix_t *v, *end = vec + len(vec);
-  float dl = sum (vec), avgdl = s->nposts / s->ndocs;
-  float k = s->k ? s->k : 2.0, b = s->b ? s->b : 0.75;
+  double dl = sum (vec), avgdl = s->nposts / s->ndocs;
+  double k = s->k ? s->k : 2.0, b = s->b ? s->b : 0.75;
   for (v = vec; v < end; ++v) 
     v->x = v->x * (1 + k) / (v->x + k * ((1-b) + b * dl / avgdl));
 }
 
 void weigh_vec_bm25 (ix_t *vec, stats_t *s) {
   ix_t *v, *end = vec + len(vec);
-  float dl = sum (vec), avgdl = s->nposts / s->ndocs;
-  float k = s->k ? s->k : 2.0, b = s->b ? s->b : 0.75;
+  double dl = sum (vec), avgdl = s->nposts / s->ndocs;
+  double k = s->k ? s->k : 2.0, b = s->b ? s->b : 0.75;
   //printf ("b=%f k=%f nd=%d\n", b, k, s->ndocs);
   for (v = vec; v < end; ++v) {
-    uint df = vget (s->df, v->i, 1), nd = s->ndocs;
+    ulong df = vget (s->df, v->i, 1), nd = s->ndocs;
     //float idf = log ((nd - df + 0.5) / (df + 0.5)); // negative if df < nd/2
-    float idf = log ((0.5 + nd) / df) / log (1.0 + nd); // use inquery idf
-    float ntf = v->x * (1 + k) / (v->x + k * ((1-b) + b * dl / avgdl));
+    double idf = log ((0.5 + nd) / df) / log (1.0 + nd); // use inquery idf
+    double ntf = v->x * (1 + k) / (v->x + k * ((1-b) + b * dl / avgdl));
     v->x = ntf * idf; // use MAX(0,idf) with non-inquery idf
   }
 }
 
 void weigh_vec_std (ix_t *vec, stats_t *s) {
   //static uint dump = 1;
-  uint *DF = s->df;
-  float *S1 = s->cf, *S2 = s->s2;
+  ulong *DF = s->df;
+  double *S1 = s->cf, *S2 = s->s2;
   ix_t *v, *end = vec + len(vec);
   for (v = vec; v < end; ++v) {
     float N = vget (DF, v->i, 1);
     float mean = vget (S1, v->i, 0) / N;
     float mean2 = vget (S2, v->i, 0) / N;
     float std = sqrt (mean2 - mean * mean);
-    v->x = (v->x - mean) / (std ? std : 1);
+    float new = (v->x - mean) / (std ? std : 1);
+    if (isnan(new)) {
+      fprintf(stderr,"STD: [%d] %.4f - %.4f / %.4f (%.4f) [%.0f]\n",
+	      v->i, v->x, mean, std, mean2, N);
+      assert(0);
+    }
+    v->x = new;
     //if (dump) fprintf (stderr, "%d     %.10f     %.10f\n", v->i, mean, std);
   }
   //dump = 0;
 }
 
 void weigh_vec_laplacian (ix_t *vec, stats_t *s) {
-  float rowsum = sum(vec), *colsum = s->cf;
+  double rowsum = sum(vec), *colsum = s->cf;
   ix_t *v = vec-1, *end = vec + len(vec);
   while (++v < end) v->x /= sqrt (rowsum * vget (colsum,v->i,1));
 }
@@ -1202,21 +1208,21 @@ void weigh_vec_cdf (ix_t *vec) { // values -> cumulative distribution function
 void weigh_invl_lmd (ix_t *invl, stats_t *s, float mu) {
   ix_t *d, *end = invl + len(invl);
   for (d = invl; d < end; ++d) {
-    float Pv = vget (s->cf, d->i, 1) / s->nposts;
+    double Pv = vget (s->cf, d->i, 1) / s->nposts;
     d->x = log (1 + d->x / (mu * Pv));
   }
 }
 
 void crop_outliers (ix_t *vec, stats_t *s, float out) {
-  uint *DF = s->df;
-  float *S1 = s->cf, *S2 = s->s2;
+  ulong *DF = s->df;
+  double *S1 = s->cf, *S2 = s->s2;
   ix_t *v, *end = vec + len(vec);
   for (v = vec; v < end; ++v) {
-    float N = vget (DF, v->i, 1);
-    float mean = vget (S1, v->i, 0) / N;
-    float mean2 = vget (S2, v->i, 0) / N;
-    float stdev = sqrt (mean2 - mean * mean);
-    float lo = mean - out*stdev, hi = mean + out*stdev, x=v->x;
+    double N = vget (DF, v->i, 1);
+    double mean = vget (S1, v->i, 0) / N;
+    double mean2 = vget (S2, v->i, 0) / N;
+    double stdev = sqrt (mean2 - mean * mean);
+    double lo = mean - out*stdev, hi = mean + out*stdev, x=v->x;
     if (x < lo) v->x = lo;
     if (x > hi) v->x = hi;
     if (v->x != x) fprintf (stderr, "OUTLIER %d: %f -> %f\n", v->i, x, v->x);
@@ -1544,6 +1550,21 @@ ix_t *full2vec (float *full) {
   }
   return vec;
 }
+
+ix_t *double2vec (double *full) {
+  uint id;
+  if (!full) return NULL;
+  ix_t *vec = new_vec (0, sizeof(ix_t)), v = {0,0};
+  for (id = 1; id < len(full); ++id) {
+    if (!full [id]) continue;
+    v.i = id;
+    v.x = full [id];
+    vec = append_vec (vec, &v);
+    full [id] = 0;
+  }
+  return vec;
+}
+
 
 ix_t *full2vec_keepzero (float *full) {
   uint id;
