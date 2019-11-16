@@ -31,14 +31,14 @@
 //typedef struct {char*path; coll_t*rows; coll_t*cols; hash_t*rids; hash_t*cids;} mtx_t;
 
 typedef struct {
-  uint   ndocs;
-  uint   nwords;
+  ulong   ndocs;
+  ulong   nwords;
   double nposts;
-  uint  *df; // document frequency = non-zeros in each column
-  float *cf; // collection frequency = sum of each column
-  float *s2; // sum of squares in each column
-  float  k; // free parameter
-  float  b; // free parameter
+  ulong  *df; // document frequency = non-zeros in each column
+  double *cf; // collection frequency = sum of each column
+  double *s2; // sum of squares in each column
+  double  k; // free parameter
+  double  b; // free parameter
 } stats_t;
 
 void uniq_jix (jix_t *vec) ;
@@ -127,7 +127,7 @@ void update_stats_from_file (stats_t *s, hash_t *dict, char *file) ;
 void free_stats (stats_t *s) ;
 void dump_stats (stats_t *s, hash_t *dict) ;
 
-ix_t *doc2lm (ix_t *doc, float *cf, double mu, double lambda) ;
+ix_t *doc2lm (ix_t *doc, double *cf, double mu, double lambda) ;
 
 void weigh_vec_clarity (ix_t *vec, stats_t *);
 void weigh_vec_lmj (ix_t *vec, stats_t *) ;
@@ -157,6 +157,7 @@ void col_softmax (coll_t *trg, coll_t *M) ;
 float *chk_SCORE (uint N) ;
 
 ix_t *full2vec (float *full) ;
+ix_t *double2vec (double *full) ;
 ix_t *full2vec_keepzero (float *full) ;
 
 
@@ -251,5 +252,6 @@ ix_t *next_in_jix (jix_t *jix, jix_t **last) ;
 void transpose_jix (jix_t *vec) ;
 jix_t *scan_jix (FILE *in, uint num, hash_t *rows, hash_t *cols) ;
 void scan_mtx_rcv (FILE *in, coll_t *M, hash_t *R, hash_t *C, char how, char verb) ;
+void append_jix (coll_t *c, jix_t *jix) ;
 
 #endif
