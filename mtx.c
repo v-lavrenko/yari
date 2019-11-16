@@ -138,11 +138,12 @@ void mtx_print (char *prm, char *_M, char *RH, char *CH) {
   uint top = getprm (prm,"top=",0), rno = getprm (prm,"rno=",0);
   //uint dd = getprm (prm,"dd=",4);
   char *rcv = strstr(prm,"rcv"), *txt = strstr(prm,"txt"), *xml = strstr(prm,"xml");
-  char *svm = strstr(prm,"svm"), *csv = strstr(prm,"csv"), *ids = strstr(prm,"ids");
-  char *jsn = strstr(prm,"json");
+  char *svm = strstr(prm,"svm"), *csv = strstr(prm,"csv"), *tsv = strstr(prm,"tsv");
+  char *ids = strstr(prm,"ids"), *jsn = strstr(prm,"json");
   char *fmt = getprms (prm,"fmt=",NULL,',');
   char *rid = getprms (prm,"rid=",NULL,',');
   char *empty = strstr(prm,"empty");
+  char *nonempty = strstr(prm,"nonempty");
   coll_t *M = open_coll (_M, "r+");
   RH = (RH && *RH && !atoi(RH)) ? RH : NULL;
   CH = (CH && *CH && !atoi(CH)) ? CH : NULL;
@@ -155,6 +156,7 @@ void mtx_print (char *prm, char *_M, char *RH, char *CH) {
   for (i = beg_i; i <= end_i; ++i) {
     ix_t *vec = get_vec (M, i);
     if (!len(vec) && !empty && !csv) { free_vec(vec); continue; }
+    else if (!len(vec) && nonempty)  { free_vec(vec); continue; }
     char *rid = id2str(rh,i);
     if      (top) { trim_vec (vec, top); sort_vec (vec, cmp_ix_X); }
     if      (ids) printf ("%s\n", rid); 
@@ -728,9 +730,9 @@ void mtx_distance (char *_D, char *_A, char *_B, char *prm) {
   D->cdim = B->rdim;
   if (A->cdim != B->cdim) warnx("WARNING: incompatible dimensions %s [%d x %d], %s [%d x %d]", _A, A->rdim, A->cdim, _B, B->rdim, B->cdim);
   uint i, j, nA = num_rows(A), nB = num_rows(B), nC = num_cols(B);
-  ulong done = 0;
+  ulong done = 0, todo = (ulong)nA*(ulong)nB;
   fprintf (stderr, "[%.0fs] computing %s [%dx%d]: %.0fM %s distances, p=%.2f, k=%d, top=%d\n", 
-	   vtime(), _D, nA, nB, (nA*nB/1E6), sim, p, kdt, top);
+	   vtime(), _D, nA, nB, todo/1E6, sim, p, kdt, top);
   for (j = 1; j <= nA; ++j) {
     //if (!has_vec (A,j)) continue; // incorrect: zero vec => nonzero distances
     ix_t *d = const_vec (nB,0);
@@ -759,7 +761,7 @@ void mtx_distance (char *_D, char *_A, char *_B, char *prm) {
     free_vec (d);
     free_vec (a);
     free_vec (aa);
-    show_progress ((done+=nB), 0, "distances");
+    show_progress ((done+=nB)/1E6, todo/1E6, "Mdistances");
   }
   free_coll (D); free_coll (A); free_coll (B);
   fprintf (stderr, "[%.0fs] %ld cells done\n", vtime(), done);
