@@ -396,6 +396,22 @@ void free_toks (char **toks) {
   free_vec (toks);
 }
 
+char **readlines(char *path) {
+  char *buf = NULL;
+  size_t bufsz = 0;
+  int sz = 0;
+  FILE *in = safe_fopen(path,"r");
+  char **lines = new_vec (0, sizeof(char*));
+  while (0 < (sz = getline(&buf, &bufsz, in))) {
+    if (buf[sz-1] == '\n') buf[--sz] = '\0'; // strip newline
+    char *line = strdup(buf);
+    lines = append_vec(lines,&line);
+  }
+  fclose(in);
+  if (buf) free(buf);
+  return lines;
+}
+
 int read_doc (FILE *in, char *buf, int n, char *beg, char *end) {
   char *p = buf, *eob = buf + n, doc = 0, stop = 0;
   while (fgets (p, eob-p, in)) {

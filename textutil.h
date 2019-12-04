@@ -55,6 +55,7 @@ char *tsv_value (char *str, uint col) ; //
 char **split (char *str, char sep) ;
 uint split2 (char *str, char sep, char **_tok, uint ntoks) ;
 
+char **readlines(char *path) ;
 int read_doc (FILE *in, char *buf, int n, char *beg, char *end) ;
 
 void porter_stemmer (char *word, char *stem) ;
