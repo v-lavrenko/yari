@@ -330,6 +330,11 @@ int popen2 (const char *command, pid_t *_pid) { // unsafe: popen()
   //return in;
 }
 
+void nonblock(FILE *f) {
+  int fd = fileno(f), flags = fcntl(fd, F_GETFL, 0);
+  fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+}
+
 #ifndef MAP_POPULATE
 #define MAP_POPULATE 0
 #endif
