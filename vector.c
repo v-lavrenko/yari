@@ -271,6 +271,8 @@ int cmp_xy_X (const void *n1, const void *n2) { // by decreasing x
 int cmp_x (const void *n1, const void *n2) { return -cmp_X (n1,n2); }
 int cmp_X (const void *n1, const void *n2) { return *((float*)n2) - *((float*)n1); }
 
+int cmp_str (const void *a, const void *b) { return strcmp(*(char**)a, *(char**)b); }
+
 /*
 void vzero (void *d) { // zero out unused portion of the vector
   vstruct_t *v = vstruct(d); // between count and alloc
