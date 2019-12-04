@@ -41,6 +41,7 @@ int str2seconds (char *s) ;
 
 // convert string expression, e.g. 2004-02-13,18:01:39 --> unix timestamp
 time_t str2time (char *str) ;
+time_t strf2time (char *str, char *fmt) ;
 
 struct tm time2tm (time_t time) ; // unix timestamp --> broken-down time
 //                  int tm_sec;         /* seconds */

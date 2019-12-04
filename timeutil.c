@@ -41,10 +41,10 @@ int str2seconds (char *s) {
 }
 
 // convert string expression, e.g. 2004-02-13,18:01:39 --> unix timestamp
-time_t str2time (char *str) { 
+time_t strf2time (char *str, char *fmt) { 
   struct tm tm; 
   memset (&tm, 0, sizeof(struct tm));
-  if (!strptime(str, "%Y-%m-%d,%H:%M:%S", &tm)) return 0;
+  if (!strptime(str, fmt, &tm)) return 0;
   tm.tm_isdst = -1; // strptime does not set this!!! 
   time_t time = mktime (&tm);
   return (unsigned) time;
@@ -55,6 +55,11 @@ time_t str2time (char *str) {
   //time_t max = 1262322000; // Jan 1 2010
   //if ((time < min) || (time > max)) {
   //fprintf (stderr, "str2time() out of range: %s", str); exit(1); }
+}
+
+// convert string expression, e.g. 2004-02-13,18:01:39 --> unix timestamp
+time_t str2time (char *str) {
+  return strf2time(str,"%Y-%m-%d,%H:%M:%S");
 }
 
 struct tm time2tm (time_t time) {
