@@ -95,6 +95,15 @@ void cut_stdin (char **cols, int n) {
   }
 }
 
+void show_header (char **cols, int n) {
+  int i; fputc ('#', stdout);
+  for (i = 0; i < n; ++i) {
+    char sep = (i < n-1) ? '\t' : '\n';
+    fputs (cols[i], stdout); 
+    fputc (sep, stdout);
+  }
+}
+
 char *usage = 
   "xcut 3 2 17        ... print columns 3, 2, 17 from TSV on stdin\n"
   "xcut age size type ... use 1st line to map age -> column number\n"
@@ -103,6 +112,7 @@ char *usage =
 
 int main (int argc, char *argv[]) {
   if (argc < 2) return fprintf (stderr, "\n%s\n", usage);
+  if (!strcmp(argv[1],"-h")) { ++argv; --argc; show_header(argv+1,argc-1); }
   cut_stdin(argv+1,argc-1);
   return 0;
 }
