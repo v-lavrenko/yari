@@ -50,7 +50,7 @@ int *col_nums (char **cols, int n, char *hdr) {
   for (i=0; i<n; ++i)
     for (s=cols[i]; *s; ++s)
       if (!isdigit(*s)) return col_names (cols, n, hdr);
-  int *nums = calloc(n,sizeof(int));
+  int *nums = malloc(n*sizeof(int));
   for (i=0; i<n; ++i) nums[i] = atoi(cols[i]);
   return nums;
 }
