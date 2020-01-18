@@ -13,7 +13,7 @@ int main (int n, char *A[]) {
     if (!strncmp(A[i],"-o",2)) ofmt = A[i][2] ? A[i]+2 : ++i<n ? A[i] : ofmt;
   }
   uint col = atoi(_col), c;
-  if (n < 3 || col < 1 || !index(ifmt,'%') || !index(ofmt,'%')) {
+  if (n < 2 || col < 1 || !index(ifmt,'%') || !index(ofmt,'%')) {
     fprintf(stderr, "USAGE: xtime -f 1 -i '%%s' -o '%%F'\n");
     return 1;
   }
