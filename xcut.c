@@ -107,7 +107,7 @@ void show_header (char **cols, int n) {
 }
 
 char *usage = 
-  "xcut 3 2 17        ... print columns 3, 2, 17 from TSV on stdin\n"
+  "xcut 3 2 \\X 17    ... print columns 3, 2, 'X', 17 from stdin\n"
   "xcut age size type ... use 1st line to map age -> column number\n"
   "xcut age size type ... stdin = {JSON} records one-per-line\n"
   ;
