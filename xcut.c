@@ -33,6 +33,7 @@ int *col_names (char **cols, int n, char *hdr) {
   char **F = split(hdr,'\t');
   int *nums = calloc(n,sizeof(int)), i, j, NF = len(F);
   for (i=0; i<n; ++i) {
+    if (cols[i][0] == '\\') continue; // skip \literal
     for (j=0; j<NF; ++j)
       if (!strcmp(cols[i],F[j])) nums[i] = j+1;
     if (!nums[i]) {
@@ -47,20 +48,21 @@ int *col_names (char **cols, int n, char *hdr) {
 
 int *col_nums (char **cols, int n, char *hdr) {
   int i; char *s;
-  for (i=0; i<n; ++i)
-    for (s=cols[i]; *s; ++s)
-      if (!isdigit(*s)) return col_names (cols, n, hdr);
-  int *nums = malloc(n*sizeof(int));
+  for (i=0; i<n; ++i) 
+    if (cols[i][0] != '\\') // skip \literal
+      for (s=cols[i]; *s; ++s) 
+	if (!isdigit(*s)) return col_names (cols, n, hdr);
+  int *nums = calloc(n,sizeof(int));
   for (i=0; i<n; ++i) nums[i] = atoi(cols[i]);
   return nums;
 }
 
-void cut_tsv (char *line, int *cols, int n) {
+void cut_tsv (char *line, int *nums, int n, char **cols) {
   char **F = split(line,'\t');
   int i, NF = len(F);
   for (i = 0; i < n; ++i) {
-    int c = cols[i];
-    char *val = (c > 0 && c <= NF) ? F[c-1] : "";
+    int literal = (cols[i][0] == '\\'), c = nums[i];
+    char *val = literal ? (cols[i]+1) : (c > 0 && c <= NF) ? F[c-1] : "";
     char sep = (i < n-1) ? '\t' : '\n';
     fputs (val,stdout);
     fputc (sep,stdout);
@@ -91,7 +93,7 @@ void cut_stdin (char **cols, int n) {
       if (type == 'T') nums = col_nums (cols, n, line);
     }
     if (type == 'J') cut_json(line, cols, n);
-    if (type == 'T') cut_tsv (line, nums, n);
+    if (type == 'T') cut_tsv (line, nums, n, cols);
   }
 }
 
@@ -105,7 +107,7 @@ void show_header (char **cols, int n) {
 }
 
 char *usage = 
-  "xcut 3 2 17        ... print columns 3, 2, 17 from TSV on stdin\n"
+  "xcut 3 2 \\X 17    ... print columns 3, 2, 'X', 17 from stdin\n"
   "xcut age size type ... use 1st line to map age -> column number\n"
   "xcut age size type ... stdin = {JSON} records one-per-line\n"
   ;
