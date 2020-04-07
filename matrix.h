@@ -57,6 +57,7 @@ void trim_mtx (coll_t *M, int k) ;
 void qselect (ix_t *X, int k) ; // helper for trim_vec
 void nksample (ix_t *X, uint n, int k) ; // keep n elements, preserve top k / bottom -k
 
+void drop_vec_el (ix_t *vec, uint el) ;
 void sparse_vec (ix_t *vec, float zero) ;
 ix_t *dense_vec (ix_t *vec, float zero, uint n) ;
 
@@ -65,6 +66,7 @@ ix_t *bits2codes (ix_t *vec, uint L) ;
 ix_t *num2bitvec (ulong num) ;
 ulong bitvec2num (ix_t *vec) ;
 
+ix_t *vec2psg (ix_t *V, uint i, uint w); // i'th w/2-overlapping passage or NULL
 ix_t *shuffle_vec (ix_t *vec) ;
 
 ix_t *const_vec (uint n, float x) ;
