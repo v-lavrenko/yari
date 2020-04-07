@@ -197,6 +197,12 @@ void chop_vec (ix_t *vec) {
   assert (b == vec);
 }
 
+void drop_vec_el (ix_t *vec, uint el) {
+  ix_t *v = vec-1, *end = vec + len(vec);
+  while (++v < end) if (v->i == el) v->x = 0;
+  chop_vec (vec);
+}
+
 void sparse_vec (ix_t *vec, float zero) {
   ix_t *v = vec-1, *end = vec + len(vec);
   while (++v < end) if (v->x == zero) v->x = 0;
@@ -209,6 +215,19 @@ ix_t *dense_vec (ix_t *vec, float zero, uint n) {
   ix_t *v = vec-1, *end = vec + len(vec);
   while (++v < end) dense [v->i-1] = *v;
   return dense;
+}
+
+// return i'th half-overlapping passage of size w
+ix_t *vec2psg (ix_t *V, uint i, uint w) {
+  uint beg = i*w/2, L = len(V);
+  if (beg + w/2 > L) return NULL;
+  if (beg + w > L) w = L - beg;
+  ix_t *psg = new_vec (w, sizeof(ix_t));
+  memcpy (psg, V+beg, w * sizeof(ix_t));
+  vec_x_num (psg, '=', 1);
+  sort_vec (psg, cmp_ix_i);
+  uniq_vec (psg);
+  return psg;
 }
 
 void heapify_up (ix_t *H, uint i) {
@@ -697,10 +716,10 @@ ix_t *parse_vec_txt (char *str, char **id, hash_t *ids, char *prm) { // thread-u
   char *stop = strstr (prm, "stop");
   char *nowb = strstr (prm, "nowb");
   char *buf = 0, *ws = strstr(prm,"tokw") ? " \t\r\n" : NULL;
-  if (gram) buf = malloc (1<<26);
   if (id) *id = strdup (next_token (&str, " \t"));
   if (nowb) squeeze (str, NULL); // squeeze out punctuation and spaces
-  if (gram) { 
+  if (gram) {
+    buf = malloc (1<<26);
     csub (str, ws, '_'); // replace all runs of punctuation with underscore
     cgrams (str, gram, gram_hi, step, buf, 1<<26); // character n-grams
     str = buf; ws = " ";
@@ -1633,6 +1652,7 @@ ix_t *rows_x_vec (coll_t *rows, ix_t *vec) {
 
 // same as cols_x_vec, but for short vecs
 ix_t *vec_x_rows (ix_t *vec, coll_t *rows) {
+  if (len(vec) == 1 && vec[0].x == 1) return get_vec (rows, vec[0].i);
   ix_t *sum = new_vec (0, sizeof(ix_t)), *v;
   for (v = vec; v < vec + len(vec); ++v) {
     ix_t *row = get_vec (rows, v->i), *tmp = sum;
