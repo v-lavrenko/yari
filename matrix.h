@@ -238,6 +238,7 @@ void vec_mul_vec (ix_t *V, ix_t *F) ; // fast, sparse, in-place
 void filter_and (ix_t *V, ix_t *F) ; // in-place
 void filter_not (ix_t *V, ix_t *F) ; // in-place
 void filter_set (ix_t *V, ix_t *F, float def) ;
+void filter_and_sum (ix_t *V, ix_t *F) ; // Boolean AND + SUM the scores
 char *vec2set (ix_t *vec, uint N) ;
 void vec_x_set (ix_t *vec, char op, char *set) ;
 
