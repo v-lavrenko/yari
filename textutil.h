@@ -81,4 +81,6 @@ int cntchr (char *s, char c);
 char *strRchr (char *beg, char *end, char key) ;
 void purge_escaped (char *txt) ;
 
+char *snippet2 (char *text, char **words, int sz);
+
 #endif
