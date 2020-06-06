@@ -24,6 +24,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
+#include <math.h>
 #include "hash.h"
 #include "textutil.h"
 
@@ -100,7 +101,7 @@ char *tsv_value (char *line, uint col) { // FIXME!!!
 
 char **split (char *str, char sep) {
   char **F = new_vec (0, sizeof(char*)), *s = str-1;
-  F = append_vec(F,&str);
+  if (*str) F = append_vec(F,&str);
   while (*++s) if (*s == sep) {
       *s++ = '\0'; // null-terminate previous field
       F = append_vec(F,&s); // next field
@@ -449,16 +450,17 @@ char *get_xml_docid (char *str) {
 
 // returns SZ chars around 1st match of QRY in TEXT
 char *snippet1 (char *text, char *qry, int sz) {
-  int sz2 = (sz - strlen(qry)) / 2;
+  int pad = (sz - strlen(qry)) / 2; // padding before/after
   char *end = text + strlen(text);
-  char *beg = strcasestr(text,qry);
+  char *beg = strcasestr(text,qry); // find locus (start)
   if (!beg) return NULL;
-  beg = MAX(text,beg-sz2);
-  end = MIN(end,beg+sz);
+  beg = MAX(text,beg-pad); // begin: padding before locus start
+  end = MIN(end,beg+sz);   // end: SZ after begin
   beg = MAX(text,end-sz);
   return strndup (beg, end-beg);
 }
 
+// list of pointers to all (non-overlapping) occurrences of qry in text
 char **strall (char *_text, char *qry) {
   char **result = new_vec (0, sizeof(char*)); 
   char *text = _text, *hit = 0; 
@@ -470,46 +472,101 @@ char **strall (char *_text, char *qry) {
   return result;
 }
 
-// return offsets in text of all occurrences of all words
-it_t *all_hits (char *_text, char **words) {
-  it_t *hits = new_vec (0, sizeof(it_t)); 
-  char **w, **wEnd = words + len(words);
-  for (w = words; w < wEnd; ++w) {
-    uint wlen = strlen(*w);
-    char *text = _text, *hit;
-    while ((hit = strstr(text,*w))) {
-      it_t h = {w-words, hit-_text};
-      hits = append_vec (hits, &h);
-      text = hit + wlen;
-    }
-  }
-  sort_vec (hits,cmp_it_t);
-  return hits;
-}
-
+// result[i] = length of words[i] 
 uint *word_lengths (char **words) {
   uint nw = len(words), i, *wlen = new_vec (nw, sizeof(uint)); 
   for (i=0; i<nw; ++i) wlen[i] = strlen(words[i]);
   return wlen;
 }
 
-// shortest span containing at least one hit for every word
-it_t range_hits (it_t *hits, uint *wlen) {
+// return spans of all occurrences of all words in text
+// {i,j,k} i:start-offset j:end-offset k:word-identity
+ijk_t *hits_for_all_words (char *_text, char **words) {
+  ijk_t *hits = new_vec (0, sizeof(ijk_t)); 
+  char **w, **wEnd = words + len(words);
+  for (w = words; w < wEnd; ++w) {
+    uint wlen = strlen(*w);
+    char *text = _text, *hit;
+    while ((hit = strcasestr(text,*w))) {
+      ijk_t h = {hit-_text, hit-_text+wlen, w-words};
+      hits = append_vec (hits, &h);
+      text = hit + wlen;
+    }
+  }
+  sort_vec (hits,cmp_ijk_i); // by increasing offset
+  return hits;
+}
+
+// score for snippet that doesn't contain any hits
+//double score_empty (uint nwords, float eps) { return nwords * log(eps); }
+
+// delta that results from adding dw instances of w
+//double score_delta (uint w, int dw, int *seen, uint SZ, float eps) {
+//  return - log (seen[w]/SZ + eps) + log ((seen[w]+=dw)/SZ + eps);
+//}
+
+float score_snippet (int *seen, uint sz, float eps) {
+  double score = 0, SZ = sz; uint i, n = len(seen);
+  for (i=0; i<n; ++i) score += log (seen[i]/SZ + eps);
+  return (float) score;
+}
+
+// SZ-byte span with highest number of distinct hits
+jix_t best_span (ijk_t *hits, uint nwords, uint SZ, float eps) {
+  jix_t best = {0, 0, -Infinity}; 
+  ijk_t *H = hits, *end = H+len(H), *L = H-1, *R = H, *h; uint i;
+  int *seen = new_vec (nwords, sizeof(int)); // #times word[i] seen in [a..z]
+  while (++L < end) { // for every left (L) border
+    if (L > H) --seen [(L-1)->k]; // unsee word to left of L
+    // advance R until |R-L| >= SZ seeing words R->k along the way
+    for (; R<end && R->j < L->i+SZ; ++R) ++seen[R->k];
+    double score = score_snippet (seen, SZ, eps);
+    if (score > best.x) best = (jix_t) {L->i, (R-1)->j, score};
+    if (0) { // debug
+      for (i=0; i<nwords; ++i) fprintf (stderr, "%d ", seen[i]);
+      fprintf (stderr, "= %.4f [%d..%d]", best.x, best.j, best.i);
+      for (h=L; h<R; ++h) fprintf (stderr, " %d:%d", h->k, h->i);
+      fprintf (stderr, "\n");
+    }
+  }
+  free_vec (seen);
+  return best;
+}
+
+char *snippet2 (char *text, char **words, int sz) {
+  ijk_t *hits = hits_for_all_words (text, words);
+  if (0) { // debug
+    ijk_t *H = hits, *end = H+MIN(10,len(H)), *h;
+    fprintf (stderr, "\nword:"); for (h=H; h<end; ++h) fprintf (stderr, "\t%d", h->k);
+    fprintf (stderr, "\nbeg:"); for (h=H; h<end; ++h) fprintf (stderr, "\t%d", h->i);
+    fprintf (stderr, "\nend:"); for (h=H; h<end; ++h) fprintf (stderr, "\t%d", h->j);
+    fprintf (stderr, "\n");
+  }
+  jix_t span = best_span (hits, len(words), sz, 0.1);  
+  char *snip = strndup (text+span.j, span.i - span.j);
+  if (0) fprintf (stderr, "%s\n", snip);
+  return snip;
+}
+
+//shortest span containing at least one hit for every word
+/*
+it_t range_hits (ijk_t *hits, uint nwords) {
   it_t *last = hits+len(hits)-1, *a = hits, *z = last, *h, *A=a, *Z=z;
-  int *seen = new_vec (len(wlen), sizeof(uint)), need = 0;
-  for (h=a; h<=z; ++h) ++seen [h->i]; // #times word [h->i] seen in hits [a..z]
-  while (a < z && seen[z->i] > 1) --seen [(z--)->i]; // --z while no words lost
+  int *seen = new_vec (nwords, sizeof(uint)), need = 0;
+  for (h=a; h<=z; ++h) ++seen [h->k]; // #times word [h->k] seen in hits [a..z]
+  while (a < z && seen[z->k] > 1) {--seen[z->k]; --z; } // --z while no words lost
   while (1) {
-    while (z < last && seen[need] < 1) ++seen [(++z)->i]; // ++z until see needed word
-    while (a < last && seen[a->i] > 1) --seen [(a++)->i]; // ++a while no words lost
+    while (z < last && seen[need] < 1) ++seen [(++z)->k]; // ++z until see needed word
+    while (a < last && seen[a->k] > 1) --seen [(a++)->k]; // ++a while no words lost
     if (a >= last || z >= last) break;
-    if (z->t - a->t + wlen[z->i] < 
-	Z->t - A->t + wlen[Z->i]) { A=a; Z=z; }
-    --seen [need = a++->i];
+    if (z->t - a->t + wlen[z->k] < 
+	Z->t - A->t + wlen[Z->k]) { A=a; Z=z; }
+    --seen [need = a++->k];
   }
   free_vec(seen);
   return (it_t) {A - hits, Z - hits};
 }
+*/
 
 it_t *range2hits (it_t *hits, it_t range, uint *wlen) {
   int *seen = new_vec (len(wlen), sizeof(uint));
