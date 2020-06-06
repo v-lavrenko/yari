@@ -93,6 +93,9 @@ int cmp_xy_X (const void *n1, const void *n2) ; // by decreasing x
 int cmp_x (const void *n1, const void *n2) ; // increasing float
 int cmp_X (const void *n1, const void *n2) ; // decreasing float
 int cmp_str (const void *a, const void *b) ; // strings, lexically
+int cmp_ijk_i (const void *n1, const void *n2) ; // by increasing i
+int cmp_ijk_j (const void *n1, const void *n2) ; // by increasing j
+int cmp_ijk_k (const void *n1, const void *n2) ; // by increasing k
 
 #endif
 

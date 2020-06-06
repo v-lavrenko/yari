@@ -234,6 +234,18 @@ int cmp_it_t (const void *n1, const void *n2) { // by increasing t
   uint t1 = ((it_t*)n1)->t, t2 = ((it_t*)n2)->t; 
   return t1 - t2; }
 
+int cmp_ijk_i (const void *n1, const void *n2) { // by increasing i
+  uint i1 = ((ijk_t*)n1)->i, i2 = ((ijk_t*)n2)->i; 
+  return (i1 > i2) ? +1 : (i1 < i2) ? -1 : 0; }
+
+int cmp_ijk_j (const void *n1, const void *n2) { // by increasing j
+  uint j1 = ((ijk_t*)n1)->j, j2 = ((ijk_t*)n2)->j; 
+  return (j1 > j2) ? +1 : (j1 < j2) ? -1 : 0; }
+
+int cmp_ijk_k (const void *n1, const void *n2) { // by increasing k
+  uint k1 = ((ijk_t*)n1)->k, k2 = ((ijk_t*)n2)->k; 
+  return (k1 > k2) ? +1 : (k1 < k2) ? -1 : 0; }
+
 int cmp_ix_I (const void *n1, const void *n2) { return -cmp_ix_i (n1,n2); }
 int cmp_ix_i (const void *n1, const void *n2) { // by increasing id
   uint i1 = ((ix_t*)n1)->i, i2 = ((ix_t*)n2)->i; 
