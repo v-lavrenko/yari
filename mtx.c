@@ -446,7 +446,7 @@ void mtx_weigh (char *TRG, char *prm, char *SRC, char *STATS) { // thread-unsafe
     else if (Exp)  f_vec (exp,  vec); 
     else if (Acos) f_vec (acos, vec); 
     else if (Atan) f_vec (atan, vec);
-    if      (FS) { vec_x_full (vec, '&', FS); chop_vec (vec); }
+    if       (FS) { vec_x_full (vec, '&', FS); chop_vec (vec); }
     if      (top) trim_vec (vec, top);
     if      (thr) vec_x_num (vec, 'T', thr);
     if      (low) vec_x_num (vec, 'T', low);
