@@ -106,6 +106,18 @@ void show_header (char **cols, int n) {
   }
 }
 
+/*
+void stdin_grams (char *prm) {
+  uint k = getprm(prm,"gram=",2);
+  size_t sz = 999999, nb = 0, i;
+  char *line = malloc(sz);
+  while (0 < (nb = getline(&line,&sz,stdin))) {
+    if (line[nb-1] == '\n') line[nb-1] = '\0';
+    for (i=0; i<nb-k; ++i) ...
+  }  
+}
+*/
+
 char *usage = 
   "xcut 3 2 \\X 17    ... print columns 3, 2, 'X', 17 from stdin\n"
   "xcut age size type ... use 1st line to map age -> column number\n"
