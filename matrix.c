@@ -170,6 +170,18 @@ void scan_mtx_rcv (FILE *in, coll_t *M, hash_t *R, hash_t *C, char how, char ver
   }
 }
 
+void show_vec (ix_t *vec, char what) {
+  ix_t *v = vec-1, *end = vec+len(vec);
+  switch (what) {
+  case 'i': while (++v < end) printf (" %d", v->i);   break;
+  case '0': while (++v < end) printf (" %.0f", v->x); break;
+  case '2': while (++v < end) printf (" %.2f", v->x); break;
+  case '4': while (++v < end) printf (" %.4f", v->x); break;
+  case '*': while (++v < end) printf (" %d:%.4f", v->i, v->x); break;
+  }
+  printf("\n");
+}
+
 void dedup_vec (ix_t *vec) {
   if (!vec || !len(vec)) return;
   ix_t *a = vec-1, *b = vec, *end = vec + len(vec);
@@ -230,27 +242,70 @@ ix_t *vec2psg (ix_t *V, uint i, uint w) {
   return psg;
 }
 
-void heapify_up (ix_t *H, uint i) {
+//         ________0________
+//     ____1____       ____2____
+//   __3__   __4__   __5__   __6__
+//   7   8   9  10   11 12   13 14
+#define heap_parent(i) (((i)-1)>>1)
+#define heap_left(p)  (((p)<<1)+1)
+#define heap_right(p) (((p)<<1)+2)
+
+void heapify_up (ix_t *H, uint i) { // max-heap
   ix_t tmp; 
-  while (i > 1) {
-    uint j = i/2;
-    if (H[i].x >= H[j].x) break; // parent <= child, done
-    SWAP(H[i],H[j]);
-    i = j;
+  while (i > 0) {
+    uint p = heap_parent(i);
+    if (H[p].x >= H[i].x) break; // parent >= child: done
+    SWAP(H[i],H[p]);
+    i = p;
   }
 }
 
-void heapify_do (ix_t *H, uint i, uint N) {
-  ix_t tmp; 
-  while (i*2 < N) {
-    uint L = i*2, R = L+1; 
-    uint c = (H[L].x <= H[R].x) ? L : R;
-    if (H[i].x <= H[c].x) return; // heap preserved
+void heapify_down (ix_t *H, uint i, uint N) { // max-heap
+  ix_t tmp;
+  if (N < 2) return;  // singleton => heap
+  uint last_parent = heap_parent(N-1);
+  while (i <= last_parent) {
+    uint L = heap_left(i), R = L+1; // left and right children
+    uint c = (R<N && H[R].x > H[L].x) ? R : L; // larger child
+    if (H[c].x <= H[i].x) break; // heap preserved
     SWAP(H[i],H[c]);
     i = c;
   }
-} 
+}
 
+void build_heap (ix_t *H, uint N) {
+  if (N < 2) return; // singleton => heap
+  uint last = heap_parent(N-1), d;
+  for (d = 0; d <= last; ++d) {
+    heapify_down (H,last-d,N);
+    //printf("[%d] ",last-d);
+    //show_vec(H,'2');
+  } 
+}
+
+ix_t *heap_push (ix_t *H, ix_t new) {
+  H = append_vec (H,&new);
+  heapify_up (H,len(H)-1);
+  return H;
+}
+
+ix_t heap_pop (ix_t *H) {  
+  ix_t result = H[0];
+  H[0] = H[--len(H)];
+  heapify_down (H,0,len(H));
+  return result;
+}
+
+uint isa_heap (ix_t *H) {
+  uint i, n = len(H); // auto-handles the case of n < 2
+  for (i=1; i<n; ++i) { 
+    uint p = heap_parent(i);
+    if (H[i].x > H[p].x) return 0; // child > parent => false
+  }
+  return 1; // every child <= parent
+}
+
+/*
 void topKadd (ix_t *H, uint K, ix_t new) {
   uint n = len(H);
   if (n < K) { // fewer than K elements => add
@@ -263,6 +318,7 @@ void topKadd (ix_t *H, uint K, ix_t new) {
     heapify_do (H,1,n);
   }
 }
+*/
 
 inline float medianof3 (float a, float b, float c) {
   return (a < b) ? ((b < c) ? b :     // a < b < c
@@ -319,6 +375,72 @@ void qselect (ix_t *X, int k) { // reorder X to have top k elements first
     else if (b < X+n) { beg = b+1; } 
     else break;
   }
+}
+
+/*
+void qselect_test (char *prm) {  
+  ix_t *vec) { // qselect test
+  uint tries = 10, n=len(vec);
+  while (--tries > 0) {
+    uint k = random() % n;
+    if (!k) continue;
+    ix_t *v = vec-1, *m = vec;
+    qselect (vec,k);
+    while (++v < vec+k) if (v->x < m->x) m = v; // find min
+    while (++v < vec+n) if (v->x > m->x) {
+	fprintf (stderr, "\nERROR: %d %.4f > %.4f %d k=%d/%d row=%d/%d\n",
+		 v->i, v->x, m->x, m->i, k, n, id, nv);
+	break;
+      }
+  }
+}
+*/
+
+void trim_vec_sort (ix_t *vec, uint k) {
+  if (len(vec) <= k) return;
+  sort_vec (vec, cmp_ix_X);
+  len(vec) = k;
+}
+
+void trim_vec_qsel (ix_t *vec, uint k) {
+  if (len(vec) <= k) return;
+  qselect (vec, k);
+  len(vec) = k;
+}
+
+void trim_vec_heap (ix_t *vec, uint k) {
+  if (len(vec) <= k) return;
+  build_heap(vec,len(vec));
+  len(vec) = k; // <<< WRONG! pop k times
+}
+
+void test_trim_vec (char *prm) {
+  char *_sort = strstr(prm,"sort");
+  char *_qsel = strstr(prm,"qsel");
+  char *_heap = strstr(prm,"heap");
+  char *_int = strstr(prm,"int");
+  char *_const = strstr(prm,"const");
+  char *_incr = strstr(prm,"incr");
+  char *_decr = strstr(prm,"decr");  
+  uint n = getprm(prm,"n=",1000);
+  uint k = getprm(prm,"k=",100);
+  uint r = getprm(prm,"r=",1E8/n), i;
+  ix_t **vecs = new_vec(r,sizeof(ix_t*));
+  for (i=0; i<r; ++i) {
+    ix_t *V = rand_vec_exp (n), *v=V-1, *end = V+len(V);
+    if (_int)   while (++v < end) v->x = ceilf (v->x);
+    if (_const) while (++v < end) v->x = 1;
+    if (_incr)  while (++v < end) v->x = v-V;
+    if (_decr)  while (++v < end) v->x = V+n-v;
+    vecs[i] = V;      
+  }
+  vtime();
+  for (i=0; i<r; ++i) {
+    if (_sort) trim_vec_sort(vecs[i],k);
+    if (_qsel) trim_vec_qsel(vecs[i],k);
+    if (_heap) trim_vec_heap(vecs[i],k);
+  }
+  printf ("%.3f %s\n", vtime(), prm);
 }
 
 void trim_vec (ix_t *X, int k) {
@@ -2373,6 +2495,18 @@ void filter_set (ix_t *V, ix_t *F, float def) {
   chop_vec (V);
 }
 
+void filter_and_sum (ix_t *V, ix_t *F) { // Boolean AND + SUM the scores
+  if (!V || !F) return;
+  ix_t *v = V, *f = F, *endV = V + len(V), *endF = F + len(F);
+  while (v < endV && f < endF) {
+    if      (v->i >  f->i) { ++f; } // f but not v => ignore
+    else if (v->i <  f->i) { v->i = 0;  ++v; } // v not in f => skip
+    else if (v->i == f->i) { v->x += f->x; ++v; ++f; } // v in f => SUM
+  }
+  len(V) = v-V;
+  chop_vec (V);
+}
+
 void vec_mul_vec (ix_t *V, ix_t *F) {
   if (!V || !F) return;
   ix_t *v = V, *f = F, *endV = V + len(V), *endF = F + len(F);
@@ -2446,6 +2580,7 @@ void vec_x_full (ix_t *V, char op, float *F) {
   case 'T': while (++v <= last) v->x = (v->x >=F [v->i]) ? v->x : 0;       break;
   case '=': while (++v <= last) v->x = F [v->i];                           break;
   case '&': while (++v <= last) v->x = F [v->i] ? v->x : 0;                break;
+  case '\\':
   case '!': while (++v <= last) v->x = F [v->i] ? 0 : v->x;                break;
   default: assert (0 && "unknown vector-full operation");
   }
@@ -2463,6 +2598,7 @@ ix_t *vec_x_vec (ix_t *X, char op, ix_t *Y) {
   case '^': while (++z < end) z->x = powf(z->x,z->y);             break;
   case '&': while (++z < end) z->x = z->y ? z->x : 0;             break;
   case '|': while (++z < end) z->x = z->x ? z->x : z->y;          break;
+  case '\\':
   case '!': while (++z < end) z->x = z->y ? 0 : z->x;             break;
   case '<': while (++z < end) z->x = (z->x < z->y) ? 1 : 0;       break;
   case '>': while (++z < end) z->x = (z->x > z->y) ? 1 : 0;       break;
