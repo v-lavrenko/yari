@@ -78,16 +78,17 @@ void squeeze (char *str, char *what) {
 }
 
 void cgrams (char *str, uint lo, uint hi, uint step, char *buf, uint eob) {
-  uint n;
-  char *t, *s, *end = str + strlen(str) - 1, *b = buf;
+  uint n, N = strlen(str);
+  char *t, *s, *end = str + N - 1, *b = buf;
   while (str < end && *str == '_') ++str; // skip starting blanks
   while (end > str && *end == '_') --end; // skip ending blanks
-  for (s = str; s+lo <= end+1; s+=step)
-    for (n = lo; n <= hi; n+=step) {
-      if (b+n+1 >= buf+eob) break;
+  for (n = lo; n <= hi; n+=1) { // for each n-gram size
+    for (s = str; s+n <= end+1; s+=step) { // starting position
+      if (b+n+1 >= buf+eob) break; // make sure we fit buffer
       for (t = s; t < s+n; ++t) *b++ = *t;
       *b++ = ' ';
     }
+  }
   *b = 0;
 }
 
@@ -534,6 +535,7 @@ jix_t best_span (ijk_t *hits, uint nwords, uint SZ, float eps) {
 }
 
 char *snippet2 (char *text, char **words, int sz) {
+  if (!words || !len(words)) return strndup(text,sz); // no words => text[0..sz)
   ijk_t *hits = hits_for_all_words (text, words);
   if (0) { // debug
     ijk_t *H = hits, *end = H+MIN(10,len(H)), *h;
@@ -545,6 +547,7 @@ char *snippet2 (char *text, char **words, int sz) {
   jix_t span = best_span (hits, len(words), sz, 0.1);  
   char *snip = strndup (text+span.j, span.i - span.j);
   if (0) fprintf (stderr, "%s\n", snip);
+  free_vec (hits);
   return snip;
 }
 
