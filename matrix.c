@@ -790,9 +790,10 @@ ix_t *parse_vec_svm (char *str, char **id, hash_t *ids) {
   return vec;
 }
 
-void print_vec_csv (ix_t *vec, uint ncols, char *fmt) {
+void print_vec_csv (ix_t *vec, uint ncols, char *rid, char *fmt) {
   if (!fmt || !*fmt) fmt = "\t%.2f";
   if (!ncols && len(vec)) ncols = vec[len(vec)-1].i;
+  if (rid && *rid) printf("%s",rid);
   float *full = vec2full (vec, ncols, 0), *end = full+len(full), *f;
   for (f = full+1; f < end; ++f) printf (fmt, *f);
   printf ("\n");
@@ -801,7 +802,7 @@ void print_vec_csv (ix_t *vec, uint ncols, char *fmt) {
 
 ix_t *parse_vec_csv (char *str, char **id) {
   int bytes;
-  if (id) *id = NULL;
+  if (id) *id = strdup (next_token (&str," \t"));
   ix_t *vec = new_vec (0, sizeof(ix_t)), new = {0,0};
   //printf ("\n%s ->", str);
   while (1 == sscanf(str," %f%n", &(new.x), &bytes)) {
@@ -1632,7 +1633,7 @@ void transpose_mtx (coll_t *rows, coll_t *cols) {
 	uint b = beg[d->i]++;
 	buf[b].i = i;
 	buf[b].x = d->x;
-	assert (i && d->x); // DEBUG
+	//assert (i && d->x); // DEBUG
 	++done;
       }
       show_progress (i, nd, "rows");

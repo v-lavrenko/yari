@@ -101,8 +101,8 @@ void mtx_load (char *M, char *RH, char *CH, char *type, char *prm) {
 		   csv ? parse_vec_csv (buf, &id) : NULL);
       if (!vec) continue;
       if (sparse) chop_vec (vec);
-      uint row = csv ? nvecs(m)+1 : rh ? key2id(rh,id) : (uint) atoi(id);
-      mtx_append (m, row, vec, ifdup);
+      uint rowid = rh ? key2id(rh,id) : (uint) atoi(id); // csv ? nvecs(m)+1
+      mtx_append (m, rowid, vec, ifdup);
       free (id);
       free_vec (vec);
       //if (++done%100 == 0)
@@ -150,7 +150,7 @@ void mtx_print (char *prm, char *_M, char *RH, char *CH) {
     else if (rcv) print_vec_rcv (vec, ch, rid, fmt);
     else if (txt) print_vec_txt (vec, ch, rid, 0);
     else if (xml) print_vec_txt (vec, ch, rid, 1);
-    else if (csv) print_vec_csv (vec, nc, fmt);
+    else if (csv) print_vec_csv (vec, nc, rid, fmt);
     else if (svm) print_vec_svm (vec, ch, rid, fmt);
     else if (jsn) print_vec_json(vec, ch, rid, fmt);
     else          print_vec_rcv (vec, ch, rid, fmt);
@@ -1569,7 +1569,7 @@ void mtx_letor_SA (char *_RELS, char *_QRYS, char *_DOCS, char *prm) {
     float eval = mtx_letor_eval_x (RELS, QRYS, DOCS, W, prm);
     if (eval > best) {
       printf ("%6d %.4f ", i, (best=eval));
-      print_vec_csv (W, dims, NULL);
+      print_vec_csv (W, dims, NULL, NULL);
     }
     free_vec (W);
   }
@@ -1778,6 +1778,8 @@ char *usage =
   "                          stem=K,L ... Krovetz,Lowercase stemming (txt,xml)\n"
   "                          gram=4:5 ... character 4- and 5-grams instead of tokens\n"
   "                          char=1   ... character size (in bytes) for n-grams\n"
+  "                          nowb     ... squeeze out punctuation/spaces for n-grams\n"
+  "                          tokw     ... tokenize on space, tab, CR, LF only\n"
   "                          position ... store word positions instead of frequencies\n"
   "                          ow=5,uw=5 ... ordered/unordered pairs in a 5-word window\n"
   "                          join/skip/replace ... documents with duplicate ids\n"
