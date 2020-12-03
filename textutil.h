@@ -38,6 +38,7 @@ char *itoa (char*_a, uint i) ;
 
 
 void squeeze (char *str, char *what) ;
+void spaces2space (char *str) ; // multiple spaces -> single space
 void cgrams (char *str, uint lo, uint hi, uint step, char *buf, uint eob) ; // character n-grams
 
 // erase (overwrite with 'C') every occurence of A...B
