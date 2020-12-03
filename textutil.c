@@ -77,6 +77,15 @@ void squeeze (char *str, char *what) {
   *t = 0; // new string may be shorter
 }
 
+// replace: multiple paces -> single space
+void spaces2space (char *str) {
+  if (!str || !*str) return;
+  char *s, *t;  
+  for (t=s=str+1; *s; ++s)
+    if (s[0] != ' ' || s[-1] != ' ') *t++ = *s;
+  *t = 0; // new string may be shorter
+}
+
 void cgrams (char *str, uint lo, uint hi, uint step, char *buf, uint eob) {
   uint n, N = strlen(str);
   char *t, *s, *end = str + N - 1, *b = buf;
@@ -534,8 +543,29 @@ jix_t best_span (ijk_t *hits, uint nwords, uint SZ, float eps) {
   return best;
 }
 
+// find whitespace closest to position in text, no farther than cap
+int nearest_ws (char *text, int position, int cap) {
+  int L = position, R = position;
+  while (!isspace (text[R])) ++R;
+  while (!isspace (text[L]) && L > 0) --L;
+  int dR = R-position, dL = position-L;
+  if (dR > cap && dL > cap) return position;
+  return (dR < dL) ? R : L;
+}
+
+jix_t broaden_span (char *text, jix_t span, int sz) {
+  int L = span.j, R = span.i, N = strlen(text);
+  int got = R-L, pad = (sz-got)/2;
+  if (pad < sz/10) return span; // close enough
+  if (N <= sz) return (jix_t) {0, N, span.x};
+  R = MIN(N,R+pad);
+  L = MAX(0,R-sz);  L = nearest_ws(text,L,20);
+  R = MIN(N,L+sz);  R = nearest_ws(text,R-1,20);
+  return (jix_t) {L, R, span.x};
+}
+
 char *snippet2 (char *text, char **words, int sz) {
-  if (!words || !len(words)) return strndup(text,sz); // no words => text[0..sz)
+  if (!words || !len(words)) return strndup(text,sz); // no words => first sz bytes
   ijk_t *hits = hits_for_all_words (text, words);
   if (0) { // debug
     ijk_t *H = hits, *end = H+MIN(10,len(H)), *h;
@@ -544,7 +574,8 @@ char *snippet2 (char *text, char **words, int sz) {
     fprintf (stderr, "\nend:"); for (h=H; h<end; ++h) fprintf (stderr, "\t%d", h->j);
     fprintf (stderr, "\n");
   }
-  jix_t span = best_span (hits, len(words), sz, 0.1);  
+  jix_t span = best_span (hits, len(words), sz, 0.1);
+  span = broaden_span(text, span, sz);
   char *snip = strndup (text+span.j, span.i - span.j);
   if (0) fprintf (stderr, "%s\n", snip);
   free_vec (hits);
@@ -583,21 +614,13 @@ it_t *range2hits (it_t *hits, it_t range, uint *wlen) {
   return subset;
 }
 
-// find whitespace closest to position in text
-int nearest_ws (char *text, int position) {
-  int L = position, R = position;
-  while (isalnum (text[R])) ++R;
-  while (isalnum (text[L]) && L > 0) --L;
-  return (R-position <  position-L) ? R : L;
-}
-
 // expand each hit to sz chars 
 // TODO: adjust padding for JSON, XML, etc
 void widen_hits (it_t *hits, char *text, uint sz) {
   int N = strlen(text); it_t *h; 
   for (h = hits; h < hits + len(hits); ++h) {
-    h->i = nearest_ws (text, MAX(0,((int)h->i)-(int)(sz/2)));
-    h->t = nearest_ws (text, MIN(N,((int)h->t)+(int)(sz/2)));
+    h->i = nearest_ws (text, MAX(0,((int)h->i)-(int)(sz/2)), 100);
+    h->t = nearest_ws (text, MIN(N,((int)h->t)+(int)(sz/2)), 100);
   }
 }
 
