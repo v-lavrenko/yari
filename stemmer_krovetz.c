@@ -2027,7 +2027,8 @@ void kstem_stemmer (char *word, char *stem) { // thread-safe (locks)
   static int KSTEM = 0;
   lock (&KSTEM);
   char *tmp = kstem_stem(word);
-  strcpy(stem,tmp);
+  if (stem && stem != word) strcpy (stem, tmp);
+  else if (tmp != word) strcpy (word, tmp);
   unlock (&KSTEM);
 }
 
