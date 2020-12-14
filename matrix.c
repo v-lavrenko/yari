@@ -847,7 +847,7 @@ ix_t *parse_vec_txt (char *str, char **id, hash_t *ids, char *prm) { // thread-u
     cgrams (str, gram, gram_hi, step, buf, 1<<26); // character n-grams
     str = buf; ws = " ";
   }
-  char **toks = str2toks (str, ws, 30); // tokens at most 30 chars
+  char **toks = str2toks (str, ws, 50); // tokens at most 50 chars
   if (stemmer) stem_toks (toks, stemmer);
   if (stop)    stop_toks (toks);
   char **pairs = strstr (prm,"w=") ? toks2pairs (toks,prm) : NULL;
