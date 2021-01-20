@@ -37,7 +37,7 @@ ulong myrand (ulong prev) { return prev * 1103515245 + 12345; }
 //}
 //#endif
 
-double mstime() {
+double mstime() { // time in milliseconds
   struct timespec tp;
   clock_gettime (CLOCK_MONOTONIC, &tp);
   return 1000.*tp.tv_sec + tp.tv_nsec/1E6;
