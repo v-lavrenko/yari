@@ -62,6 +62,7 @@ int same_day (time_t t1, time_t t2) ;
 int same_week (time_t t1, time_t t2) ;
 time_t today_hhmm (time_t now, char *hhmm) ;
 
-double ftime (); // time in microseconds since epoch
+double ftime (); // time in seconds.microseconds since epoch
+double mstime(); // time in milliseconds sinse epoch
 
 #endif
