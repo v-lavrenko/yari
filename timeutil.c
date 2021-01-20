@@ -21,6 +21,12 @@
 
 #include "timeutil.h"
 
+double mstime() { // time in milliseconds
+  struct timespec tp;
+  clock_gettime (CLOCK_MONOTONIC, &tp);
+  return 1000.*tp.tv_sec + tp.tv_nsec/1E6;
+}
+
 double ftime () { // time in seconds.micros since epoch
   struct timeval tv; 
   struct timezone tz;
