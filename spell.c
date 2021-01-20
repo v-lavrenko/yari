@@ -37,7 +37,7 @@ int main (int argc, char *A[]) {
     double t0 = 1E3 * ftime();
     all_edits(A[1], atoi(A[2]), 0);
     double t1 = 1E3 * ftime();
-    uint i, n = nkeys(H);
+    uint n = nkeys(H);
     printf ("%.0fms: %d keys\n", t1-t0, n);
     //for (i = 1; i <= n; ++i) printf ("%d\t%s\n", i, id2key(H,i));  
     free_hash (H);
