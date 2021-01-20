@@ -27,7 +27,7 @@ warn=-W -Wall -Wno-unused-result -Wno-implicit-fallthrough -Wno-null-pointer-ari
 #CC=gcc -m64 $(opt) $(warn) -I . -o $@ $(f64) -fopenmp
 CC=gcc -m64 $(opt) $(warn) -I . -o $@ $(f64) 
 
-exe = testmmap testvec testcoll dict mtx stem kvs hl bio shard pval ts ptail xcut xtime
+exe = testmmap testvec testcoll dict mtx stem kvs hl bio shard pval ts ptail xcut xtime spell
 
 all: $(exe) libyari.a
 	etags *.c *.h
@@ -41,13 +41,13 @@ publish:
 %.o: %.c
 	$(CC) -c $<
 
-libyari.a: mmap.o vector.o coll.o hash.o matrix.o netutil.o timeutil.o stemmer_krovetz.o textutil.o synq.o svm.o
+libyari.a: mmap.o vector.o coll.o hash.o matrix.o netutil.o timeutil.o stemmer_krovetz.o textutil.o synq.o svm.o spell.o
 	ar -r libyari.a $^
 
 %::
 	$(CC) $^ $(LIB)
 
-testmmap: testmmap.c mmap.c
+testmmap: testmmap.c mmap.c 
 
 testvec: testvec.c mmap.c vector.c
 
@@ -77,3 +77,5 @@ shard: shard.c libyari.a
 pval: pval.c libyari.a
 
 ts: ts.c libyari.a
+
+spell: spell.c libyari.a
