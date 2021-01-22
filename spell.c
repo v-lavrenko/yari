@@ -12,7 +12,7 @@ int do_edit (char *X, int n, int i, char op, char a) {
   return ok;
 }
 
-int all_edits(char *X, uint nedits, hash_t *H) {  
+int all_edits (char *X, uint nedits, hash_t *H) {
   int n = strlen(X), pos;
   char *Y = calloc(n+3, 1);
   char *op, *ops = nedits > 2 ? "-^" : "-^=+"; // no ins/sub if 3+ edits
@@ -22,8 +22,9 @@ int all_edits(char *X, uint nedits, hash_t *H) {
       for (pos = 0; pos <= n; ++pos) {
 	memcpy(Y,X,n+1);
 	int ok = do_edit (Y,n,pos,*op,*sub);
-	if (ok && nedits == 1) {if (H) key2id (H,Y);} // leaf => insert into hash
-	else if (ok) all_edits (Y, nedits-1, H); // more edits to be done
+	if (!ok) continue; // could not do an edit
+	if (nedits > 1) all_edits (Y, nedits-1, H); // more edits to be done
+	else if (H) key2id (H,Y); // leaf => insert into hash
       }
     }
   }
@@ -35,7 +36,7 @@ int main (int argc, char *A[]) {
   if (argc == 3) {
     hash_t *H = open_hash (0,0);
     double t0 = 1E3 * ftime();
-    all_edits(A[1], atoi(A[2]), 0);
+    all_edits(A[1], atoi(A[2]), H);
     double t1 = 1E3 * ftime();
     uint n = nkeys(H);
     printf ("%.0fms: %d keys\n", t1-t0, n);
