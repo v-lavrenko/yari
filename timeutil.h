@@ -64,5 +64,6 @@ time_t today_hhmm (time_t now, char *hhmm) ;
 
 double ftime (); // time in seconds.microseconds since epoch
 double mstime(); // time in milliseconds sinse epoch
+unsigned long ustime (); // time in microseconds since epoch
 
 #endif
