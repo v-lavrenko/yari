@@ -16,6 +16,9 @@ int benchmark_time() {
   t = t0 = time(0);
   for (n = 0; t - t0 < 5; ++n) t = time(0);
   fprintf(stderr,"%d time() in %.3fs\n", n, t-t0);  
+  ulong T0 = ustime(), T = T0;
+  for (n = 0; T - T0 < 5E6; ++n) T = ustime();
+  fprintf(stderr,"%d ustime() in %ldus\n", n, T-T0);  
   return 0;
 }
 
