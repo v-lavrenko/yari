@@ -35,6 +35,14 @@ double ftime () { // time in seconds.micros since epoch
   return 0;
 }
 
+unsigned long ustime () { // time in microseconds since epoch
+  struct timeval tv; 
+  struct timezone tz;
+  if (!gettimeofday(&tv,&tz)) return 1E6 * tv.tv_sec + tv.tv_usec;
+  perror("gettimeofday failed");
+  return 0;
+}
+
 // convert abbreviated time to number of seconds, e.g. 2h --> 7200
 int str2seconds (char *s) { 
   char *ptr = s;
