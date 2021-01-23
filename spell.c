@@ -107,12 +107,12 @@ uint num_cols (coll_t *c) ;
 int do_spell_1 (char *word, uint nedits, hash_t *known, float *cf) {
   ulong t0, t1, t2, t3, t4;
   hash_t *all = open_hash(0,0);
-  t0=ustime()   ; all_edits (word, nedits, all);
-  t1=ustime()-t0; ix_t *scored = score_edits (all, known, cf);
-  t2=ustime()-t1; qselect (scored, 10);
-  t3=ustime()-t2; sort_vec (scored, cmp_ix_X);
-  t4=ustime()-t3; print_vec_svm (scored, known, word, "%.0f");
-  printf ("edits: %ld known: %ld top: %ld sort: %ld\n", t1, t2, t3, t4);
+  t0=ustime(); all_edits (word, nedits, all);
+  t1=ustime(); ix_t *scored = score_edits (all, known, cf);
+  t2=ustime(); qselect (scored, 10);
+  t3=ustime(); sort_vec (scored, cmp_ix_X);
+  t4=ustime(); print_vec_svm (scored, known, word, "%.0f");
+  printf ("edits: %ld known: %ld top: %ld sort: %ld\n", t1-t0, t2-t1, t3-t2, t4-t3);
   free_hash(all);
   free_vec(scored);
   return 0;
@@ -121,13 +121,13 @@ int do_spell_1 (char *word, uint nedits, hash_t *known, float *cf) {
 int do_spell_2 (char *word, uint nedits, hash_t *known, float *cf) {
   ulong t0, t1, t2, t3, t4, t5;
   ix_t *scored = new_vec (0, sizeof(ix_t));
-  t0=ustime()   ; known_edits (word, nedits, known, cf, &scored);
-  t1=ustime()-t0; sort_vec (scored, cmp_ix_i);
-  t2=ustime()-t1; dedup_vec (scored);
-  t3=ustime()-t2; qselect (scored, 10);
-  t4=ustime()-t3; sort_vec (scored, cmp_ix_X);
-  t5=ustime()-t4; print_vec_svm (scored, known, word, "%.0f");
-  printf ("known: %ld sort: %ld dedup: %ld top: %ld sort: %ld\n", t1, t2, t3, t4, t5);
+  t0=ustime(); known_edits (word, nedits, known, cf, &scored);
+  t1=ustime(); sort_vec (scored, cmp_ix_i);
+  t2=ustime(); dedup_vec (scored);
+  t3=ustime(); qselect (scored, 10);
+  t4=ustime(); sort_vec (scored, cmp_ix_X);
+  t5=ustime(); print_vec_svm (scored, known, word, "%.0f");
+  printf ("known: %ld sort: %ld dedup: %ld top: %ld sort: %ld\n", t1-t0, t2-t1, t3-t2, t4-t3, t5-t4);
   free_vec(scored);
   return 0;
 }
