@@ -98,6 +98,10 @@ int best_edit (char *word, uint nedits, hash_t *known, float *score, uint *best)
   return 0;
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////
+
+#ifdef MAIN
+
 void qselect (ix_t *X, int k) ;
 void print_vec_svm (ix_t *vec, hash_t *ids, char *vec_id, char *fmt);
 void dedup_vec (ix_t *X);
@@ -132,14 +136,24 @@ int do_spell_2 (char *word, uint nedits, hash_t *known, float *cf) {
   return 0;
 }
 
+int do_spell_3 (char *word, uint nedits, hash_t *known, float *cf) {
+  ulong t0, t1; uint best = 0;
+  t0=ustime(); best_edit (word, nedits, known, cf, &best);
+  t1=ustime(); char *corr = best ? id2key(known,best) : "";
+  printf ("%s %s:%.0f\n", word, corr, cf[best]);
+  printf ("besr: %ld\n", t1-t0);
+  return 0;
+}
+
 int do_spell_12 (char *word, uint n, char *_H, char *_M) {
   hash_t *H = open_hash (_H,"r");
   coll_t *M = open_coll (_M, "r+");
   ix_t *_row = get_vec_ro (M,1);
   float *F = vec2full (_row, num_cols(M), 0);
   free_coll(M);
-  do_spell_1 (word, n, H, F);
-  do_spell_2 (word, n, H, F);  
+  do_spell_3 (word, n, H, F); printf("----------\n");
+  do_spell_2 (word, n, H, F); printf("----------\n");
+  do_spell_1 (word, n, H, F); printf("----------\n");  
   free_vec(F);
   free_hash(H);
   return 0;
@@ -165,3 +179,5 @@ int main (int argc, char *A[]) {
   }
   return 1;
 }
+
+#endif
