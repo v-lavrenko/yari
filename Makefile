@@ -29,7 +29,7 @@ CC=gcc -m64 $(opt) $(warn) -I . -o $@ $(f64)
 
 exe = testmmap testvec testcoll dict mtx stem kvs hl bio shard pval ts ptail xcut xtime spell
 
-all: $(exe) libyari.a
+all: libyari.a $(exe)
 	etags *.c *.h
 
 clean: 
@@ -79,3 +79,4 @@ pval: pval.c libyari.a
 ts: ts.c libyari.a
 
 spell: spell.c libyari.a
+	$(CC) -DMAIN $^ $(LIB)
