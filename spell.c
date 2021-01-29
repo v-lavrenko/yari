@@ -98,6 +98,14 @@ int best_edit (char *word, uint nedits, hash_t *known, float *score, uint *best)
   return 0;
 }
 
+uint spell_check1 (char *word, hash_t *known, float *df) {
+  
+  
+  
+  
+}
+
+
 //////////////////////////////////////////////////////////////////////////////////////////
 
 #ifdef MAIN
