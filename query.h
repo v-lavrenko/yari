@@ -22,4 +22,14 @@
 #ifndef QUERY
 #define QUERY
 
+typedef struct {
+  char bool; // &:and +:or -:not
+  char type; // ~:synonyms ":exact *:edits <>=:threshold
+  float thr; // threshold value
+  char *term; // query term
+  uint id;    // id (once determined)
+  ix_t *invl; // matching docs (once found)
+  void *children; // for nested queries
+} qry_t;
+
 #endif

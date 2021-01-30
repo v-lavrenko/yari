@@ -1,6 +1,6 @@
 /*
   
-  Copyright (c) 1997-2016 Victor Lavrenko (v.lavrenko@gmail.com)
+  Copyright (c) 1997-2021 Victor Lavrenko (v.lavrenko@gmail.com)
   
   This file is part of YARI.
   
