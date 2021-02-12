@@ -341,3 +341,59 @@ void socket_timeout (int fd, uint sec) {
   tv.tv_usec = 0;  // Not init'ing this can cause strange errors
   setsockopt (fd, SOL_SOCKET, SO_RCVTIMEO, (char *)&tv, sizeof(tv));
 }
+
+#ifdef MAIN
+
+#include "mmap.h"
+
+void *echo_handler (void *client) {
+  struct sockaddr_in addr; uint addr_len = sizeof addr;
+  int fd = (int) (long) client;
+  safe ("getsockname", getsockname (fd, (paddr_t)&addr, &addr_len));
+  char *msg = receive_message (fd, '\n');
+  char *ip = inet_ntoa(addr.sin_addr);
+  fprintf(stderr, "%s:%d -> %s\n", ip, addr.sin_port, msg);
+  send_message (fd, msg, strlen(msg));
+  send_message (fd, "\n", 1);
+  free(msg);
+  close_socket (fd);
+  return 0;
+}
+
+int do_server (char *prm) {
+  int port = getprm(prm,"port=",1234);
+  int thrd = strstr(prm,"thread") ? 1 : 0;
+  server_loop (port, echo_handler, thrd);
+  return 0;
+}
+
+int do_client (char *host) {
+  int fd = client_socket (host);
+  char buf[1000];
+  while (fgets (buf, 999, stdin)) {
+    send_message (fd, buf, strlen(buf));
+    char *msg = receive_message (fd, '\n');
+    printf ("%s\n", msg);
+    free (msg);    
+  }
+  close_socket (fd);
+  return 0;
+}
+
+#define arg(i) ((i < argc) ? argv[i] : NULL)
+#define a(i) ((i < argc) ? argv[i] : "")
+
+char *usage =
+  "nutil -l [port=1234]\n"
+  "nutil -l 127.0.0.1:1234\n"
+  ;
+
+int main (int argc, char *argv[]) {
+  if (argc < 2) return fprintf (stderr, "%s", usage);
+  if (!strcmp(a(1),"-l")) return do_server (a(2));
+  if (!strcmp(a(1),"-c")) return do_client (a(2));
+
+  return 0;
+}
+
+#endif
