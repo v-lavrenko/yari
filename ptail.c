@@ -15,7 +15,8 @@ double getprm (char *params, char *name, double def) {
 int main (int argc, char *argv[]) {
   char *BUF = NULL;
   size_t N = 0;
-  double step = getprm(arg(1),"p=",2);
+  double step = atof(arg(1));
+  if (!step) step = getprm(arg(1),"p=",2);
   unsigned int seed = getprm(arg(1),"s=",time(0));
   unsigned int thresh = RAND_MAX; //1<<31;
   srandom(seed);
