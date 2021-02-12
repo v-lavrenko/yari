@@ -2413,6 +2413,14 @@ void eval_dump_map (FILE *out, uint id, ixy_t *evl, char *prm) { // thread-unsaf
     fprintf (out, "%4s %4s %4s %6s %6s %-6s %-6s\n", "Qry", "Rel", "Rret", "Recall", "Precis", "F1", "AveP");
 }
 
+float *mtx_full_row (char *_M, uint row) {
+  coll_t *M = open_coll (_M, "r+");
+  ix_t *_row = get_vec_ro (M,row);
+  float *F = vec2full (_row, num_cols(M), 0);
+  free_coll(M);
+  return F;
+}
+
 ixy_t *join (ix_t *X, ix_t *Y, float def) {
   ix_t *x = X, *y = Y, *endX = X + len(X), *endY = Y + len(Y);
   ixy_t *Z = new_vec (len(X)+len(Y), sizeof(ixy_t)), *z = Z;
@@ -2506,6 +2514,11 @@ void filter_and_sum (ix_t *V, ix_t *F) { // Boolean AND + SUM the scores
   }
   len(V) = v-V;
   chop_vec (V);
+}
+
+void filter_sum (ix_t **V, ix_t *F) { // OR + sum scores + free old vec
+  ix_t *new = vec_x_vec (*V, '+', F);
+  free_vec (*V); *V = new;
 }
 
 void vec_mul_vec (ix_t *V, ix_t *F) {
