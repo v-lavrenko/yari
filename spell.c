@@ -1,6 +1,91 @@
+/*
+  
+  Copyright (c) 1997-2021 Victor Lavrenko (v.lavrenko@gmail.com)
+  
+  This file is part of YARI.
+  
+  YARI is free software: you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+  
+  YARI is distributed in the hope that it will be useful, but WITHOUT
+  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+  or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+  License for more details.
+  
+  You should have received a copy of the GNU General Public License
+  along with YARI. If not, see <http://www.gnu.org/licenses/>.
+  
+*/
+
 #include "hash.h"
+#include "matrix.h"
 #include "textutil.h"
 #include "timeutil.h"
+
+void dump_levenstein_cost (uint **C, char *A, char *B) {
+  uint nA = strlen(A), nB = strlen(B), a, b;
+  printf("  ");
+  for (b = 0; b <= nB; ++b) printf("  %c", b?B[b-1]:'.');
+  printf("\n"); 
+  for (a = 0; a <= nA; ++a) {
+    printf (" %c",a?A[a-1]:'.');
+    for (b = 0; b <= nB; ++b) printf ("%3d", C[a][b]);
+    printf("\n");
+  }  
+}
+
+void dump_levenstein_path (char **D, char *A, char *B) {
+  uint nA = strlen(A), nB = strlen(B), a, b;
+  printf("  ");
+  for (b = 0; b <= nB; ++b) printf("  %c", b?B[b-1]:'.');
+  printf("\n"); 
+  for (a = 1; a <= nA; ++a) {
+    printf (" %c ",a?A[a-1]:'.');
+    for (b = 0; b <= nB; ++b) printf ("  %c", D[a][b]);
+    printf("\n");
+  }
+}
+
+void explain_levenstein (char **D, char *A, char *B, char *buf) {
+  int nA = strlen(A), nB = strlen(B), a=nA, b=nB; *buf = '\0';
+  while (a>0 && b>0) {
+    if      (D[a][b] == '^') {--a;         buf += sprintf(buf,"%d--%c,",a+1,A[a]);}
+    else if (D[a][b] == '<') {--b;         buf += sprintf(buf,"%d++%c,",b+1,B[b]);}
+    else if (D[a][b] == 'S') {--a; --b;    buf += sprintf(buf,"%d>>%c%c,",a+1,A[a],B[b]);}
+    else if (D[a][b] == 'T') { a-=2; b-=2; buf += sprintf(buf,"%dtx%c%c,",a+1,A[a],A[a+1]); }
+    else if (D[a][b] == '=') {--a; --b; }
+  }
+}
+
+uint levenstein_distance (char *A, char *B, char *explain) {
+  uint nA = strlen(A), nB = strlen(B), a, b;
+  uint **C = (uint **) new_2D (nA+1,nB+1,sizeof(uint));
+  char **D = (char **) new_2D (nA+1,nB+1,sizeof(char));
+  for (a = 0; a <= nA; ++a) C[a][0] = a;
+  for (b = 0; b <= nB; ++b) C[0][b] = b;
+  for (a = 1; a <= nA; ++a) {
+    for (b = 1; b <= nB; ++b) {
+      uint del = C[a-1][b] + 1;
+      uint ins = C[a][b-1] + 1;
+      uint fit = (A[a-1] == B[b-1]);
+      uint sub = C[a-1][b-1] + (fit ? 0 : 1);
+      uint txp = (a > 1 && A[a-2] == B[b-1] &&
+		  b > 1 && A[a-1] == B[b-2]) ? C[a-2][b-2] + 1 : Infinity;
+      uint best = MIN(MIN(ins,del),MIN(sub,txp));
+      C[a][b] = best;
+      D[a][b] = (ins == best) ? '<' : (del == best) ? '^' : (txp == best) ? 'T' : fit ? '=' : 'S';
+    }
+  }  
+  uint result = C[nA][nB];  
+  dump_levenstein_cost (C, A, B);
+  dump_levenstein_path (D, A, B);
+  if (explain) explain_levenstein (D, A, B, explain);
+  free_2D((void **)C);
+  free_2D((void **)D);
+  return result;
+}
 
 //////////////////////////////////////////////////////////////////////////////// Norvig spell
 
@@ -76,13 +161,13 @@ int known_edits (char *word, uint nedits, hash_t *known, float *score, ix_t **re
 
 // *best = id of edit that has highest score
 int best_edit (char *word, uint nedits, hash_t *known, float *score, uint *best) {
-  int n = strlen(word), pos;
+  int n = strlen(word), pos, pos1 = 0; //nedits < 2 ? 1 : 2;
   char *edit = calloc(n+3, 1);
   char *op, *ops = nedits > 2 ? "-^" : "-^=+"; // no ins/sub if 3+ edits
   for (op = ops; *op; ++op) { // no substitution if deleting/transposing
     char *sub, *subs = (*op=='-' || *op=='^') ? "a" : "abcdefghijklmnopqrstuvwxyz";
     for (sub = subs; *sub; ++sub) {
-      for (pos = 0; pos <= n; ++pos) {
+      for (pos = pos1; pos <= n; ++pos) {
 	memcpy(edit,word,n+1);
 	int ok = do_edit (edit,n,pos,*op,*sub);
 	if (!ok) continue; // could not do an edit
@@ -99,39 +184,114 @@ int best_edit (char *word, uint nedits, hash_t *known, float *score, uint *best)
 }
 
 // aminoacid -> {i:amino, j:acid, x: MIN(F[amino],F[acid])}
-jix_t try_split (char *word, hash_t *known, float *score) {
-  jix_t best = {0, 0, 0};
+void try_runon (char *word, hash_t *known, float *score, uint *_i, uint *_j) {
+  float best = -Infinity;
   int n = strlen(word), k;
   for (k = 1; k < n; ++k) {
     char *wi = strndup(word,k), *wj = strndup(word+k,n-k);
     uint i = has_key(known,wi), j = has_key(known,wj);
-    float x = (i && j) ? MIN(score[i],score[j]) : 0;
-    if (x > best.x) best = (jix_t) {j, i, x};
+    float x = (i && j) ? MIN(score[i],score[j]) : -Infinity;
+    if (x > best) { best=x; *_i=i; *_j=j; }
     free(wi); free(wj);
   }
-  return best;
 }
 
-// amino acid ic -> amino acidic
-uint try_fuse (char *w1, char *w2, char *w3, hash_t *known, float *score) {
-  int n1 = strlen(w1), n2 = strlen(w2), n3 = strlen(w3);
+// amino acid -> aminoacid
+uint try_fuse (char *w1, char *w2, hash_t *known) {
+  int n1 = strlen(w1), n2 = strlen(w2);
   char *w12 = calloc(n1+n2+1,1); strcat(w12,w1); strcat(w12,w2);
-  char *w23 = calloc(n2+n3+1,1); strcat(w23,w2); strcat(w23,w3);
-  uint i12 = has_key(known,w12); float x12 = i12 ? score[i12] : 0;
-  uint i23 = has_key(known,w23); float x23 = i23 ? score[i23] : 0;
-  free(w12); free(w23);
-  return x12 > x23 ? i12 : x23 > 0 ? i23 : 0;
+  uint i12 = has_key(known,w12);
+  free(w12);
+  return i12;
 }
 
-uint spell_check (char *word, hash_t *known, float *F) {
-  uint i0 = has_key (known, word), i1=0, i2=0;
-  if (i0 && F[i0] > 5) return i0;
-  best_edit (word, 1, known, F, &i1); 
-  if (i1 && F[i1] > F[i0]) return i1;
-  best_edit (word, 2, known, F, &i2);
-  if (i2 && F[i2] > F[i0]) return i2;
-  return 0;
+uint pubmed_spell (char *word, hash_t *H, float *F, char *prm, uint W, uint *id2) {
+  char V = prm && strstr(prm,"verbose") ? 1 : 0; // getprm(NULL) is fast
+  //L1=4,L2=9,F0=1000,F1=10,F2=10000,F3=10000,F11=10000,x1=100,x10=10000,x11=10000,x20=10000,x21=10000,x30=10000,x31=10000,x32=10000
+  uint L1  = getprm(prm,"L1=",5);      // do not correct if len(w) < L1
+  uint L2  = getprm(prm,"L2=",9);      // no 2-edits if len(w) < L2
+  uint F0  = getprm(prm,"F0=",1000);   // do not correct if F[w] > F0
+  uint F1  = getprm(prm,"F1=",10);     // reject 1-edit if F[w1] < F1
+  uint x1  = getprm(prm,"x1=",100);    // reject 1-edit if F[w1] < x1 F[w0]
+  uint F2  = getprm(prm,"F2=",100);    // reject 2-edit if F[w2] < F2
+  uint F3  = getprm(prm,"F3=",100);    // reject 2+1edit if F[w21] < F3
+  uint F11 = getprm(prm,"F11=",100);   // reject 1+1edit if F[w11] < F11
+  uint x10 = getprm(prm,"x10=",100);   //  10 ~ 100 ~ 1k
+  uint x11 = getprm(prm,"x11=",10);    // *1k >> 100 > 10
+  uint x20 = getprm(prm,"x20=",100);   //  1k ~ 10 >> 1
+  uint x21 = getprm(prm,"x21=",10);    //  100 > 10 >> 1
+  uint x30 = getprm(prm,"x30=",1000);  //  1k ~ 10 ~ 100
+  uint x31 = getprm(prm,"x31=",100);   //  1k ~ 10 ~ 100
+  uint x32 = getprm(prm,"x32=",10);    //  1k ~ 100 ~ 1 ~ 10
+  
+  uint w0 = has_key (H, word), w1=0, w2=0, wL=0, wR=0, w11=0, w21=0;
+  uint l0 = strlen (word), id = 0, ok = 0; (void) id2; (void) w11;
+  //if (V) printf ("%s\n", word);  
+  ok = (F[w0] >= F0);
+  if (V) printf ("%d %d\tas-is: %s:%.0f\n", w0==W, ok, word, F[w0]);
+  if (ok) { id=id?id:w0; if (!V) return id; }
+  
+  if (l0 >= L1) {
+    
+    best_edit (word, 1, H, F, &w1); // w1 = 1-edit(w0)
+    ok = (F[w1] > x1*F[w0] && F[w1] >= F1);
+    if (V) printf ("%d %d\t1edit: %s:%.0f -> %s:%.0f\n", w1==W, ok, word, F[w0], id2key(H,w1), F[w1]);
+    if (ok) { id=id?id:w1; if (!V) return id; }
+    
+    if (w1) best_edit (id2key(H,w1), 1, H, F, &w11);
+    ok = (F[w11] > x11*F[w1] && F[w11] > x10*F[w0] && F[w11] > F11);
+    if (V) printf ("%d %d\t1-1ed: %s:%.0f -> %s:%.0f\n", w11==W, ok, word, F[w0], id2key(H,w11), F[w11]);
+    if (ok) { id=id?id:w11; if (!V) return id; }
+  }
+  
+  if (l0 >= L1 && l0 >= L2) {
+    
+    best_edit (word, 2, H, F, &w2); // w2 = 2-edit(w0)
+    ok = (F[w2] > x21*F[w1] && F[w2] > x20*F[w0] && F[w2] > F2);
+    if (V) printf ("%d %d\t2edit: %s:%.0f -> %s:%.0f\n", w2==W, ok, word, F[w0], id2key(H,w2), F[w2]);
+    if (ok) { id=id?id:w2; if (!V) return id; }
+    
+    if (w2) best_edit (id2key(H,w2), 1, H, F, &w21);
+    ok = (F[w21] > x32*F[w2] && F[w21] > x31*F[w1] && F[w21] > x30*F[w0] && F[w21] > F3);
+    if (V) printf ("%d %d\t2-1ed: %s:%.0f -> %s:%.0f\n", w21==W, ok, word, F[w0], id2key(H,w21), F[w21]);
+    if (ok) { id=id?id:w21; if (!V) return id; }
+    
+    try_runon (word, H, F, &wL, &wR); // wL,R = split(w0)
+    ok = (MIN(F[wL],F[wR]) > 500 || !w2);
+    if (V) printf ("- %d\trunon: %s:%.0f -> %s:%.0f", ok, word, F[w0], id2key(H,wL), F[wL]);
+    if (V) printf (" + %s:%.0f\n", id2key(H,wR), F[wR]);
+    if (ok) { id=id?id:wL; if (id2) *id2=wR; if (!V) return id; }
+  }
+  
+  return id ? id : w0;
 }
+
+uint pickmax_spell (char *word, hash_t *H, float *F, char *_, uint W) {
+  char V = !strstr(_,"quiet") && !strstr(_,"silent") ? 1 : 0; // verbose?
+  float x1  = getprm(_,"x1=",1), x11 = getprm(_,"x11=",1);
+  float x2  = getprm(_,"x2=",1), x21 = getprm(_,"x21=",1);
+  
+  uint w0 = has_key (H, word), w1=0, w2=0, w11=0, w21=0, id = w0;
+  best_edit (word, 1, H, F, &w1);                   // w1  = 1-edit(w0)
+  if (w1) best_edit (id2key(H,w1), 1, H, F, &w11);  // w11 = 1-edit(w1)
+  best_edit (word, 2, H, F, &w2);                   // w2  = 2-edit(w0)
+  if (w2) best_edit (id2key(H,w2), 1, H, F, &w21);  // w21 = 1-edit(w2)
+  float f0 = F[w0], f1 = F[w1]/x1, f11 = F[w11]/x11, f2 = F[w2]/x2, f21 = F[w21]/x21, best = f0;
+  if (f1 > best)  { best = f1; id = w1; }
+  if (f2 > best)  { best = f2; id = w2; }
+  if (f11 > best) { best = f11; id = w11; }
+  if (f21 > best) { best = f21; id = w21; }
+  
+  if (V) printf ("%d %d w0\t%.0f\t%.0f\t%s\t%s\n", w0==W, f0==best,  f0,  F[w0],  word, id2key(H,W));
+  if (V) printf ("%d %d w1\t%.0f\t%.0f\t%s\n",     w1==W, f1==best,  f1,  F[w1],  id2key(H,w1));
+  if (V) printf ("%d %d w11\t%.0f\t%.0f\t%s\n",   w11==W, f11==best, f11, F[w11], id2key(H,w11));
+  if (V) printf ("%d %d w2\t%.0f\t%.0f\t%s\n",     w2==W, f2==best,  f2,  F[w2],  id2key(H,w2));
+  if (V) printf ("%d %d w21\t%.0f\t%.0f\t%s\n",   w21==W, f21==best, f21, F[w21], id2key(H,w21));
+  
+  return id;
+}
+
+
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
@@ -143,7 +303,7 @@ void dedup_vec (ix_t *X);
 float *vec2full (ix_t *vec, uint N, float def);
 uint num_cols (coll_t *c) ;
 
-int do_spell_1 (char *word, uint nedits, hash_t *known, float *cf) {
+int do_edits_1 (char *word, uint nedits, hash_t *known, float *cf) {
   ulong t0, t1, t2, t3, t4;
   hash_t *all = open_hash(0,0);
   t0=ustime(); all_edits (word, nedits, all);
@@ -157,7 +317,7 @@ int do_spell_1 (char *word, uint nedits, hash_t *known, float *cf) {
   return 0;
 }
 
-int do_spell_2 (char *word, uint nedits, hash_t *known, float *cf) {
+int do_edits_2 (char *word, uint nedits, hash_t *known, float *cf) {
   ulong t0, t1, t2, t3, t4, t5;
   ix_t *scored = new_vec (0, sizeof(ix_t));
   t0=ustime(); known_edits (word, nedits, known, cf, &scored);
@@ -171,7 +331,7 @@ int do_spell_2 (char *word, uint nedits, hash_t *known, float *cf) {
   return 0;
 }
 
-int do_spell_3 (char *word, uint nedits, hash_t *known, float *cf) {
+int do_edits_3 (char *word, uint nedits, hash_t *known, float *cf) {
   ulong t0, t1; uint best = 0;
   t0=ustime(); best_edit (word, nedits, known, cf, &best);
   t1=ustime(); char *corr = best ? id2key(known,best) : "";
@@ -180,31 +340,25 @@ int do_spell_3 (char *word, uint nedits, hash_t *known, float *cf) {
   return 0;
 }
 
-int do_spell_12 (char *word, uint n, char *_H, char *_M) {
+int do_edits (char *word, uint n, char *_H, char *_F) {
   hash_t *H = open_hash (_H,"r");
-  coll_t *M = open_coll (_M, "r+");
-  ix_t *_row = get_vec_ro (M,1);
-  float *F = vec2full (_row, num_cols(M), 0);
-  free_coll(M);
-  do_spell_3 (word, n, H, F); printf("----------\n");
-  do_spell_2 (word, n, H, F); printf("----------\n");
-  do_spell_1 (word, n, H, F); printf("----------\n");  
+  float *F = mtx_full_row (_F, 1);
+  do_edits_3 (word, n, H, F); printf("----------\n");
+  do_edits_2 (word, n, H, F); printf("----------\n");
+  do_edits_1 (word, n, H, F); printf("----------\n");  
   free_vec(F);
   free_hash(H);
   return 0;
 }
 
-int do_fuse (char *w1, char *w2, char *w3, char *_H, char *_F) {
+int do_fuse (char *w1, char *w2, char *_H, char *_F) {
   hash_t *H = open_hash (_H,"r");
-  coll_t *M = open_coll (_F, "r+");
-  ix_t *_row = get_vec_ro (M,1);
-  float *F = vec2full (_row, num_cols(M), 0);
-  free_coll(M);
-  uint id = try_fuse (w1, w2, w3, H, F);
-  uint i1 = has_key(H,w1), i2 = has_key(H,w2), i3 = has_key(H,w3);
+  float *F = mtx_full_row (_F, 1);
+  uint id = try_fuse (w1, w2, H);
+  uint i1 = has_key(H,w1), i2 = has_key(H,w2);
   char *word = id ? id2key(H,id) : "N/A";
-  printf("%s:%.0f <- %s:%.0f %s:%.0f %s:%.0f\n",
-	 word, F[id], w1, F[i1], w2, F[i2], w3, F[i3]);
+  printf("%s:%.0f <- %s:%.0f %s:%.0f\n",
+	 word, F[id], w1, F[i1], w2, F[i2]);
   free_vec(F);
   free_hash(H);
   return 0;
@@ -212,17 +366,63 @@ int do_fuse (char *w1, char *w2, char *w3, char *_H, char *_F) {
 
 int do_split (char *word, char *_H, char *_F) {
   hash_t *H = open_hash (_H,"r");
-  coll_t *M = open_coll (_F, "r+");
-  ix_t *_row = get_vec_ro (M,1);
-  float *F = vec2full (_row, num_cols(M), 0);
-  free_coll(M);
-  jix_t s = try_split (word, H, F);
-  char *w1 = s.i ? id2key(H,s.i) : "N/A";
-  char *w2 = s.j ? id2key(H,s.j) : "N/A";
+  float *F = mtx_full_row (_F, 1);  
+  uint i1=0, i2=0;
+  try_runon (word, H, F, &i1, &i2);
+  char *w1 = i1 ? id2key(H,i1) : "N/A";
+  char *w2 = i2 ? id2key(H,i2) : "N/A";
   uint id = has_key(H,word);
-  printf("%s:%.0f -> %s:%.0f %s:%.0f\n", word, F[id], w1, F[s.i], w2, F[s.j]);
+  printf("%s:%.0f -> %s:%.0f %s:%.0f\n", word, F[id], w1, F[i1], w2, F[i2]);
   free_vec(F);
   free_hash(H);
+  return 0;
+}
+
+int do_pubmed (char *word, char *_H, char *_F, char *prm) {
+  char *pickmax = strstr(prm,"pickmax");
+  hash_t *H = open_hash (_H,"r");
+  float *F = mtx_full_row (_F, 1);
+  uint i0 = has_key(H,word), id, id2 = 0;
+  if (pickmax) id = pickmax_spell (word, H, F, prm, nkeys(H)+2);
+  else         id =  pubmed_spell (word, H, F, prm, nkeys(H)+2, &id2);
+  printf("%s:%.0f -> %s:%.0f", word, F[i0], id2key(H,id), F[id]);
+  if (id2) printf(" + %s:%.0f", id2key(H,id2), F[id2]);
+  puts("");
+  free_vec(F);
+  free_hash(H);
+  return 0;
+}
+
+int do_eval_spell (char *_H, char *_F, char *prm) {
+  char *pickmax = strstr(prm,"pickmax");
+  char V = !strstr(prm,"silent");
+  hash_t *H = open_hash (_H,"r");
+  float *F = mtx_full_row (_F, 1);
+  char trg[1000], *src=0, *eol=0;
+  double t0 = ftime(), n = 0, oks = 0;
+  while (fgets (trg, 999, stdin)) {
+    if ((eol = index(trg,'\n'))) *eol = 0;
+    if ((src = index(trg,'\t'))) *src++ = 0;
+    uint it = has_key(H,trg), is = has_key(H,src), id = 0, ok = 0;
+    if (it) {
+      if (pickmax) id = pickmax_spell (src, H, F, prm, it);
+      else         id =  pubmed_spell (src, H, F, prm, it, 0);
+      ok = (id == it);
+      if (V) printf("EVAL %d %s:%.0f -> %s:%.0f %s:%.0f\n",
+		    ok, src, F[is], id2key(H,id), F[id], trg, F[it]);
+      oks += ok; ++n;
+    }
+  }
+  double lag = (ftime()-t0), acc = oks/n;
+  printf ("%.4f %.2fs %s\n", acc, lag, prm);
+  free_vec(F);
+  free_hash(H);
+  return 0;
+}
+
+int do_levenstein (char *A, char *B) {
+  char buf[999]; uint d = levenstein_distance (A, B, buf);
+  printf ("%s -(%d)-> %s: %s\n", A, d, B, buf);
   return 0;
 }
 
@@ -232,15 +432,22 @@ int do_split (char *word, char *_H, char *_F) {
 int main (int argc, char *A[]) {
   if (argc < 2) {
     fprintf (stderr, 
-	     "usage: spell -spell remdesivir 1 WORD WORD_CF\n"
-	     "       spell -fuse  amino acid ic WORD WORD_CF\n"
+	     "usage: spell -edits remdesivir 1 WORD WORD_CF\n"
+	     "       spell -fuse  amino acid WORD WORD_CF\n"
 	     "       spell -split coronavirus WORD WORD_CF\n"
+	     "       spell -pub   coronavirus WORD WORD_CF [verbose]\n"
+	     "       spell -eval  WORD WORD_CF [quiet] < pairs.tsv\n"
+	     "       spell -dist  word word\n"
 	     );
     return 1;
   }
-  if (!strcmp(a(1),"-fuse"))  return do_fuse (a(2), a(3), a(4), a(5), a(6));
+  if (!strcmp(a(1),"-fuse"))  return do_fuse (a(2), a(3), a(4), a(5));
   if (!strcmp(a(1),"-split")) return do_split (a(2), a(3), a(4));
-  if (!strcmp(a(1),"-spell")) return do_spell_12 (a(2), atoi(a(3)), a(4), a(5));
+  if (!strcmp(a(1),"-edits")) return do_edits (a(2), atoi(a(3)), a(4), a(5));
+  if (!strcmp(a(1),"-pub"))   return do_pubmed (a(2), a(3), a(4), a(5));
+  if (!strcmp(a(1),"-eval"))  return do_eval_spell (a(2), a(3), a(4));
+  if (!strcmp(a(1),"-dist"))  return do_levenstein (a(2), a(3));
+  
   if (argc == 3) {
     hash_t *H = open_hash (0,0);
     double t0 = 1E3 * ftime();
