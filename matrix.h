@@ -224,6 +224,7 @@ void dump_roc (FILE *out, uint id, ix_t *system, ix_t *truth, uint top) ;
 void eval_dump_evl (FILE *out, uint id, ixy_t *evl) ;
 void eval_dump_roc (FILE *out, uint id, ixy_t *evl, float b) ;
 void eval_dump_map (FILE *out, uint id, ixy_t *evl, char *prm) ;
+float *mtx_full_row (char *_M, uint row) ; // open M, return full(row), close M
 
 ixy_t *join (ix_t *X, ix_t *Y, float def) ;
 void disjoin (ix_t *X, ix_t *Y) ; // X & Y grab 
@@ -239,6 +240,7 @@ void filter_and (ix_t *V, ix_t *F) ; // in-place
 void filter_not (ix_t *V, ix_t *F) ; // in-place
 void filter_set (ix_t *V, ix_t *F, float def) ;
 void filter_and_sum (ix_t *V, ix_t *F) ; // Boolean AND + SUM the scores
+void filter_sum (ix_t **V, ix_t *F) ; // OR + sum scores + free old vec
 char *vec2set (ix_t *vec, uint N) ;
 void vec_x_set (ix_t *vec, char op, char *set) ;
 
