@@ -23,13 +23,20 @@
 #define QUERY
 
 typedef struct {
-  char bool; // &:and +:or -:not
-  char type; // ~:synonyms ":exact *:edits <>=:threshold
+  char *tok; // token behind query term
+  char op; // &:and +:or -:not x:skip
+  char type; // ~:synonyms ":exact *:edits <>=:threshold x:skip
   float thr; // threshold value
-  char *term; // query term
-  uint id;    // id (once determined)
-  ix_t *invl; // matching docs (once found)
-  void *children; // for nested queries
+  uint id;   // id (once determined)
+  uint id2;  // if token is a run-on
+  ix_t *docs; // matching docs (once found)
+  //void *children; // for nested queries
 } qry_t;
+
+qry_t *str2qry (char *str) ; // 'amino -acid +"fab"' -> qry_t[3]
+char  *qry2str (qry_t *Q, hash_t *H) ; // Q -> 'amino -acid +"fab"'
+void  free_qry (qry_t *Q) ;
+void spell_qry (qry_t *Q, hash_t *H, float *F, char *prm) ;
+ix_t *exec_qry (qry_t *Q, hash_t *H, coll_t *INVL) ;
 
 #endif
