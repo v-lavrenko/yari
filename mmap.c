@@ -483,6 +483,21 @@ void apply (void (*func)(void *), ...) {
   va_end (args);
 }
 
+// like sprintf, but appends to end of buf, reallocating if needed
+void zprintf (char **buf, int *sz, const char *fmt, ...) {
+  if (!*buf) *sz = 0;
+  char *tmp = NULL;
+  va_list args;
+  va_start (args, fmt);
+  int tmp_sz = vasprintf (&tmp, fmt, args), old_sz = *sz;
+  if (tmp_sz < 0) { fprintf (stderr, "vasprintf(%s) failed: no memory?\n", fmt); return; }
+  va_end (args);
+  *buf = safe_realloc (*buf, old_sz + tmp_sz);
+  memcpy ((*buf)+old_sz, tmp, tmp_sz);
+  *sz = old_sz + tmp_sz;
+  free (tmp);
+}
+
 /*
 void stracat_test () {
   char *s = NULL, *s1 = "abcdefg", *s2 = "1234567";
