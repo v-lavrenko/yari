@@ -66,6 +66,7 @@ void   *copy_vec (void *d) ;
 void *resize_vec (void *d, uint n) ;
 void *append_vec (void *d, void *el) ;
 void *append_many (void *vec, void *els, uint k) ;
+void *insert_vec (void *vec, uint i, void *el) ; // insert el into position i, shift old [i..n]
 void    sort_vec (void *d, int (*cmp) (const void *, const void *)) ;
 
 void *bsearch_vec (void *vec, uint id); // pointer to first el >= id
@@ -96,6 +97,11 @@ int cmp_str (const void *a, const void *b) ; // strings, lexically
 int cmp_ijk_i (const void *n1, const void *n2) ; // by increasing i
 int cmp_ijk_j (const void *n1, const void *n2) ; // by increasing j
 int cmp_ijk_k (const void *n1, const void *n2) ; // by increasing k
+
+void **new_2D (uint rows, uint cols, uint esize) ; // X[i][j]
+void ***new_3D (uint deep, uint rows, uint cols, uint esize) ; // X[i][j][k]
+void free_2D (void **X) ;
+void free_3D (void ***X) ;
 
 #endif
 
