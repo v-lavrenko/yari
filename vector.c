@@ -115,6 +115,17 @@ void *ref_vec_el (void **vec, uint i) {
   return (*vec) + i;
 }
 
+// insert el into position i, shift positions i..n
+void *insert_vec (void *vec, uint i, void *el) {
+  if (!vec || !el) return vec;
+  uint n = len(vec), sz = vesize(vec);
+  assert (i <= n);
+  vec = resize_vec (vec, n+1);
+  memmove(vec+(i+1)*sz, vec+i*sz, (n-i)*sz); // [i..n] -> [(i+1)..(n+1)]
+  memcpy (vec+i*sz, el, sz);
+  return vec;  
+}
+
 /*
 void *grow_vec (void *d, uint n, void **next) {
   uint old_n = len(d), esz = vesize(d);
@@ -284,6 +295,37 @@ int cmp_x (const void *n1, const void *n2) { return -cmp_X (n1,n2); }
 int cmp_X (const void *n1, const void *n2) { return *((float*)n2) - *((float*)n1); }
 
 int cmp_str (const void *a, const void *b) { return strcmp(*(char**)a, *(char**)b); }
+
+
+///////////////////////////// simple 2D array
+
+void **new_2D (uint rows, uint cols, uint esize) {
+  void **X = new_vec (rows, sizeof (void*)), **x = X-1;
+  while (++x < X+rows) *x = new_vec (cols, esize);
+  return X;
+}
+
+void free_2D (void **X) {
+  if (!X) return;
+  void **x = X-1, **end = X+len(X);
+  while (++x < end) if (*x) free_vec(*x);
+  free_vec (X);
+}
+
+///////////////////////////// simple 3D 
+
+void ***new_3D (uint deep, uint rows, uint cols, uint esize) {
+  void ***X = new_vec (deep, sizeof (void*)), ***x = X-1;
+  while (++x < X+deep) *x = new_2D (rows, cols, esize);
+  return X;
+}
+
+void free_3D (void ***X) {
+  if (!X) return;
+  void ***x = X-1, ***end = X+len(X);
+  while (++x < end) if (*x) free_2D(*x);
+  free_vec (X);
+}
 
 /*
 void vzero (void *d) { // zero out unused portion of the vector
