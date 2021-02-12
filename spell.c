@@ -429,18 +429,17 @@ int do_levenstein (char *A, char *B) {
 #define arg(i) ((i < argc) ? A[i] : NULL)
 #define a(i) ((i < argc) ? A[i] : "")
 
+char *usage =
+  "usage: spell -edits remdesivir 1 WORD WORD_CF\n"
+  "       spell -fuse  amino acid WORD WORD_CF\n"
+  "       spell -split coronavirus WORD WORD_CF\n"
+  "       spell -pub   coronavirus WORD WORD_CF [verbose]\n"
+  "       spell -eval  WORD WORD_CF [quiet] < pairs.tsv\n"
+  "       spell -dist  word word\n"
+  ;
+
 int main (int argc, char *A[]) {
-  if (argc < 2) {
-    fprintf (stderr, 
-	     "usage: spell -edits remdesivir 1 WORD WORD_CF\n"
-	     "       spell -fuse  amino acid WORD WORD_CF\n"
-	     "       spell -split coronavirus WORD WORD_CF\n"
-	     "       spell -pub   coronavirus WORD WORD_CF [verbose]\n"
-	     "       spell -eval  WORD WORD_CF [quiet] < pairs.tsv\n"
-	     "       spell -dist  word word\n"
-	     );
-    return 1;
-  }
+  if (argc < 2) return fprintf (stderr, "%s", usage);
   if (!strcmp(a(1),"-fuse"))  return do_fuse (a(2), a(3), a(4), a(5));
   if (!strcmp(a(1),"-split")) return do_split (a(2), a(3), a(4));
   if (!strcmp(a(1),"-edits")) return do_edits (a(2), atoi(a(3)), a(4), a(5));
