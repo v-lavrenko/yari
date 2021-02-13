@@ -492,10 +492,19 @@ void zprintf (char **buf, int *sz, const char *fmt, ...) {
   int tmp_sz = vasprintf (&tmp, fmt, args), old_sz = *sz;
   if (tmp_sz < 0) { fprintf (stderr, "vasprintf(%s) failed: no memory?\n", fmt); return; }
   va_end (args);
-  *buf = safe_realloc (*buf, old_sz + tmp_sz);
+  *buf = safe_realloc (*buf, old_sz+tmp_sz+1);
   memcpy ((*buf)+old_sz, tmp, tmp_sz);
+  (*buf)[old_sz + tmp_sz] = '\0';
   *sz = old_sz + tmp_sz;
   free (tmp);
+}
+
+// like memcpy, but append to the trg+used
+void memcat (char **trg, int *used, char *src, int sz) {
+  if (!*trg) *used = 0; // no buffer -> zero used
+  *trg = safe_realloc (*trg, *used + sz);
+  memcpy ((*trg)+(*used), src, sz);
+  *used = *used + sz;
 }
 
 /*
