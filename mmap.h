@@ -93,6 +93,8 @@ char *acat (char *s1, char *s2) ; // must free result
 char *fmt (char *buf, const char *format, ...) ;
 char *fmtn (int sz, const char *format, ...) ;
 void zprintf (char **buf, int *sz, const char *fmt, ...) ; // realloc + sprintf to buf+sz
+void memcat (char **trg, int *used, char *src, int sz) ; // realloc + append to trg+used
+
 char *___itoa (uint i) ;
 char *___ftoa (char *fmt, float f) ;
 float vtime () ;
