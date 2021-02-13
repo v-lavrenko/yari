@@ -39,12 +39,12 @@ qry_t *str2qry (char *str) {
     char *last = *s ? (s+strlen(s)-1) : s; // last character
     char *thr = s + strcspn(s,"<>="); // numeric threshold
     if (!inquote && index("-+.&",*s)) op = *s++; // operator
-    if (!inquote && (*s == '"')) { inquote = *s++; qop = op; } // begin quote
+    if (!inquote && (*s == '\'')) { inquote = *s++; qop = op; } // begin quote
     if (!inquote && *thr) { q->type = *thr; q->thr = atof(thr+1); *thr = 0; }
     q->tok = s; // strdup(s)?
     q->op = inquote ? qop : op;
     q->type = q->type ? q->type : inquote ? inquote : '.';
-    if ( inquote && (*last == '"')) *last = inquote = 0; // end quote
+    if ( inquote && (*last == '\'')) *last = inquote = 0; // end quote
   }
   free_vec(toks);
   return Q;  
@@ -67,13 +67,13 @@ char *qry2str (qry_t *Q, hash_t *H) {
     if (q->op == 'x') continue; // skip this term
     if (q > Q)                    zprintf (&buf,&sz, " ");
     if (index("-+",q->op))        zprintf (&buf,&sz, "%c", q->op);
-    if (q->type == '"' || q->id2) zprintf (&buf,&sz, "\"");
+    if (q->type == '"' || q->id2) zprintf (&buf,&sz, "'");
     if (q->type == '"')           zprintf (&buf,&sz, "%s", q->tok);
     else {
       if (q->id)                  zprintf (&buf,&sz, "%s", id2key(H,q->id));
       if (q->id2)                 zprintf (&buf,&sz, " %s", id2key(H,q->id2));
     }
-    if (q->type == '"' || q->id2) zprintf (&buf,&sz, "\"");
+    if (q->type == '"' || q->id2) zprintf (&buf,&sz, "'");
     if (index("<>=", q->type))    zprintf (&buf,&sz, "%c%.2f", q->type, q->thr);
   }
   return buf;
@@ -83,7 +83,7 @@ char *qry2original (qry_t *Q, hash_t *H) {
   char *buf=0; int sz=0;
   qry_t *q, *last = Q+len(Q)-1;
   for (q = Q; q <= last; ++q) {
-    char *same = q->id && (q->id == has_key (H,q->tok)) ? "" : "\"";
+    char *same = q->id && (q->id == has_key (H,q->tok)) ? "" : "'";
     if (q > Q)             zprintf (&buf,&sz, " ");
     if (index("-+",q->op)) zprintf (&buf,&sz, "%c", q->op);
     if (1)                 zprintf (&buf,&sz, "%s%s%s", same, q->tok, same);
