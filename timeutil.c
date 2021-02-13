@@ -21,7 +21,7 @@
 
 #include "timeutil.h"
 
-double mstime() { // time in milliseconds
+double mstime () { // time in milliseconds
   struct timespec tp;
   clock_gettime (CLOCK_MONOTONIC, &tp);
   return 1000.*tp.tv_sec + tp.tv_nsec/1E6;
@@ -41,6 +41,12 @@ unsigned long ustime () { // time in microseconds since epoch
   if (!gettimeofday(&tv,&tz)) return 1E6 * tv.tv_sec + tv.tv_usec;
   perror("gettimeofday failed");
   return 0;
+}
+
+double msdiff (double *t) {
+  double t0 = *t;
+  *t = mstime();
+  return t0 ? (*t - t0) : 0;
 }
 
 // convert abbreviated time to number of seconds, e.g. 2h --> 7200
