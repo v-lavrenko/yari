@@ -21,6 +21,7 @@
 
 #include "hash.h"
 #include "textutil.h"
+#include "timeutil.h"
 #include "spell.h"
 #include "query.h"
 #include "matrix.h"
@@ -78,6 +79,30 @@ char *qry2str (qry_t *Q, hash_t *H) {
   return buf;
 }
 
+char *qry2original (qry_t *Q, hash_t *H) {
+  char *buf=0; int sz=0;
+  qry_t *q, *last = Q+len(Q)-1;
+  for (q = Q; q <= last; ++q) {
+    char *same = q->id && (q->id == has_key (H,q->tok)) ? "" : "\"";
+    if (q > Q)             zprintf (&buf,&sz, " ");
+    if (index("-+",q->op)) zprintf (&buf,&sz, "%c", q->op);
+    if (1)                 zprintf (&buf,&sz, "%s%s%s", same, q->tok, same);
+  }
+  return buf;
+}
+
+char **toks4snippet (qry_t *Q, hash_t *H) { // words for snippet extraction  
+  char **toks = new_vec (2*len(Q), sizeof(char*)), **t = toks;
+  qry_t *q;
+  for (q = Q; q < Q+len(Q); ++q) {
+    if (q->op == 'x' || q->op == '-') continue; // exclude NOT and SKIP terms
+    if (q->id)  *t++ = id2str(H,q->id);
+    if (q->id2) *t++ = id2str(H,q->id2);
+  }
+  len(toks) = t - toks;
+  return toks;
+}
+
 void spell_qry (qry_t *Q, hash_t *H, float *F, char *prm) {
   char V = prm && strstr(prm,"verbose") ? 1 : 0;
   qry_t *q, *last = Q+len(Q)-1;  
@@ -97,7 +122,9 @@ void spell_qry (qry_t *Q, hash_t *H, float *F, char *prm) {
   }
 }
 
-ix_t *exec_qry (qry_t *Q, hash_t *H, coll_t *INVL) {
+ix_t *exec_qry (qry_t *Q, hash_t *H, coll_t *INVL, char *prm) {
+  double T = mstime();
+  char V = prm && strstr(prm,"verbose") ? 1 : 0;  
   qry_t *q; ix_t *result = NULL;
   for (q = Q; q < Q+len(Q); ++q) {
     if (q->op == 'x') continue; // skip this term
@@ -112,6 +139,8 @@ ix_t *exec_qry (qry_t *Q, hash_t *H, coll_t *INVL) {
     else if (q->op == '.') filter_and_sum (result, q->docs);
     else if (q->op == '-') filter_not (result, q->docs);
     else if (q->op == '+') filter_sum (&result, q->docs);
+    if (V) printf ("\t%.0fms %c%s -> [%d] -> [%d]\n",
+		   msdiff(&T), q->op, id2key(H,q->id), len(q->docs), len(result));
   }
   return result;
 }
@@ -142,12 +171,12 @@ int dump_spelled_qry (char *qry, char *_H, char *_F, char *prm) {
   return 0;
 }
 
-int do_exec_qry (char *qry, char *_W, char *_WxD, char *_DxX) {
+int do_exec_qry (char *qry, char *_W, char *_WxD, char *_DxX, char *prm) {
   qry_t *Q = str2qry (qry);
   hash_t *W = open_hash (_W,"r");
   coll_t *WxD = open_coll (_WxD,"r+");
   coll_t *DxX = open_coll (_DxX,"r");
-  ix_t *D = exec_qry (Q, W, WxD), *d, *end = D + MIN(5,len(D));
+  ix_t *D = exec_qry (Q, W, WxD, prm), *d, *end = D + MIN(5,len(D));
   sort_vec (D, cmp_ix_X);
   for (d=D; d < end; ++d) {
     char *xml = get_chunk(DxX,d->i);
@@ -167,14 +196,14 @@ int do_exec_qry (char *qry, char *_W, char *_WxD, char *_DxX) {
 char *usage = 
   "usage: query -parse 'rimantadin acid ic +\"aspirine\"'\n"
   "       query -spell 'rimantadin acid ic' WORD WORD_CF [verbose]\n"
-  "       query -exec  'rimantadin acid ic' WORD WORDxDOC DOCxXML\n"
+  "       query -exec  'rimantadin acid ic' WORD WORDxDOC DOCxXML [verbose]\n"
   ;
 
 int main (int argc, char *argv[]) {
   if (argc < 2) return fprintf (stderr, "%s", usage);
   if (!strcmp(a(1),"-parse")) return dump_parsed_qry(a(2));  
   if (!strcmp(a(1),"-spell")) return dump_spelled_qry(a(2), a(3), a(4), a(5));  
-  if (!strcmp(a(1),"-exec")) return do_exec_qry(a(2), a(3), a(4), a(5));  
+  if (!strcmp(a(1),"-exec")) return do_exec_qry(a(2), a(3), a(4), a(5), a(6));  
   return 0;
 }
 
