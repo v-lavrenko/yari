@@ -187,7 +187,7 @@ int best_edit (char *word, uint nedits, hash_t *known, float *score, uint *best)
 void try_runon (char *word, hash_t *known, float *score, uint *_i, uint *_j) {
   float best = -Infinity;
   int n = strlen(word), k;
-  for (k = 1; k < n; ++k) {
+  for (k = 3; k < n-2; ++k) {
     char *wi = strndup(word,k), *wj = strndup(word+k,n-k);
     uint i = has_key(known,wi), j = has_key(known,wj);
     float x = (i && j) ? MIN(score[i],score[j]) : -Infinity;
