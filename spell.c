@@ -260,7 +260,7 @@ uint pubmed_spell (char *word, hash_t *H, float *F, char *prm, uint W, uint *id2
     ok = (MIN(F[wL],F[wR]) > 500 || !w2);
     if (V) printf ("- %d\trunon: %s:%.0f -> %s:%.0f", ok, word, F[w0], id2key(H,wL), F[wL]);
     if (V) printf (" + %s:%.0f\n", id2key(H,wR), F[wR]);
-    if (ok) { id=id?id:wL; if (id2) *id2=wR; if (!V) return id; }
+    if (ok) {if (!id) {id=wL; if (id2) *id2=wR;} if (!V) return id; }
   }
   
   return id ? id : w0;

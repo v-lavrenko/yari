@@ -68,7 +68,7 @@ char *qry2str (qry_t *Q, hash_t *H) {
     if (q > Q)                    zprintf (&buf,&sz, " ");
     if (index("-+",q->op))        zprintf (&buf,&sz, "%c", q->op);
     if (q->type == '"' || q->id2) zprintf (&buf,&sz, "'");
-    if (q->type == '"')           zprintf (&buf,&sz, "%s", q->tok);
+    if (q->type == '"' || !q->id) zprintf (&buf,&sz, "%s", q->tok);
     else {
       if (q->id)                  zprintf (&buf,&sz, "%s", id2key(H,q->id));
       if (q->id2)                 zprintf (&buf,&sz, " %s", id2key(H,q->id2));
