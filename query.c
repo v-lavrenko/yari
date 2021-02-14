@@ -67,13 +67,13 @@ char *qry2str (qry_t *Q, hash_t *H) {
     if (q->op == 'x') continue; // skip this term
     if (q > Q)                    zprintf (&buf,&sz, " ");
     if (index("-+",q->op))        zprintf (&buf,&sz, "%c", q->op);
-    if (q->type == '"' || q->id2) zprintf (&buf,&sz, "'");
-    if (q->type == '"' || !q->id) zprintf (&buf,&sz, "%s", q->tok);
+    if (q->type== '\'' || q->id2) zprintf (&buf,&sz, "'");
+    if (q->type== '\'' || !q->id) zprintf (&buf,&sz, "%s", q->tok);
     else {
       if (q->id)                  zprintf (&buf,&sz, "%s", id2key(H,q->id));
       if (q->id2)                 zprintf (&buf,&sz, " %s", id2key(H,q->id2));
     }
-    if (q->type == '"' || q->id2) zprintf (&buf,&sz, "'");
+    if (q->type== '\'' || q->id2) zprintf (&buf,&sz, "'");
     if (index("<>=", q->type))    zprintf (&buf,&sz, "%c%.2f", q->type, q->thr);
   }
   return buf;
@@ -110,7 +110,7 @@ void spell_qry (qry_t *Q, hash_t *H, float *F, char *prm) {
   for (q = Q; q <= last; ++q) {    
     if (V) printf ("%c %c %s\n", q->op, q->type, q->tok);
     if (q->op == 'x') continue; // skip this term
-    if (q->type == '"') continue; // exact: do not correct    
+    if (q->type == '\'') continue; // exact: do not correct    
     if (q < last) { // try fusing with next word
       uint wL = q->id, wR = (q+1)->id, wF = try_fuse (q->tok, (q+1)->tok, H);
       uint ok = (F[wF] > MIN(F[wL],F[wR]));
