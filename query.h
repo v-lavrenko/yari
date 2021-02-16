@@ -40,5 +40,6 @@ void spell_qry (qry_t *Q, hash_t *H, float *F, char *prm) ;
 ix_t *exec_qry (qry_t *Q, hash_t *H, coll_t *INVL, char *prm) ;
 char *qry2original (qry_t *Q, hash_t *H) ;
 char **toks4snippet (qry_t *Q, hash_t *H) ; // words for snippet extraction  
+int qry_altered (qry_t *Q, hash_t *H) ; // 1 <-> query changed by spell-check
 
 #endif
