@@ -224,14 +224,14 @@ uint pubmed_spell (char *word, hash_t *H, float *F, char *prm, uint W, uint *id2
   uint x31 = getprm(prm,"x31=",100);   //  1k ~ 10 ~ 100
   uint x32 = getprm(prm,"x32=",10);    //  1k ~ 100 ~ 1 ~ 10
   
-  uint w0 = has_key (H, word), w1=0, w2=0, wL=0, wR=0, w11=0, w21=0;
+  uint w0 = has_key (H, word), w1=0, w2=0, wL=0, wR=0, w11=0, w21=0, w3=0;
   uint l0 = strlen (word), id = 0, ok = 0; (void) id2; (void) w11;
   //if (V) printf ("%s\n", word);  
   ok = (F[w0] >= F0);
   if (V) printf ("%d %d\tas-is: %s:%.0f\n", w0==W, ok, word, F[w0]);
   if (ok) { id=id?id:w0; if (!V) return id; }
   
-  if (l0 >= L1) {
+  if ((l0 >= L1) || !w0) { // if word long enough, or zero matches: try 1-edit
     
     best_edit (word, 1, H, F, &w1); // w1 = 1-edit(w0)
     ok = (F[w1] > x1*F[w0] && F[w1] >= F1);
@@ -244,7 +244,7 @@ uint pubmed_spell (char *word, hash_t *H, float *F, char *prm, uint W, uint *id2
     if (ok) { id=id?id:w11; if (!V) return id; }
   }
   
-  if (l0 >= L1 && l0 >= L2) {
+  if ((l0 >= L1 && l0 >= L2) || (!id && !w0)) {
     
     best_edit (word, 2, H, F, &w2); // w2 = 2-edit(w0)
     ok = (F[w2] > x21*F[w1] && F[w2] > x20*F[w0] && F[w2] > F2);
@@ -262,6 +262,14 @@ uint pubmed_spell (char *word, hash_t *H, float *F, char *prm, uint W, uint *id2
     if (V) printf (" + %s:%.0f\n", id2key(H,wR), F[wR]);
     if (ok) {if (!id) {id=wL; if (id2) *id2=wR;} if (!V) return id; }
   }
+
+  (void) w3;
+  //  if (!id && !w0) { // no matches
+  //    best_edit (word, 3, H, F, &w3); // w3 = 3-edit(w0)
+  //    ok = (F[w3] > 0);
+  //    if (V) printf ("%d %d\t3edit: %s:%.0f -> %s:%.0f\n", w3==W, ok, word, F[w0], id2key(H,w3), F[w3]);
+  //    if (ok) { id=id?id:w3; if (!V) return id; }    
+  //  }
   
   return id ? id : w0;
 }
