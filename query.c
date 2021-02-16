@@ -67,13 +67,13 @@ char *qry2str (qry_t *Q, hash_t *H) {
     if (q->op == 'x') continue; // skip this term
     if (q > Q)                    zprintf (&buf,&sz, " ");
     if (index("-+",q->op))        zprintf (&buf,&sz, "%c", q->op);
-    if (q->type== '\'' || q->id2) zprintf (&buf,&sz, "'");
+    if (q->type== '\'')           zprintf (&buf,&sz, "'");
     if (q->type== '\'' || !q->id) zprintf (&buf,&sz, "%s", q->tok);
     else {
       if (q->id)                  zprintf (&buf,&sz, "%s", id2key(H,q->id));
       if (q->id2)                 zprintf (&buf,&sz, " %s", id2key(H,q->id2));
     }
-    if (q->type== '\'' || q->id2) zprintf (&buf,&sz, "'");
+    if (q->type== '\'')           zprintf (&buf,&sz, "'");
     if (index("<>=", q->type))    zprintf (&buf,&sz, "%c%.2f", q->type, q->thr);
   }
   return buf;
@@ -83,12 +83,24 @@ char *qry2original (qry_t *Q, hash_t *H) {
   char *buf=0; int sz=0;
   qry_t *q, *last = Q+len(Q)-1;
   for (q = Q; q <= last; ++q) {
-    char *same = q->id && (q->id == has_key (H,q->tok)) ? "" : "'";
-    if (q > Q)             zprintf (&buf,&sz, " ");
-    if (index("-+",q->op)) zprintf (&buf,&sz, "%c", q->op);
-    if (1)                 zprintf (&buf,&sz, "%s%s%s", same, q->tok, same);
+    int changed = q->id && strcmp(q->tok, id2key(H,q->id));
+    if (q->op == 'x') continue;
+    if (q > Q)                      zprintf (&buf,&sz, " ");
+    if (index("-+",q->op))          zprintf (&buf,&sz, "%c", q->op);
+    if (q<last && (q+1)->op == 'x') zprintf (&buf,&sz, "'%s %s'", q->tok, (q+1)->tok);
+    else if (changed)               zprintf (&buf,&sz, "'%s'", q->tok);
+    else                            zprintf (&buf,&sz, "%s", q->tok);
   }
   return buf;
+}
+
+int qry_altered (qry_t *Q, hash_t *H) {
+  qry_t *q, *last = Q+len(Q)-1;
+  for (q = Q; q <= last; ++q) {
+    char *term = q->id ? id2key(H,q->id) : NULL;
+    if (term && strcmp(term,q->tok)) return 1;
+  }
+  return 0;  
 }
 
 char **toks4snippet (qry_t *Q, hash_t *H) { // words for snippet extraction  
