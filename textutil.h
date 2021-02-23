@@ -26,6 +26,8 @@ char *endchr (char *s, char c, uint n) ; // faster strrchr
 // in str replace any occurence of chars from what[] with 'with'
 void csub (char *str, char *what, char with) ; 
 void cqsub (char *str, char what, char with, char quot) ;
+// in haystack replace every instance of "needle" with 'with'
+void gsub (char *haystack, char *needle, char with) ;
 
 void noeol (char *str); // remove trailing newline
 void chop (char *str, char *blanks) ; // remove head/tail blanks
@@ -82,6 +84,7 @@ int cntchr (char *s, char c);
 char *strRchr (char *beg, char *end, char key) ;
 void purge_escaped (char *txt) ;
 
+int nearest_ws (char *text, int position, int cap) ;
 char *snippet2 (char *text, char **words, int sz);
 
 #endif
