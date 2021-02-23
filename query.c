@@ -115,6 +115,13 @@ char **toks4snippet (qry_t *Q, hash_t *H) { // words for snippet extraction
   return toks;
 }
 
+char *toks2str (char **toks) { // ' '.join(toks)
+  char *buf=0; int sz=0, i=-1, n = len(toks);
+  while (++i<n) if (toks[i]) zprintf (&buf,&sz, "%s ", toks[i]);
+  if (sz) buf[--sz] = '\0'; // chop trailing space
+  return buf;  
+}
+
 void spell_qry (qry_t *Q, hash_t *H, float *F, char *prm) {
   char V = prm && strstr(prm,"verbose") ? 1 : 0;
   qry_t *q, *last = Q+len(Q)-1;  
@@ -154,7 +161,7 @@ ix_t *exec_qry (qry_t *Q, hash_t *H, coll_t *INVL, char *prm) {
     if (V) printf ("\t%.0fms %c%s -> [%d] -> [%d]\n",
 		   msdiff(&T), q->op, id2key(H,q->id), len(q->docs), len(result));
   }
-  return result;
+  return result ? result : new_vec(0,sizeof(ix_t));
 }
  
 #ifdef MAIN
