@@ -244,7 +244,7 @@ uint pubmed_spell (char *word, hash_t *H, float *F, char *prm, uint W, uint *id2
     if (ok) { id=id?id:w11; if (!V) return id; }
   }
   
-  if ((l0 >= L1 && l0 >= L2) || (!id && !w0)) {
+  if ((l0 >= L1 && l0 >= L2 && l0 <= 20) || (!id && !w0 && l0 <= 20)) {
     
     best_edit (word, 2, H, F, &w2); // w2 = 2-edit(w0)
     ok = (F[w2] > x21*F[w1] && F[w2] > x20*F[w0] && F[w2] > F2);
