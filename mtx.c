@@ -1780,6 +1780,7 @@ char *usage =
   "                          char=1   ... character size (in bytes) for n-grams\n"
   "                          nowb     ... squeeze out punctuation/spaces for n-grams\n"
   "                          tokw     ... tokenize on space, tab, CR, LF only\n"
+  "                          toklen=50... drop tokens longer than 50 characters\n"
   "                          position ... store word positions instead of frequencies\n"
   "                          ow=5,uw=5 ... ordered/unordered pairs in a 5-word window\n"
   "                          join/skip/replace ... documents with duplicate ids\n"
