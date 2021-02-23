@@ -68,6 +68,15 @@ void cqsub (char *str, char what, char with, char quot) {
   }
 }
 
+// in haystack replace every instance of "needle" with 'with'
+void gsub (char *haystack, char *needle, char with) {
+  char *p = haystack; uint n = strlen(needle);
+  while ((p = strstr(p,needle))) {
+    memset (p, with, n);
+    p += n;
+  }
+}
+
 // in str replace any occurence of chars from punctuation[] with nothing
 void squeeze (char *str, char *what) {
   if (!str) return;
@@ -546,7 +555,7 @@ jix_t best_span (ijk_t *hits, uint nwords, uint SZ, float eps) {
 // find whitespace closest to position in text, no farther than cap
 int nearest_ws (char *text, int position, int cap) {
   int L = position, R = position;
-  while (!isspace (text[R])) ++R;
+  while (!isspace(text[R]) && text[R]) ++R;
   while (!isspace (text[L]) && L > 0) --L;
   int dR = R-position, dL = position-L;
   if (dR > cap && dL > cap) return position;
