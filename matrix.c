@@ -2583,6 +2583,8 @@ void vec_x_full (ix_t *V, char op, float *F) {
   ix_t *v = V-1, *last = V+len(V);
   while (--last >= V && last->i >= len(F)) last->x = 0;
   switch (op) {
+  case '+': while (++v <= last) v->x += F [v->i];                          break;
+  case '-': while (++v <= last) v->x -= F [v->i];                          break;
   case '*': while (++v <= last) v->x *= F [v->i];                          break;
   case '.': while (++v <= last) v->x *= F [v->i];                          break;
   case '/': while (++v <= last) v->x /= F [v->i];                          break;

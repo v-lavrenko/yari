@@ -57,6 +57,10 @@ hash_t *open_hash_time() {
   return h;  
 }
 
+hash_t *open_hash_if_exists (char *path, char *access) {
+  return coll_exists (path) ? open_hash (path, access) : NULL;
+}
+
 hash_t *open_hash (char *_path, char *_access) {
   if (!_path) return open_hash_inmem ();
   if (!strcmp(_path,"TIME")) return open_hash_time();

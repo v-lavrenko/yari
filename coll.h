@@ -48,6 +48,7 @@ void rm_coll (coll_t *c) ;
 void empty_coll (coll_t *M) ;
 int coll_exists (char *path) ;
 time_t coll_modified (char *path) ;
+coll_t *open_coll_if_exists (char *path, char *access) ;
 
 coll_t *copy_coll (coll_t *src) ;
 
