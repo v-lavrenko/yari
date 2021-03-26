@@ -33,7 +33,6 @@
 uint *bitvec(uint N) { return new_vec (N/32, sizeof(uint)); }
 
 
-
 void bloom_add (uint *B, char *el) {
   
 }
