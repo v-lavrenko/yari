@@ -27,7 +27,7 @@ warn=-W -Wall -Wno-unused-result -Wno-implicit-fallthrough -Wno-null-pointer-ari
 #CC=gcc -m64 $(opt) $(warn) -I . -o $@ $(f64) -fopenmp
 CC=gcc -m64 $(opt) $(warn) -I . -o $@ $(f64) 
 
-exe = testmmap testvec testcoll dict mtx stem kvs hl bio shard pval ts ptail xcut xtime spell query nutil
+exe = testmmap testvec testcoll dict mtx stem kvs hl bio shard pval ts ptail xcut xtime spell query nutil compress
 
 all: libyari.a $(exe)
 	etags *.c *.h
@@ -85,4 +85,7 @@ query: query.c libyari.a
 	$(CC) -DMAIN $^ $(LIB)
 
 nutil: netutil.c libyari.a
+	$(CC) -DMAIN $^ $(LIB)
+
+compress: compress.c libyari.a
 	$(CC) -DMAIN $^ $(LIB)
