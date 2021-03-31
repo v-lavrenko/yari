@@ -87,5 +87,5 @@ query: query.c libyari.a
 nutil: netutil.c libyari.a
 	$(CC) -DMAIN $^ $(LIB)
 
-compress: compress.c libyari.a
+compress: compress.c libyari.a libzstd.a
 	$(CC) -DMAIN $^ $(LIB)
