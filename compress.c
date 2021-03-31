@@ -32,6 +32,15 @@ void delta_decode (uint *V) {
   while (++i < n) V[i] += V[i-1];
 }
 
+// ---------------------------------------- move-to-front (MTF)
+
+uint *mtf_encode (uint *U) { (void)U;
+  return NULL;
+}
+
+uint *mtf_decode (uint *U) { (void)U;
+  return NULL;
+}
 
 // ---------------------------------------- v-byte / varint encoding
 
@@ -127,6 +136,27 @@ uint *msint_decode (char *B) {
   return U;
 }
 
+// ---------------------------------------- nibble
+
+//   1..8   -> 0___
+//   9..135 -> 1___ ____
+// 135..256 -> 0111 1111 ____ ____
+
+/*
+uchar *push_nibble (uint U, uchar *B) {
+  
+}
+
+uchar *pop_nibble (uint *U, uchar *B) {
+}
+
+char *nibble_encode (uint *U) {
+}
+
+uint *nibble_decode (char *B) {
+}
+*/
+
 // ---------------------------------------- Elias Gamma
 
 // little endian: 0x11223344 -> {44,33,22,11} in memory
@@ -202,6 +232,82 @@ uint *gamma_decode (char *_B) {
   }
   return U;
 }
+
+// ---------------------------------------- bit-mask
+
+char *bmask_encode (uint *U) {
+  uint *u = U-1, *last = U+len(U)-1;
+  char *B = bit_vec (*last);
+  while (++u <= last) {
+    bit_set_1(B,*u);
+  }
+  //printf ("bmask: U[%d] -> B[%d]\n", len(U), len(B));
+  return B;
+}
+
+uint *bmask_decode (char *B) {
+  //uchar *B = (uchar*)_B;
+  uint *U = new_vec (0, sizeof(uint)), u=0, n = (len(B))<<3;
+  for (u=0; u<n; ++u) {
+    if (bit_is_1(B,u)) U = append_vec(U,&u);
+  }
+  return U;
+}
+
+// ---------------------------------------- z-standard
+
+size_t ZSTD_compress( void* dst, size_t dstSz, const void* src, size_t srcSz, int lvl);
+size_t ZSTD_decompress( void* dst, size_t dstSz, const void* src, size_t srcSz);
+unsigned ZSTD_isError(size_t code);
+const char* ZSTD_getErrorName(size_t code);
+
+void zstd_assert (size_t sz, char *msg) {
+  if (ZSTD_isError(sz)) {
+    printf("%s ERROR: %s\n", msg, ZSTD_getErrorName(sz));
+    assert(0);
+  }
+}
+
+char *zstd_encode (uint *U) {
+  size_t Usz = 4*len(U), Bsz = Usz+1024;
+  void *B = new_vec (Bsz, 1);
+  size_t sz = ZSTD_compress(B, Bsz, U, Usz, 5);
+  zstd_assert (sz, "encode");
+  len(B) = sz;
+  return B;  
+}
+
+uint *zstd_decode (char *B) {
+  size_t Bsz = len(B), Usz = 16*Bsz + (1<<28), esz = sizeof(uint);
+  uint *U = new_vec (Usz/esz, esz);
+  size_t sz = ZSTD_decompress(U, Usz, B, Bsz);
+  zstd_assert (sz, "decode");
+  len(U) = sz/esz;
+  return U;
+} 
+
+// ---------------------------------------- pFORdelta
+
+/*
+int pfor_compress(unsigned int *input, unsigned int *output, int size);
+int pfor_decompress(unsigned int* input, unsigned int* output, int size);
+
+char *pford_encode (uint *U) {
+  int SZ = 4*len(U);
+  void *B = new_vec (SZ, 1);
+  int sz = pfor_compress(U, (uint*)B, SZ);
+  len(B) = sz;
+  return B;  
+}
+
+uint *pford_decode (char *B) {
+  int sz = len(B), EZ = 100*sz, esz = sizeof(uint);
+  uint *U = new_vec (EZ/esz, esz);
+  int SZ = pfor_decompress((uint*)B, U, EZ);
+  len(U) = SZ/esz;
+  return U;
+} 
+*/
 
 // ---------------------------------------- counting values
 
@@ -322,6 +428,28 @@ int do_gamma (int n, char *A[]) {
   return 0;
 }
 
+int do_bmask (int n, char *A[]) {
+  uint *V = argv2vec (A,n);
+  show_vec (V, "original:");
+  char *B = bmask_encode (V);
+  show_buf (B, "encoded:");
+  uint *D = bmask_decode (B);
+  show_vec (D, "decoded:");
+  free_vec(V); free_vec(B); free_vec(D);
+  return 0;
+}
+
+int do_zstd (int n, char *A[]) {
+  uint *V = argv2vec (A,n);
+  show_vec (V, "original:");
+  char *B = zstd_encode (V);
+  show_buf (B, "encoded:");
+  uint *D = zstd_decode (B);
+  show_vec (D, "decoded:");
+  free_vec(V); free_vec(B); free_vec(D);
+  return 0;
+}
+
 int do_mtx_debug (uint i, uint *U, uint *V, char *B, char *pre) {
   printf ("row %d %s\n", i, pre);
   show_vec (U,"U:");
@@ -333,21 +461,29 @@ int do_mtx_debug (uint i, uint *U, uint *V, char *B, char *pre) {
 #define vsize(v) (len(v) * vesize(v) + sizeof(vec_t))
 
 char *do_encode (uint *U, char a) {
+  if (a != 'b') delta_encode(U);
   switch (a) {
   case 'v': return vbyte_encode(U);
   case 'm': return msint_encode(U);
   case 'g': return gamma_encode(U);
+  case 'b': return bmask_encode(U);
+  case 'z': return zstd_encode(U);
   default:  return NULL;
   }
 }
 
 uint *do_decode (char *B, char a) {
+  uint *U = NULL;
   switch (a) {
-  case 'v': return vbyte_decode(B);
-  case 'm': return msint_decode(B);
-  case 'g': return gamma_decode(B);
-  default:  return NULL;
+  case 'v': U = vbyte_decode(B); break;
+  case 'm': U = msint_decode(B); break;
+  case 'g': U = gamma_decode(B); break;
+  case 'b': U = bmask_decode(B); break;
+  case 'z': U = zstd_decode(B); break;
+  default:  break;
   }
+  if (a != 'b') delta_decode(U);
+  return U;
 }
 
 #define ENCODE gamma_encode
@@ -359,10 +495,8 @@ int do_mtx (char *_M, char *alg) {
   double SZU = 0, SZB = 0, t0 = ftime();
   for (i = 1; i <= n; ++i) {
     uint *U = ix2i (get_vec_ro(M,i)), *V = copy_vec(U), j;
-    delta_encode (V);
     char *B = do_encode (V, *alg);
     uint *BU= do_decode (B, *alg);
-    delta_decode (BU);
     double szU = vsize(U), szB = vsize(B), crB = 100*szB/szU;
     double CRB = 100*(SZB+=szB)/(SZU+=szU);
     double dT = ftime() - t0, MpS = (SZB/dT)/1E6;
@@ -394,6 +528,8 @@ int main (int argc, char *argv[]) {
   if (!strcmp (a(1),"-vbyte")) return do_vbyte(argc-2,argv+2);
   if (!strcmp (a(1),"-msint")) return do_msint(argc-2,argv+2);
   if (!strcmp (a(1),"-gamma")) return do_gamma(argc-2,argv+2);
+  if (!strcmp (a(1),"-bmask")) return do_bmask(argc-2,argv+2);
+  if (!strcmp (a(1),"-zstd")) return do_zstd(argc-2,argv+2);
   if (!strcmp (a(1),"-mtx")) return do_mtx(arg(2), a(3));
   return 1;
 }
