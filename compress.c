@@ -346,9 +346,10 @@ ix_t *count_values (float *X) {
 
 #ifdef MAIN
 
-uint *ix2i (ix_t *V) {
+uint *ix2i (ix_t *V, char x) {  
   uint i, n = len(V), *U = new_vec (n, sizeof(uint));
-  for (i=0; i<n; ++i) U[i] = V[i].i;
+  if (x) for (i=0; i<n; ++i) U[i] = 1+(uint)V[i].x;
+  else   for (i=0; i<n; ++i) U[i] = V[i].i;
   return U;  
 }
 
@@ -460,8 +461,8 @@ int do_mtx_debug (uint i, uint *U, uint *V, char *B, char *pre) {
 
 #define vsize(v) (len(v) * vesize(v) + sizeof(vec_t))
 
-char *do_encode (uint *U, char a) {
-  if (a != 'b') delta_encode(U);
+char *do_encode (uint *U, char a, char x) {
+  if ((!x) && (a != 'b')) delta_encode(U);
   switch (a) {
   case 'v': return vbyte_encode(U);
   case 'm': return msint_encode(U);
@@ -472,7 +473,7 @@ char *do_encode (uint *U, char a) {
   }
 }
 
-uint *do_decode (char *B, char a) {
+uint *do_decode (char *B, char a, char x) {
   uint *U = NULL;
   switch (a) {
   case 'v': U = vbyte_decode(B); break;
@@ -482,7 +483,7 @@ uint *do_decode (char *B, char a) {
   case 'z': U = zstd_decode(B); break;
   default:  break;
   }
-  if (a != 'b') delta_decode(U);
+  if ((!x) && (a != 'b')) delta_decode(U);
   return U;
 }
 
@@ -494,9 +495,10 @@ int do_mtx (char *_M, char *alg) {
   int i, n = nvecs(M);
   double SZU = 0, SZB = 0, t0 = ftime();
   for (i = 1; i <= n; ++i) {
-    uint *U = ix2i (get_vec_ro(M,i)), *V = copy_vec(U), j;
-    char *B = do_encode (V, *alg);
-    uint *BU= do_decode (B, *alg);
+    ix_t *W = get_vec_ro(M,i);
+    uint *U = ix2i (W,0), *V = copy_vec(U), j;
+    char *B = do_encode (V, *alg, 0);
+    uint *BU= do_decode (B, *alg, 0);
     double szU = vsize(U), szB = vsize(B), crB = 100*szB/szU;
     double CRB = 100*(SZB+=szB)/(SZU+=szU);
     double dT = ftime() - t0, MpS = (SZB/dT)/1E6;
