@@ -118,13 +118,13 @@ char *id2key (hash_t *h, uint id) {
 }
 
 // find a slot in indx that is empty or matches the key
-uint *href (hash_t *h, char *key, uint code) {
+uint *href (hash_t *h, char *key, uint code) { // TODO: code % N -> code & (1 << ilog2(N))
   uint *H = h->indx, N = len(h->indx), o = code % N, id; // c = code, i=1;
   while ((id = H[o])) { // stop if we find an empty slot
     if (h->code[id] == code) { // hashcode match for id
       char *k = get_chunk (h->keys, id); // stored key
       if (!strcmp (key, k)) break; // string match
-    }
+    } // TODO: o+1 % N -> (o+1) & (1 << ilog2(N))
     o = (o+1) % N; // linear probing ... seems fastest on big datasets ... wtf??
     // o = (o + i*i) % N; ++i; // quadratic probing
     // o = (c = murmur3uint (c)) % N; // secondary hashing
@@ -146,9 +146,9 @@ void hrehash (hash_t *h) {
   }
 }
 
-uint has_key (hash_t *h, char *key) {
+uint has_key (hash_t *h, char *key) { // TODO: arg3 = len(key)
   if (!h || !key) return 0;
-  uint code = murmur3 (key, strlen(key));
+  uint code = murmur3 (key, strlen(key)); // TODO: _128
   uint *slot = href (h, key, code);
   return *slot;
 }
@@ -161,10 +161,27 @@ static uint add_new_key (hash_t *h, char *key, uint code) {
   return id;
 }
 
-uint key2id (hash_t *h, char *key) {
+// TODO: https://github.com/Cyan4973/xxHash
+// https://github.com/gamozolabs/falkhash
+// https://github.com/google/highwayhash
+// https://encode.su/threads/1747-Extremely-fast-hash
+// https://engineering.backtrace.io/2020-08-24-umash-fast-enough-almost-universal-fingerprinting/
+
+// http://backendconf.ru/2018/abstracts/3445
+// https://www.youtube.com/watch?v=zr4ZDtfp0N0
+// load factor: Knuth:0.5..0.7, Aksenov: up to 0.99
+// importance: avg-search-depth >> load-factor
+// hash-f: must be small / 0-warmup / fast: crc32, mul-xor, fnv
+// smhasher: fails irrelevant, test yourself
+// cuckoo: O(1) guaranteed read, may require changing hash-f
+// move-to-front for chaining (closed hashing)
+// tweak constants inside hash-f
+// crc32unroll / crc32+sse/avx: 4 bytes 
+
+uint key2id (hash_t *h, char *key) { // TODO: arg3 = len(key)
   if (!h || !key) return 0;
   if (h->access[0] == 'T') return str2time (key);
-  uint code = murmur3 (key, strlen(key));
+  uint code = murmur3 (key, strlen(key)); // TODO: _128
   uint *slot = href (h, key, code);
   if (*slot || h->access[0] == 'r') return *slot; // key already in table
   uint id = add_new_key (h, key, code);
