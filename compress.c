@@ -191,7 +191,7 @@ char *nibbl_encode (uint *U) {
   uchar *B = new_vec (eob/2, sizeof(char));
   uint *u = U-1, *end = U+len(U);
   while (++u < end) b = push_nibble (*u, B, b, eob);
-  len(B) = b/2+1;
+  len(B) = (b>>1) + (b&1);
   return (char*)B;
 }
 
@@ -296,6 +296,7 @@ char *gamma_encode (uint *U) {
     b = push_gamma (*u, B, b);
   }
   //printf("trunc: %lu bits -> %lu bytes\n", b, ((b>>3)+1));
+  //len(B) = (b>>3) + ((b&7)>0); // fails on U[31116] -> B[34304] -> BU[31115]
   len(B) = (b>>3) + 1;
   return (char*)B;
 }
