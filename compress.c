@@ -23,7 +23,7 @@
 // ---------------------------------------- delta encoding
 
 void delta_encode (uint *V) {
-  uint i = len(V);
+  uint i = len(V); if (!i) return;
   while (--i > 0) V[i] -= V[i-1];
 }
 
@@ -136,24 +136,104 @@ uint *msint_decode (char *B) {
   return U;
 }
 
-// ---------------------------------------- nibble
+// ---------------------------------------- nibble (mysql-like)
 
-//   1..8   -> 0___
-//   9..135 -> 1___ ____
-// 135..256 -> 0111 1111 ____ ____
+void show_bufaz (uchar *B, uint a, uint z) ;
+
+// Little Endian: 0xAaBbCcDd -> {Dd,Cc,Bb,Aa} in memory
+
+//   1..8 -> 0xxx 
+//   9..? -> 1nnn 1-8 nibbles follow
+
+uint get_B_nibble (uchar *B, off_t n) {
+  uint byte = n>>1, left = !(n&1), shift = left<<2;
+  return 0xF & (B[byte] >> shift); }
+
+void set_B_nibble (uchar *B, off_t n, uint u) {
+  uint byte = n>>1, left = !(n&1), shift = left<<2;
+  //printf ("u:%u byte:%u left:%u shift:%u ", u, byte, left, shift);
+  B[byte] |= ((0xF & u) << shift); }
+
+uchar get_U_nibble (uint U, uint n)          { return 0xF & (U >> ((7-n)<<2)); }
+void  set_U_nibble (uint U, uint n, uchar u) { U |= ((0xF & u) << ((7-n)<<2)); }
+
+// encode U -> B[b..e], return e, fail if e>=eob
+off_t push_nibble (uint U, uchar *B, off_t b, uint eob) { (void)eob;
+  if (U<8) {
+    set_B_nibble (B, b, U);
+    //printf ("push solo %u -> %lu | ", U, b); show_bufaz(B,0,1+b/2); puts("");
+    return b+1;
+  }
+  int nibs = ((U<=0xF) ? 1 : (U<=0xFF) ? 2 : (U<=0xFFF) ? 3 : (U<=0xFFFF) ? 4 :
+	      (U<=0xFFFFF) ? 5 : (U<=0xFFFFFF) ? 6 : (U<=0xFFFFFFF) ? 7 : 8), i;
+  set_B_nibble (B, b, ((nibs-1)|8));
+  //printf ("push header (%d nibs) -> %lu | ", nibs, b); show_bufaz(B,0,1+b/2); puts("");
+  for (i = 1; i <= nibs; ++i) {
+    uint u = 0xF & (U >> ((nibs-i) << 2));
+    set_B_nibble (B, b+i, u);
+    //printf ("push nibble %d: %u -> %lu | ", nibs-i, u, b+i); show_bufaz(B,0,(b+i)/2+1); puts("");
+  }
+  return b+nibs+1;
+}
+
+// decode B[b..e] -> *U, return e
+off_t pop_nibble (uint *_U, uchar *B, off_t b, uint eob) { (void) eob;
+  uint u = get_B_nibble (B, b);
+  if (u<8) { *_U = u; return b+1; } // 0nnn
+  uint U = 0, i=0, nibs = 1+(u&7);
+  while (++i <= nibs) { u = get_B_nibble (B, ++b); U = (U<<4) | u; }
+  *_U = U;  
+  return b+1;
+}
+
+char *nibbl_encode (uint *U) {
+  off_t b = 0, eob = 10*len(U); // max 9 nibbles per uint
+  uchar *B = new_vec (eob/2, sizeof(char));
+  uint *u = U-1, *end = U+len(U);
+  while (++u < end) b = push_nibble (*u, B, b, eob);
+  len(B) = b/2+1;
+  return (char*)B;
+}
+
+uint *nibbl_decode (char *_B) {
+  uchar *B = (uchar*)_B;
+  off_t b = 0, end = len(B)*2;  
+  uint *U = new_vec (0, sizeof(uint)), u=0;
+  while (b < end) {
+    b = pop_nibble (&u, B, b, end);
+    if (u) U = append_vec (U, &u);
+  }
+  return U;
+}
 
 /*
-uchar *push_nibble (uint U, uchar *B) {
+off_t pop_nibble_maybe_fast (uint *U, uchar *B, off_t beg, off_t eob) {
+  // mask for nibbles  1     12    1.3     1..4    1...5
+  uint mask[9] = {0, 0xF0, 0xFF, 0xFFF0, 0xFFFF, 0xFFFFF0, 0xFFFFFF, 0xFFFFFFF0, 0xFFFFFFFF};
+  uint byte = beg>>1;   // byte offset of this nibble
+  uint left = !(beg&1); // is it left nibble? (0,2,4...)
+  uint shift = left<<2; // left nibble -> bits 4..7 -> need to shift 4 right
+  uchar nib = 0xF & (B[byte] >> shift); // shift left -> right, take bits 0..3
+  if (nib < 8) { *U = nib; return beg+1; } // 0xxx -> self-contained nib -> return it
+  uint U1=0, nibs = 1+(nib&7); // number of nibs we have to read
+  if (left) { // consumed bits 4..7 but still have bits 0..3
+    uchar nib0 = 0xF & B[byte]; // nib1 = bits 0..3
+    --nibs; // one less nib to consume below
+    U1 = nib0 << (nibs<<2); // make space for 4*nibs
+  }
+  uint *u = (uint*) (B+byte+1);
+  uint U2 = (*u) & (mask[nibs]);
+  *U = U1 | U2;
+  return beg + nibs + 1;
+}
+
+off_t push_nibble_maybe_fast (uint U, uchar *B, off_t beg, off_t eob) {
+  uint mask[9] = {0, 0xF0, 0xFF, 0xFFF0, 0xFFFF, 0xFFFFF0, 0xFFFFFF, 0xFFFFFFF0, 0xFFFFFFFF};
+  uint byte = beg>>1, right = beg&1, left = !right, shift = left<<2;
   
-}
-
-uchar *pop_nibble (uint *U, uchar *B) {
-}
-
-char *nibble_encode (uint *U) {
-}
-
-uint *nibble_decode (char *B) {
+  
+  if (U<8) { B[byte] |= (U<<shift); return beg+1; }
+  if (right)  { B[byte] |= (U & 0xF); U >>= 4; } // RHS of current byte = bits 
 }
 */
 
@@ -172,8 +252,6 @@ void show_0xb (uint u) {
   for (; i>=8; --i)  { fputc(((u & (1<<i)) ? '1' : '0'), stdout); } fputc(' ', stdout);
   for (; i>=0; --i)  { fputc(((u & (1<<i)) ? '1' : '0'), stdout); } fputc(' ', stdout);
 }
-
-void show_buf0 (char *B) ;
 
 off_t push_gamma (uint U, uchar *B, off_t beg) { // assume B[beg..] is zeroed out
   uint i, nb = ilog2(U)+1; // how many bits in binary repr. of U
@@ -374,6 +452,12 @@ void show_binary (char c) {
   fputc(' ',stdout);
 }
 
+
+void show_bufaz (uchar *B, uint a, uint z) {
+  uchar *b = B+a-1, *end = B+z;
+  while (++b < end) show_binary ((char)*b);  
+}
+
 void show_buf0 (char *B) {
   char *b = B-1, *end = B+len(B);
   while (++b < end) show_binary (*b);  
@@ -451,6 +535,17 @@ int do_zstd (int n, char *A[]) {
   return 0;
 }
 
+int do_nibbl (int n, char *A[]) {
+  uint *V = argv2vec (A,n);
+  show_vec (V, "original:");
+  char *B = nibbl_encode (V);
+  show_buf (B, "encoded:");
+  uint *D = nibbl_decode (B);
+  show_vec (D, "decoded:");
+  free_vec(V); free_vec(B); free_vec(D);
+  return 0;
+}
+
 int do_mtx_debug (uint i, uint *U, uint *V, char *B, char *pre) {
   printf ("row %d %s\n", i, pre);
   show_vec (U,"U:");
@@ -466,6 +561,7 @@ char *do_encode (uint *U, char a, char x) {
   switch (a) {
   case 'v': return vbyte_encode(U);
   case 'm': return msint_encode(U);
+  case 'n': return nibbl_encode(U);
   case 'g': return gamma_encode(U);
   case 'b': return bmask_encode(U);
   case 'z': return zstd_encode(U);
@@ -478,6 +574,7 @@ uint *do_decode (char *B, char a, char x) {
   switch (a) {
   case 'v': U = vbyte_decode(B); break;
   case 'm': U = msint_decode(B); break;
+  case 'n': U = nibbl_decode(B); break;
   case 'g': U = gamma_decode(B); break;
   case 'b': U = bmask_decode(B); break;
   case 'z': U = zstd_decode(B); break;
@@ -492,7 +589,7 @@ uint *do_decode (char *B, char a, char x) {
 
 int do_mtx (char *_M, char *alg) {
   coll_t *M = open_coll (_M, "r+");
-  int i, n = nvecs(M);
+  uint i, n = nvecs(M);
   double SZU = 0, SZB = 0, t0 = ftime();
   for (i = 1; i <= n; ++i) {
     ix_t *W = get_vec_ro(M,i);
@@ -502,11 +599,17 @@ int do_mtx (char *_M, char *alg) {
     double szU = vsize(U), szB = vsize(B), crB = 100*szB/szU;
     double CRB = 100*(SZB+=szB)/(SZU+=szU);
     double dT = ftime() - t0, MpS = (SZB/dT)/1E6;
-    assert (len(U) == len(BU));
+    if (len(U) != len(BU)) {
+      show_vec (U,  "orignal:");
+      show_buf (B,  "encoded:");
+      show_vec (BU, "decoded:");      
+      assert (len(U) == len(BU));
+    }
     for (j=0; j<len(U); ++j) 
       if (U[j] != BU[j]) return do_mtx_debug (i, U, BU, B, "B");
-    printf ("%d\t%d\t%s: %2.0f%% | %2.0f%% %.0f M/s\n",
-	    i, len(U), alg, crB, CRB, MpS); fflush(stdout);
+    if (i == next_pow2(i) || i == n)
+      printf ("%d\t%d\t%s: %2.0f%% | %2.0f%% %.0f M/s\n",
+	      i, len(U), alg, crB, CRB, MpS); fflush(stdout);
     free_vec (U); free_vec(V); free_vec (B); free_vec (BU); 
   }
   free_coll (M);
@@ -517,8 +620,11 @@ char *usage =
   "compress -delta 1 2 3 4 5 6 7 8\n"
   "compress -vbyte 1 2 3 4 5 6 7 8\n"
   "compress -msint 1 2 3 4 5 6 7 8\n"
+  "compress -nibbl 1 2 3 4 5 6 7 8\n"
   "compress -gamma 1 2 3 4 5 6 7 8\n"
-  "compress -mtx ROWSxCOLS {vbyte,msint,gamma}\n"
+  "compress -bmask 1 2 3 4 5 6 7 8\n"
+  "compress -zstd  1 2 3 4 5 6 7 8\n"
+  "compress -mtx ROWSxCOLS alg\n"
   ;
 
 #define arg(i) ((i < argc) ? argv[i] : NULL)
@@ -529,6 +635,7 @@ int main (int argc, char *argv[]) {
   if (!strcmp (a(1),"-delta")) return do_delta(argc-2,argv+2);  
   if (!strcmp (a(1),"-vbyte")) return do_vbyte(argc-2,argv+2);
   if (!strcmp (a(1),"-msint")) return do_msint(argc-2,argv+2);
+  if (!strcmp (a(1),"-nibbl")) return do_nibbl(argc-2,argv+2);
   if (!strcmp (a(1),"-gamma")) return do_gamma(argc-2,argv+2);
   if (!strcmp (a(1),"-bmask")) return do_bmask(argc-2,argv+2);
   if (!strcmp (a(1),"-zstd")) return do_zstd(argc-2,argv+2);
