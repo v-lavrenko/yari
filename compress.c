@@ -585,9 +585,6 @@ uint *do_decode (char *B, char a, char x) {
   return U;
 }
 
-#define ENCODE gamma_encode
-#define DECODE gamma_decode
-
 int do_mtx (char *_M, char *alg) {
   coll_t *M = open_coll (_M, "r+");
   uint i, n = nvecs(M);
