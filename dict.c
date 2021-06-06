@@ -39,7 +39,8 @@ int main (int argc, char *argv[]) {
   //HASH_PROB = getprm(prm,"P=",0);
   //HASH_LOAD = getprm(prm,"L=",0.5);
 
-  if (argc > 1 && !strcmp(argv[1], "-uniq")) {
+  if (argc > 1 && !strncmp(argv[1], "-uniq", 5)) {
+    double NN=0;
     ix_t *C = new_vec(0,sizeof(ix_t)), *c;
     hash_t *H = open_hash (0,0);
     char *line = NULL;
@@ -49,10 +50,12 @@ int main (int argc, char *argv[]) {
       if (id > len(C)) C = resize_vec (C, id);
       C[id-1].i = id;
       C[id-1].x ++;
+      ++NN;
     }
+    double norm = strstr(argv[1],"pct") ? (NN/100) : 1;
     sort_vec (C, cmp_ix_X);
     for (c = C; c < C+nkeys(H); ++c)
-      printf ("%.0f\t%s", c->x, id2key(H,c->i));
+      printf ("%.0f\t%s", c->x / norm, id2key(H,c->i));
     if (line) free (line);
     free_hash (H);
     free_vec (C);
