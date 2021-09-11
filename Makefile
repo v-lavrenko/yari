@@ -27,7 +27,7 @@ warn=-W -Wall -Wno-unused-result -Wno-implicit-fallthrough -Wno-null-pointer-ari
 #CC=gcc -m64 $(opt) $(warn) -I . -o $@ $(f64) -fopenmp
 CC=gcc -m64 $(opt) $(warn) -I . -o $@ $(f64) 
 
-exe = testmmap testvec testcoll dict mtx stem kvs hl bio shard pval ts ptail xcut xtime spell query nutil compress hash2
+exe = testmmap testvec testcoll dict mtx stem kvs hl bio pdb shard pval ts ptail xcut xtime spell query nutil compress hash2 
 
 all: libyari.a $(exe)
 	etags *.c *.h
@@ -71,6 +71,8 @@ xcut: xcut.c libyari.a
 xtime: xtime.c libyari.a
 
 bio: bio.c libyari.a
+
+pdb: pdb.c libyari.a
 
 shard: shard.c libyari.a
 
