@@ -26,6 +26,4 @@
     ++qrys; 
 }
 
-END { printf "%.4f MAP over %3d qrys in %s\n", (map / qrys), qrys, FILENAME }
-
-  
+END { printf "MAP: %.4f over %3d qrys in %s\n", (map / qrys), qrys, FILENAME }
