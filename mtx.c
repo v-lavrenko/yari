@@ -34,7 +34,7 @@ void mtx_copy (char *SRC, char *TRG) {
   for (id = 1; id <= n; ++id) {
     void   *vec = get_vec(S,id);
     if (len(vec)) put_vec(T,id,vec);
-    if (!(id%10)) show_progress (id, n, "rows");
+    if (!(id%10)) show_progress (id, n, " rows");
     free_vec(vec);
   }
   free_coll (S); free_coll (T);
@@ -106,7 +106,7 @@ void mtx_load (char *M, char *RH, char *CH, char *type, char *prm) {
       free (id);
       free_vec (vec);
       //if (++done%100 == 0)
-      show_progress (++done, 0, "rows");
+      show_progress (++done, 0, " rows");
     }
   m->rdim = rh ? nkeys(rh) : num_rows (m);
   m->cdim = ch ? nkeys(ch) : num_cols (m);
@@ -126,11 +126,11 @@ void mtx_print (char *prm, char *_M, char *RH, char *CH) {
   //uint dd = getprm (prm,"dd=",4);
   char *rcv = strstr(prm,"rcv"), *txt = strstr(prm,"txt"), *xml = strstr(prm,"xml");
   char *svm = strstr(prm,"svm"), *csv = strstr(prm,"csv"); // *tsv = strstr(prm,"tsv");
-  char *ids = strstr(prm,"ids"), *jsn = strstr(prm,"json");
-  char *fmt = getprms (prm,"fmt=",NULL,',');
-  char *rid = getprms (prm,"rid=",NULL,',');
+  char *ids = strstr(prm,":ids"), *jsn = strstr(prm,"json"), *Len = strstr(prm,":len");
   char *empty = strstr(prm,"empty");
   char *nonempty = strstr(prm,"nonempty");
+  char *rid = getprms (prm,"rid=",NULL,',');
+  char *fmt = strstr(prm,"ints") ? "%.0f" : getprms (prm,"fmt=","%.4f",',');
   coll_t *M = open_coll (_M, "r+");
   RH = (RH && *RH && !atoi(RH)) ? RH : NULL;
   CH = (CH && *CH && !atoi(CH)) ? CH : NULL;
@@ -146,7 +146,8 @@ void mtx_print (char *prm, char *_M, char *RH, char *CH) {
     else if (!len(vec) && nonempty)  { free_vec(vec); continue; }
     char *rid = id2str(rh,i);
     if      (top) { trim_vec (vec, top); sort_vec (vec, cmp_ix_X); }
-    if      (ids) printf ("%s\n", rid); 
+    if      (ids) printf ("%s\n", rid);
+    else if (Len) printf ("%s\t%d\n", rid, len(vec));
     else if (rcv) print_vec_rcv (vec, ch, rid, fmt);
     else if (txt) print_vec_txt (vec, ch, rid, 0);
     else if (xml) print_vec_txt (vec, ch, rid, 1);
@@ -159,6 +160,28 @@ void mtx_print (char *prm, char *_M, char *RH, char *CH) {
   free_coll (M); free_hash (rh); if (ch != rh) free_hash (ch);
   if (fmt) free(fmt);
 }  
+
+void mtx_quantiles (char *_M, char *_H) {
+  char *fmt = "%9d: %10.4f ± %10.4f [%6.2f %6.2f %6.2f %6.2f %6.2f |%6.2f| %6.2f %6.2f %6.2f %6.2f %6.2f] %8s\n";
+  char *hmt = "%9s: %10s ± %10s [%6s %6s %6s %6s %6s |%6s| %6s %6s %6s %6s %6s] %4s\n";
+  printf (hmt, "N", "mean", "stdev", "min", "1%", "5%", "10%", "25%", "medi", "75%", "90%", "95%", "99%", "max", "id");  
+  coll_t *M = open_coll (_M, "r+");
+  hash_t *H = _H ? open_hash (_H, "r") : NULL;
+  uint q[9] = {01, 05, 10, 25, 50, 75, 90, 95, 99}, j;
+  float Q[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
+  uint i, n = nvecs(M), N;
+  for (i = 1; i <= n; ++i) {
+    char *id = id2str (H, i);
+    ix_t *V = get_vec (M, i); N = len(V);
+    sort_vec (V, cmp_ix_x);
+    double avg = sum(V)/N, M2 = sum2(V)/N, std = sqrt(M2-avg*avg);
+    float Min = V[0].x, Max = V[N-1].x;
+    for (j=0; j<9; ++j) Q[j] = V[q[j]*N/100].x;
+    printf (fmt, N, avg, std, Min, Q[0], Q[1], Q[2], Q[3], Q[4], Q[5], Q[6], Q[7], Q[8], Max, id);
+    free(id); free_vec (V);
+  }  
+  free_coll (M); free_hash (H);  
+}
 
 static uint *hash_merge_self (char *_A, char *_B) {
   assert (!strcmp(_A,_B));
@@ -182,7 +205,7 @@ uint *hash_merge (char *_A, char *_B, char *pA) {
   for (i = 1; i <= nB; ++i) { // for each key in the table
     char *key = id2key (B,i);
     F[i] = key2id (A,key);
-    if (0 == i%100) show_progress (i, nB, "keys merged");
+    if (0 == i%100) show_progress (i, nB, " keys merged");
   }
   fprintf (stderr, "done: %s [%d] \n", _A, nvecs(A->keys));
   free_hash (A); free_hash (B);
@@ -248,7 +271,7 @@ void mtx_merge (char *_A, char *_RA, char *_CA,
     else {} // skip by default: keep A[a], drop B[b]
     */
     free_vec (V);
-    show_progress (b, nB, "rows merged");
+    show_progress (b, nB, " rows merged");
   }
   fprintf (stderr, "done: %s [%d x %d]\n", _A, num_rows(A), num_cols(A));
   free_coll (A); free_coll (B); free_vec (R); free_vec (C);
@@ -304,7 +327,7 @@ static void mtx2full (coll_t *trg, coll_t *src) {
     float *full = vec2full (vec, nc, 0);
     put_vec (trg, i, full);
     free_vec (vec); free_vec (full);
-    show_progress (i,nr,"vecs");
+    show_progress (i,nr," vecs");
   }
   trg->rdim = nr; trg->cdim = nc;
 }
@@ -317,7 +340,7 @@ static void full2mtx (coll_t *trg, coll_t *src) {
     ix_t *vec = full2vec (full);
     put_vec (trg, i, vec);
     free_vec (vec); free_vec (full);
-    show_progress (i,nr,"vecs");
+    show_progress (i,nr," vecs");
   }
   trg->rdim = nr; trg->cdim = nc;
 }
@@ -354,7 +377,8 @@ void mtx_weigh (char *TRG, char *prm, char *SRC, char *STATS) { // thread-unsafe
   float top = getprm(prm,"top=",0),  L = getprm(prm,"L=",0);
   float   k = getprm(prm,  "k=",0),  b = getprm(prm,"b=",0);
   float rbf = getprm(prm,"rbf=",0),  sig = getprm(prm,"sig=",0);
-  char *distinct = strstr(prm,"distinct");
+  char *sorti = strstr(prm,"sort=i"), *sortx = strstr(prm,"sort=x"), *sortX = strstr(prm,"sort=X");
+  char *distinct = strstr(prm,"distinct"), *count = strstr(prm,"count");
   float outside = getprm(prm,"outside=",0);
   
   //float lmj = getprm(prm,"lm:j=",0), lmd = getprm(prm,"lm:d=",0);
@@ -418,7 +442,7 @@ void mtx_weigh (char *TRG, char *prm, char *SRC, char *STATS) { // thread-unsafe
 	   strstr(prm,"rowmin"))   { mtx_weigh_max (trg,src,prm); id = nv; }
   
   while (++id <= nv) {
-    show_progress (id, nv, "vecs");
+    show_progress (id, nv, " vecs");
     if (!has_vec (src, id)) continue;
     ix_t *vec = get_vec (src, id), *tmp = 0; // *e = vec + len(vec), *v = vec-1;
     if (!len(vec)) { free_vec (vec); continue; }
@@ -467,12 +491,16 @@ void mtx_weigh (char *TRG, char *prm, char *SRC, char *STATS) { // thread-unsafe
     if      (smh) { vec = simhash (tmp=vec, L*k, smd); free_vec (tmp); }
     if      (lsh) { vec = bits2codes (tmp=vec, L);     free_vec (tmp); }
     if (distinct) { vec = distinct_values (tmp=vec,0); free_vec (tmp); }
+    if    (count) { vec_x_num (vec,'=',1); sort_vec (vec, cmp_ix_i); uniq_vec (vec); }
     if      (Max) { vec->i=1; vec->x = max(vec)->x;      len(vec)=1; }
     else if (Min) { vec->i=1; vec->x = min(vec)->x;      len(vec)=1; }
     else if (Sm0) { vec->i=1; vec->x = sump(0,vec);      len(vec)=1; }
     else if (Sm2) { vec->i=1; vec->x = sum2(vec);        len(vec)=1; }
     else if (Sum) { vec->i=1; vec->x = sum(vec);         len(vec)=1; }
     else if (lse) { vec->i=1; vec->x = log_sum_exp(vec); len(vec)=1; }
+    if      (sorti) sort_vec (vec, cmp_ix_i);
+    else if (sortx) sort_vec (vec, cmp_ix_x);
+    else if (sortX) sort_vec (vec, cmp_ix_X);
     put_vec (trg, id, vec);
     free_vec (vec);
   }
@@ -520,7 +548,7 @@ void mtx_window (char *PxW, char *DxW, char *MAP, char *prm) {
       if (M) put_vec_write (M, np, map);
       beg += step;
     } while (beg < end - size + step);
-    show_progress (d, nd, "docs -> passages");
+    show_progress (d, nd, " docs -> passages");
     free_vec (doc);
   }
   free_vec(psg); free_vec(map);  
@@ -613,7 +641,7 @@ void mtx_rowset (char *_A, char *_B, char *_H) {
     ix_t *vec = get_vec (B,id);
     put_vec_write (A,id,vec);
     free_vec (vec);
-    show_progress (++done, 0, "vecs copied");
+    show_progress (++done, 0, " vecs copied");
   }
   free_coll (A); free_coll (B); free_hash (H);
 }
@@ -641,7 +669,7 @@ void mtx_colset (char *_A, char *_B, char *_H) {
     vec_x_set (vec, '*', set) ;
     if (len(vec)) put_vec (A, id, vec);
     free_vec (vec);
-    show_progress (++done, N, "vecs masked");
+    show_progress (++done, N, " vecs masked");
   }
   free_coll (A); free_coll (B); 
 }
@@ -739,7 +767,7 @@ void mtx_product (char *_P, char *_A, char *_B, char *prm) {
     free_vec (_c); 
     free_vec (S);
     //if (omp_get_thread_num() == 0)
-    show_progress (++done, nA, "rows");
+    show_progress (++done, nA, " rows");
   }
   free_coll (B);
   free_vec (SA);
@@ -811,7 +839,7 @@ void mtx_distance (char *_D, char *_A, char *_B, char *prm) {
     free_vec (d);
     free_vec (a);
     free_vec (aa);
-    show_progress ((done+=nB)/1E6, todo/1E6, "Mdistances");
+    show_progress ((done+=nB)/1E6, todo/1E6, "M distances");
   }
   free_coll (D); free_coll (A); free_coll (B);
   fprintf (stderr, "[%.0fs] %ld cells done\n", vtime(), done);
@@ -841,7 +869,7 @@ void mtx_dot (char *_P, char *_A, char op, char *_B) {
     chop_vec (p);
     put_vec (P, id, p);
     free_vec (a); free_vec (b); free_vec (p);
-    show_progress (id, n, "rows");
+    show_progress (id, n, " rows");
   }
   free_coll (P); free_coll (A); free_coll (B);
 }
@@ -1065,7 +1093,7 @@ void mtx_rnd (char *RND, char *prm, char *_R, char *_C) {
     else              vec = rand_vec_uni (C, lo, hi);
     put_vec (rnd, r, vec);
     free_vec (vec);
-    show_progress (r, R, "rows");
+    show_progress (r, R, " rows");
   }
   free_coll (rnd);
 }
@@ -1242,7 +1270,7 @@ void seg_centroid (char *_M, char *prm, char *_X) {
       if (d > t) { free_vec (vec); break; }
       centroid = vec_add_vec (1-w, centroid, w, vec);
       free_vec (vec); free_vec (tmp);
-      show_progress (j, n, "rows segmented");
+      show_progress (j, n, " rows segmented");
     }
     put_vec (M, i, centroid); 
     free_vec (centroid);
@@ -1276,7 +1304,7 @@ void mtx_clump (char *_C, char *_D, char *_T, char *prm) { // C = clump D D.T pr
   uint d, nd = num_rows(D), nc = 0;
   float *skip = new_vec (nd+1, sizeof(float));
   for (d = 1; d <= nd; ++d) {
-    show_progress (d, nd, "docs");
+    show_progress (d, nd, " docs");
     if (skip[d]) continue;
     ix_t *ctr = get_vec (D, d), *c;  trim_vec (ctr, top);
     ix_t *nns = cols_x_vec (T, ctr); vec_x_num (nns, 'T', thresh);
@@ -1322,7 +1350,7 @@ jix_t *max_span_tree (coll_t *A) {
       }
     }
     free_vec (S);
-    show_progress (n, nr, "nodes added");
+    show_progress (n, nr, " nodes added");
   }
   fprintf (stderr, "%d nodes done.\n", n);
   return M;
@@ -1428,7 +1456,7 @@ jix_t *connected_components (coll_t *A) {
       }
     }
     free_vec (S);
-    show_progress (n, nr, "nodes added");
+    show_progress (n, nr, " nodes added");
   }
   fprintf (stderr, "%d nodes done.\n", n);
   return M;
@@ -1789,6 +1817,7 @@ char *usage =
   "                          top=9     ... 9 biggest values per row in descending order\n"
   "                          rid=ABC   ... only row with id=ABC (rno=N for row number)\n"
   "                          empty     ... include empty rows (for csv,svm,txt)\n"
+  "                          ints      ... values are integers\n"
   "                          fmt=' %f' ... csv number format (must be last parameter)\n"
   " print:f1 Sys Tru prm   - evaluation: recall, precision, F1, AP, maxF1\n"
   "                          prm: top=K,b=1,thresh=X,noself\n"
@@ -1800,6 +1829,7 @@ char *usage =
   "                               ranks  ... dump raw ranked lists per class\n"
   "                               top=K  ... truncate to top K scores per class\n"
   "                               noself ... remove diagonal from Sys, Tru\n"
+  " quantiles M [H]        - print quantiles for every row of M\n"
   " transpose M            - transpose matrix M into M.T (eg docs -> inverted lists)\n"
   " merge A R C += B S D   - merge B[SxD] into A[RxC], re-mapping the row/column ids\n"
   "                          ,join/skip/replace ... rows with duplicate ids\n"
@@ -1824,6 +1854,8 @@ char *usage =
   "                           simhash - generate L=32 fingerprints of k=16 bits\n"
   "                                     sampling simhash:Uniform,Normal,Logistic,Bernoulli\n"
   "                          distinct - column numbers -> per-row counts of unique values\n"
+  "                             count - sort|uniq each row: collection of lists -> matrix\n"
+  "                      sort:{i,x,X} - sort each row by: i=column id, x:incr, X:decr\n"
   "                               uni - uniform weights over top=k features\n"
   "                             ranks - replace weights with rank\n"
   "                             top=k - keep only k highest cells in each vector\n"
@@ -1985,6 +2017,7 @@ int main (int argc, char *argv[]) {
   else if (!strncmp(a(1), "norm", 4))   mtx_norm (arg(2), a(1));
   else if (!strncmp(a(1), "trace", 5))  mtx_trace (arg(2), a(1));
   else if (!strncmp(a(1), "load:", 5))  mtx_load (arg(2), arg(3), arg(4), a(1)+5, a(5));
+  else if (!strncmp(a(1), "quantil",7)) mtx_quantiles (arg(2), arg(3));
   else if (!strncmp(a(1),"print:f1",8)) mtx_print_f1  (arg(2), arg(3), a(4));
   else if (!strcmp (a(1), "print:evl")) mtx_print_evl (arg(2), arg(3), a(4));
   else if (!strcmp (a(1), "print:roc")) mtx_print_roc (arg(2), arg(3), a(4));
