@@ -613,7 +613,7 @@ inline void show_spinner () { // thread-unsafe: static
   fprintf (stderr, "%c\r", spin[++i%4]);
 }
 
-inline void show_progress (ulong done, ulong total, char *s) { // thread-unsafe: static
+inline void show_progress (ulong done, ulong total, char *msg) { // thread-unsafe: static
   static ulong dots = 0, prev = 0, line = 50;
   static time_t last = 0, begt = 0;
   time_t this = time(0);
@@ -627,8 +627,8 @@ inline void show_progress (ulong done, ulong total, char *s) { // thread-unsafe:
   if (++dots < line) return;
   double todo = total-done, di = done-prev, ds = this-begt, rpm = 60*di/ds, ETA = todo/rpm;
   //double ETA = ((double)(N-n)) / ((n-m) * 60 / line); // minutes
-  if (!total) fprintf (stderr, "%ld %s @ %.0f / minute\n", done, s, rpm);
-  else {      fprintf (stderr, "%ld / %ld %s", done, total, s);
+  if (!total) fprintf (stderr, "%ld%s @ %.0f / minute\n", done, msg, rpm);
+  else {      fprintf (stderr, "%ld / %ld%s", done, total, msg);
     if (ETA < 60)        fprintf (stderr, " ETA: %.1f minutes\n", ETA);
     else if (ETA < 1440) fprintf (stderr, " ETA: %.1f hours\n", ETA/60);
     else                 fprintf (stderr, " ETA: %.1f days\n", ETA/1440);
