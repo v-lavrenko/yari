@@ -77,6 +77,8 @@ void *vec_el (void **vec, uint n) ;
 void *set_vec_el (void *vec, uint i, void *el) ;
 void *ref_vec_el (void **vec, uint i) ;
 
+void **pointers_to_vec (void *V) ; // vector of n pointers 
+
 int cmp_jix (const void *n1, const void *n2) ; // by increasing j then i
 int cmp_it_i (const void *n1, const void *n2) ; // by increasing i
 int cmp_it_t (const void *n1, const void *n2) ; // by increasing t

@@ -212,6 +212,13 @@ void *read_vec (char *path) {
   return v->data;
 }
 
+void **pointers_to_vec (void *V) {
+  uint i, n = len(V), esz = vesize(V);
+  void **P = new_vec (n, sizeof(void*));
+  for (i=0; i<n; ++i) P[i] = V + i * esz;
+  return P;
+}
+
 void sort_vec (void *d, int (*cmp) (const void *, const void *)) {
   qsort (d, len(d), vesize(d), cmp); }
 
