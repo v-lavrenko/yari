@@ -43,7 +43,7 @@ void rehash (hash_t *H) {
     uint code = multiadd (key, sz);
     //uint code = H->code[id-1];
     uint *i = href (H, code, key, sz);
-    
+    (void) i;
   }
   
   
@@ -58,7 +58,7 @@ uint key2id (hash_t *H, char *key, uint sz) {
     H->keys = append_vec (H->keys, &key);
     //H->code = append_vec (H->code, &code);
     *i = len(H->keys);
-    if (len(H->keys) > 0.9 * H->mask) rehash(H);
+    if (len(H->keys) > EMAXID * H->mask) rehash(H);
   }
   return *i;
 }

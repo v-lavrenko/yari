@@ -34,8 +34,9 @@
 #define Infinity   9999999999999
 #define	EXP	   2.7182818284590
 #define PI	   3.1415926535898
-#define EulerGamma 0.5772156649015 
+#define EulerGamma 0.5772156649015
 #define EPS        2.2204e-16
+#define EMAXID     (1./(1.+EXP))
 
 typedef unsigned uint;
 typedef unsigned long ulong;
