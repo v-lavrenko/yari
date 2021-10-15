@@ -92,6 +92,7 @@ int main (int argc, char *argv[]) {
     if (eol) *eol = 0;
     if (argv[1][1] == '@') hl_subs (line, argv[1]); // highlight substrings
     else hl_line (line, argv, argc); // highlight whole lines
+    fflush(stdout);
   }
   return 0;
 }
