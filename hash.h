@@ -37,6 +37,7 @@ typedef struct {
 } hash_t; 
 
 #define nkeys(h) (len((h)->keys->offs)-1)
+#define hrange(n) (((ulong)n) * (1.+EXP))
 
 hash_t *open_hash (char *path, char *access);
 void    free_hash (hash_t *h) ;

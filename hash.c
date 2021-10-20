@@ -185,7 +185,7 @@ uint key2id (hash_t *h, char *key) { // TODO: arg3 = len(key)
   uint *slot = href (h, key, code);
   if (*slot || h->access[0] == 'r') return *slot; // key already in table
   uint id = add_new_key (h, key, code);
-  if (id > EMAXID*len(h->indx)) { hrehash(h); slot = href (h, key, code); }
+  if (hrange(id) > len(h->indx)) { hrehash(h); slot = href (h, key, code); }
   return (*slot = id);
 }
 
