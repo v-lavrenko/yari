@@ -128,6 +128,8 @@ void update_stats_from_vec (stats_t *s, ix_t *vec) ;
 void update_stats_from_file (stats_t *s, hash_t *dict, char *file) ;
 void free_stats (stats_t *s) ;
 void dump_stats (stats_t *s, hash_t *dict) ;
+stats_t *load_stats (char *path) ;
+void save_stats (stats_t *s, char *path) ;
 
 ix_t *doc2lm (ix_t *doc, double *cf, double mu, double lambda) ;
 
@@ -150,7 +152,8 @@ void crop_outliers (ix_t *vec, stats_t *s, float Z) ;
 void keep_outliers (ix_t *X, float p) ;
 xy_t cdf_interval (ix_t *X, float p) ;
 
-void weigh_mtx (coll_t *M, char *prm, stats_t *s) ;
+// reweigh every vector in M, or given vector V (if M==0)
+void weigh_mtx_or_vec (coll_t *M, ix_t *V, char *prm, stats_t *s) ;
 
 double log_sum_exp (ix_t *vec) ;
 void softmax (ix_t *vec) ; // log2posterior

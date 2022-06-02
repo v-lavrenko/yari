@@ -852,7 +852,7 @@ ix_t *parse_vec_txt (char *str, char **id, hash_t *ids, char *prm) { // thread-u
   if (stemmer) stem_toks (toks, stemmer);
   if (stop)    stop_toks (toks);
   char **pairs = strstr (prm,"w=") ? toks2pairs (toks,prm) : NULL;
-  ix_t *vec = toks2ids (pairs?pairs:toks, ids), *v;
+  ix_t *vec = toks2vec (pairs?pairs:toks, ids), *v;
   if (position) for (v = vec; v < vec + len(vec); ++v) v->x = v - vec + 1;
   else {
     sort_vec (vec, cmp_ix_i);
@@ -1391,7 +1391,8 @@ void keep_outliers (ix_t *X, float p) {
   fprintf (stderr, "%d [%f..%f]\n", len(X), CI.x, CI.y);
 }
 
-void weigh_mtx (coll_t *M, char *prm, stats_t *s) {
+// reweigh every vector in M, or given vector V (if M==0)
+void weigh_mtx_or_vec (coll_t *M, ix_t *V, char *prm, stats_t *s) { 
   char *l2p = strstr(prm,"softmax");
   float  L1 = getprm(prm,"L1=",0);
   float  L2 = getprm(prm,"L2=",0);
@@ -1405,9 +1406,9 @@ void weigh_mtx (coll_t *M, char *prm, stats_t *s) {
   char *r01 = strstr(prm,"range01");
   //xy_t R = r01 ? mrange (M) : (xy_t){0,0};
   //if (r01) fprintf(stderr,"---------> RANGE: %f ... %f\n", R.x, R.y);
-  uint i=0, n = num_rows (M);
+  uint i=0, n = M ? num_rows (M) : 1; 
   while (++i <= n) {
-    ix_t *vec = get_vec (M, i);
+    ix_t *vec = M ? get_vec (M, i) : V;
     if (lmj) weigh_vec_lmj (vec, s);
     if (lmd) weigh_vec_lmd (vec, s);
     if (inq) weigh_vec_inq (vec, s);
@@ -1420,8 +1421,7 @@ void weigh_mtx (coll_t *M, char *prm, stats_t *s) {
     //if (r01) { vec_x_num (vec, '-', R.x); vec_x_num (vec, '/', R.y-R.x); }
     if (r01) weigh_vec_range01 (vec);
     if (l2p) softmax (vec);
-    put_vec (M, i, vec);
-    free_vec (vec);
+    if (M) { put_vec (M, i, vec); free_vec (vec); }
   }
 }
 
