@@ -154,7 +154,8 @@ void maxent2 (coll_t *W, coll_t *_Y, coll_t *X, char *prm) {
 	   "time", "#", "rate", "logL", "vocab", "train", "valid");
   if (!seed) { 
     rows_x_cols (W,Y,X);                  // W = Y x X        centroids
-    weigh_mtx (W, "L2=1", 0); }
+    weigh_mtx_or_vec (W, 0, "L2=1", 0);
+  }
   while (1) {
     rows_x_cols (P,W,XT);                 // P = W x X'
     //rows_x_rows (P,W,X);
