@@ -19,6 +19,8 @@
   
 */
 
+#include "matrix.h"
+
 #ifndef QUERY
 #define QUERY
 
@@ -35,12 +37,12 @@ typedef struct {
 
 qry_t *str2qry (char *str) ; // 'amino -acid +"fab"' -> qry_t[3]
 char  *qry2str (qry_t *Q, hash_t *H) ; // Q -> 'amino -acid +"fab"'
-void  free_qry (qry_t *Q) ;
+void  free_qry (qry_t *Q) ; 
 void spell_qry (qry_t *Q, hash_t *H, float *F, char *prm) ;
-ix_t *exec_qry (qry_t *Q, hash_t *H, coll_t *INVL, char *prm) ;
+ix_t *exec_qry (qry_t *Q, hash_t *H, coll_t *INVL, char *prm) ; // Boolean
+ix_t *exec_wsum (char *Q, hash_t *H, coll_t *INVL, char *prm, stats_t *S) ; // bag-of-words
 char *qry2original (qry_t *Q, hash_t *H) ;
-char **toks4snippet (qry_t *Q, hash_t *H) ; // words for snippet extraction  
-char *toks2str (char **toks) ; // ' '.join(toks)
+char **toks4snippet (qry_t *Q, hash_t *H) ; // words for snippet extraction
 int qry_altered (qry_t *Q, hash_t *H) ; // 1 <-> query changed by spell-check
 
 #endif

@@ -115,13 +115,6 @@ char **toks4snippet (qry_t *Q, hash_t *H) { // words for snippet extraction
   return toks;
 }
 
-char *toks2str (char **toks) { // ' '.join(toks)
-  char *buf=0; int sz=0, i=-1, n = len(toks);
-  while (++i<n) if (toks[i]) zprintf (&buf,&sz, "%s ", toks[i]);
-  if (sz) buf[--sz] = '\0'; // chop trailing space
-  return buf;  
-}
-
 void spell_qry (qry_t *Q, hash_t *H, float *F, char *prm) {
   char V = prm && strstr(prm,"verbose") ? 1 : 0;
   qry_t *q, *last = Q+len(Q)-1;  
@@ -163,7 +156,16 @@ ix_t *exec_qry (qry_t *Q, hash_t *H, coll_t *INVL, char *prm) {
   }
   return result ? result : new_vec(0,sizeof(ix_t));
 }
- 
+
+// bag-of-words matching (wsum)
+ix_t *exec_wsum (char *text, hash_t *H, coll_t *INVL, char *prm, stats_t *S) {
+  ix_t *Q = parse_vec_txt (text, 0, H, prm); // stop,stem=K,tokw,nowb,gram=2:3
+  if (S) weigh_mtx_or_vec (0, Q, prm, S); // inq,idf,top=10,thr=0,L2=1,softmax
+  ix_t *D = cols_x_vec (INVL, Q);
+  free_vec (Q);
+  return D;
+}
+
 #ifdef MAIN
 
 int dump_parsed_qry (char *qry) {
