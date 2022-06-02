@@ -362,6 +362,13 @@ char **str2toks (char *str, char *ws, uint maxlen) {
   return toks;
 }
 
+char *toks2str (char **toks) { // ' '.join(toks)
+  char *buf=0; int sz=0, i=-1, n = len(toks);
+  while (++i<n) if (toks[i]) zprintf (&buf,&sz, "%s ", toks[i]);
+  if (sz) buf[--sz] = '\0'; // chop trailing space
+  return buf;  
+}
+
 void stem_toks (char **toks, char *type) {
   char stem[1000], **w, **end = toks+len(toks);
   for (w = toks; w < end; ++w) {
@@ -381,7 +388,14 @@ void stop_toks (char **toks) { // thread-unsafe: static
   len(toks) = v - toks;
 }
 
-ix_t *toks2ids (char **toks, hash_t *ids) {
+char **vec2toks (ix_t *vec, hash_t *ids) {
+  uint i, n = len(vec), sz = sizeof(char*);
+  char **toks = new_vec (n, sz);
+  for (i=0; i<n; ++i) toks[i] = id2str (ids, vec[i].i);
+  return toks;  
+}
+
+ix_t *toks2vec (char **toks, hash_t *ids) {
   char **w, **end = toks+len(toks);
   ix_t *vec = new_vec (0, sizeof(ix_t)), new = {0,1};
   for (w = toks; w < end; ++w) {

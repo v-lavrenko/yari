@@ -69,9 +69,11 @@ void stem_word (char *word, char *stem, char *type) ;
 int stop_word (char *word) ;
 
 char **str2toks (char *str, char *ws, uint maxlen) ;
+char *toks2str (char **toks) ; // ' '.join(toks)
 void stem_toks (char **toks, char *type) ;
 void stop_toks (char **toks) ;
-ix_t *toks2ids (char **toks, hash_t *ids) ;
+ix_t *toks2vec (char **toks, hash_t *ids) ;
+char **vec2toks (ix_t *vec, hash_t *ids) ;
 char **toks2pairs (char **toks, char *prm) ;
 void free_toks (char **toks) ;
 
