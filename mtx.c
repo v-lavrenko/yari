@@ -69,6 +69,23 @@ void mtx_trace (char *_M, char *prm) {
   free_coll (M);
 }
 
+void mtx_stats (char *_S, char *_M, char *prm) {
+  if (strstr(prm,"dump")) {
+    hash_t *H = open_hash (_M,"r");
+    stats_t *S = load_stats (_S);
+    dump_stats (S, H);
+    free_hash(H);
+    free_stats(S);
+  } else {
+    coll_t *M = open_coll (_M,"r+");
+    stats_t *S = coll_stats (M);
+    save_stats (S, _S);
+    free_coll(M);
+    free_stats(S);
+  }
+}
+
+
 void mtx_load (char *M, char *RH, char *CH, char *type, char *prm) {
   ulong done = 0;
   char *buf = malloc(1<<24), *id = 0;  
@@ -1975,6 +1992,7 @@ char *usage =
   "                                logSexp     - D[i,j] = logSexp { A[i,:] & B[j,:] }\n"
   "                                wts=W       - weighted Minkowski distance\n"
 //"                                subset      - D specifies which pairs to compare\n"
+  " stats[:dump] S A       - S = {CF,DF,L2 of A}, or dump S using dict A\n"
   " size[:r/c] A           - report the dimensions of A (rows/cols)\n"
   " norm[:p=1] A           - p-norm of A: SUM_r,c A[r,c]^p\n"
   " trace[:avg] A          - sum/average of elements on the diagonal of A\n"
@@ -2016,6 +2034,7 @@ int main (int argc, char *argv[]) {
   if      (!strncmp(a(1), "size", 4))   mtx_size (arg(2), a(1));
   else if (!strncmp(a(1), "norm", 4))   mtx_norm (arg(2), a(1));
   else if (!strncmp(a(1), "trace", 5))  mtx_trace (arg(2), a(1));
+  else if (!strncmp(a(1), "stats", 5))  mtx_stats (arg(2), arg(3), a(1));
   else if (!strncmp(a(1), "load:", 5))  mtx_load (arg(2), arg(3), arg(4), a(1)+5, a(5));
   else if (!strncmp(a(1), "quantil",7)) mtx_quantiles (arg(2), arg(3));
   else if (!strncmp(a(1),"print:f1",8)) mtx_print_f1  (arg(2), arg(3), a(4));
