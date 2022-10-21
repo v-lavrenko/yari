@@ -97,6 +97,44 @@ void cut_stdin (char **cols, int n) {
   }
 }
 
+int strip_xml () {
+  size_t sz = 999999;
+  int nb = 0;
+  char *line = malloc(sz);
+  while (0 < (nb = getline(&line,&sz,stdin))) {
+    int in = 0; char *s;    
+    //if (line[nb-1] == '\n') line[nb-1] = '\0';
+    for (s = line; *s; ++s) {
+      if      (*s == '<') { in = 1; *s = ' '; }
+      else if (*s == '>') { in = 0; *s = ' '; }
+      else if (in) *s = ' ';
+    }
+    //erase_between (line, "<", ">", ' '); // remove all tags
+    fputs (line, stdout);
+  }
+  return 0;
+}
+
+int wc_stdin () {
+  size_t sz = 999999;
+  unsigned long NB = 0, NW = 0, NL = 0;
+  int nb = 0;
+  char *line = malloc(sz);
+  while (0 < (nb = getline(&line,&sz,stdin))) {
+    NL += 1; // number of lines
+    NB += nb; // number of bytes
+    int ws = 1; char *s;    
+    for (s = line; *s; ++s) {
+      if (*s == ' ') ws = 1;
+      else if (ws) { ws = 0; ++NW; } // space -> word transition
+    }
+    //erase_between (line, "<", ">", ' '); // remove all tags
+    //fputs (line, stdout);
+  }
+  printf ("\t%ld\t%ld\t%ld\t lines/words/bytes\n", NL, NW, NB);
+  return 0;
+}
+
 void show_header (char **cols, int n) {
   int i; fputc ('#', stdout);
   for (i = 0; i < n; ++i) {
@@ -127,6 +165,8 @@ char *usage =
 int main (int argc, char *argv[]) {
   if (argc < 2) return fprintf (stderr, "\n%s\n", usage);
   if (!strcmp(argv[1],"-h")) { ++argv; --argc; show_header(argv+1,argc-1); }
+  if (!strcmp(argv[1],"-noxml")) return strip_xml();
+  if (!strcmp(argv[1],"-wc")) return wc_stdin();
   cut_stdin(argv+1,argc-1);
   return 0;
 }
