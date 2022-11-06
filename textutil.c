@@ -77,6 +77,30 @@ void gsub (char *haystack, char *needle, char with) {
   }
 }
 
+// wipe out HTML: &quot; &amp; &#x10f; -> ' '
+void noquot (char *S) {
+  char *s = S-1, *beg = 0, *r;
+  while (*++s) {
+    if (*s == '&') r = beg = s; // most recent start
+    if (*s != ';') continue;
+    // beg..s is a possible &quot;    
+    if (s - beg > 10) { beg = 0; continue; } // too long
+    while (++r < s) // r..s must be [#a-zA-Z0-9]
+      if (!(isalnum(*r) || *r == '#')) { beg = 0; continue; }
+    memset(beg, ' ', s-beg+1);
+    beg = 0;
+  }
+}
+
+void noxml (char *S) {
+  char *s = S-1, in = 0;
+  while (*++s) {
+    if      (*s == '<') { in = 1; *s = ' '; }
+    else if (*s == '>') { in = 0; *s = ' '; }
+    else if (in) *s = ' ';
+  }
+}
+
 // in str replace any occurence of chars from punctuation[] with nothing
 void squeeze (char *str, char *what) {
   if (!str) return;

@@ -94,3 +94,5 @@ compress: compress.c libyari.a libzstd.a
 
 hash2: hash2.c hashf.c libyari.a
 	$(CC) -DMAIN $^ $(LIB)
+
+bpe: bpe.c libyari.a

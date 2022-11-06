@@ -41,6 +41,7 @@
 typedef unsigned uint;
 typedef unsigned long ulong;
 typedef unsigned char uchar;
+typedef unsigned short ushort;
 
 //#define off64_t off_t;
 

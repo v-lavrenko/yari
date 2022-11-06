@@ -40,6 +40,24 @@ void dump_raw_ret (char *C, char *RH) {
   free_coll(c); free_hash(h);
 }
 
+void dump_rnd (char *C, char *prm) {
+  srandom(time(0));
+  coll_t *c = open_coll (C, "r+");
+  uint l = getprm(prm,"len=",100); (void) l;
+  uint num = getprm(prm,"num=",5)+1;
+  uint N = nvecs(c);
+  while (--num > 0) {
+    uint i = 1 + random() % N;
+    char *s = get_chunk(c,i);
+    s += strcspn (s,">") + 1;
+    char *end = strrchr(s,'<');
+    fwrite (s, 1, end-s, stdout);
+    fwrite ("\n", 1, 1, stdout);
+    //fprintf(stderr,"doc %d\n",i);
+  }
+  free_coll(c);
+}
+
 void dump_raw (char *C, char *RH, char *id) {
   coll_t *c = open_coll (C, "r+");
   hash_t *h = *RH ? open_hash (RH, "r") : NULL;
@@ -53,11 +71,12 @@ void dump_raw (char *C, char *RH, char *id) {
   free_coll(c); free_hash(h);
 }
 
-void load_raw (char *C, char *RH) { 
+void load_raw (char *C, char *RH, char *prm) {
+  char *addk = strstr(prm,"addkeys");
   uint done = 0;
   char *buf = malloc (1<<24);
   coll_t *c = open_coll (C, "w+");
-  hash_t *rh = open_hash (RH, "r!");
+  hash_t *rh = open_hash (RH, (addk ? "a!" : "r!"));
   while (read_doc (stdin, buf, 1<<24, "<DOC", "</DOC>")) {
     char *rowid = get_xml_docid (buf);
     uint id = key2id (rh, rowid), sz = strlen (buf) + 1;
@@ -1180,7 +1199,7 @@ char *usage =
   "  -m 256                      - set mmap size to 256MB\n"
   "  -rs 1                       - set random seed to 1\n"
   "  -dump XML [HASH id]         - dump all [id] from collection XML\n"
-  "  -load XML HASH              - stdin -> collection XML indexed by HASH\n"
+  "  -load XML HASH [prm]        - stdin -> collection XML indexed by HASH\n"
   "  -json JSON HASH [prm]       - stdin -> collection JSON indexed by HASH\n"
   "                                prm: skip, join duplicates, addkeys\n"
   //"  -merge C = A + B            - C[i] = A[i] + B[i] (concatenates records)\n"
@@ -1220,7 +1239,7 @@ int main (int argc, char *argv[]) {
   while (++argv && --argc) {
     if (!strcmp (a(0), "-m")) MAP_SIZE = ((ulong) atoi (a(1))) << 20;
     if (!strcmp (a(0), "-rs")) srandom (atoi(a(1)));
-    if (!strcmp (a(0), "-load")) load_raw (a(1), a(2));
+    if (!strcmp (a(0), "-load")) load_raw (a(1), a(2), a(3));
     if (!strcmp (a(0), "-json")) load_json (a(1), a(2), a(3));
     //if (!strcmp (a(0), "-merge") &&
     //!strcmp (a(2), "="))     merge_colls (a(1), a(3), a(5));
@@ -1233,6 +1252,7 @@ int main (int argc, char *argv[]) {
     //if (!strcmp (a(0), "merge") && 
     //!strcmp (a(2), "+="))    do_merge (a(1), NULL, a(3), NULL, a(4));
     if (!strcmp (a(0), "-dump")) dump_raw (a(1), a(2), a(3));
+    if (!strcmp (a(0), "-rand")) dump_rnd (a(1), a(2));
     if (!strcmp (a(0), "-dmap")) dump_raw_ret (a(1), a(2));
     if (!strcmp (a(0), "-stat")) do_stats (a(1), a(2));
     if (!strcmp (a(0), "-qry")) qry = do_qry (QRY=a(1), DICT=a(2), a(3));

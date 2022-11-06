@@ -102,14 +102,11 @@ int strip_xml () {
   int nb = 0;
   char *line = malloc(sz);
   while (0 < (nb = getline(&line,&sz,stdin))) {
-    int in = 0; char *s;    
-    //if (line[nb-1] == '\n') line[nb-1] = '\0';
-    for (s = line; *s; ++s) {
-      if      (*s == '<') { in = 1; *s = ' '; }
-      else if (*s == '>') { in = 0; *s = ' '; }
-      else if (in) *s = ' ';
-    }
-    //erase_between (line, "<", ">", ' '); // remove all tags
+    csub (line, "\t\r", ' ') ; // tabs and CR -> space
+    noxml(line); // erase <...>
+    noquot(line); // erase &#x14e;
+    spaces2space (line); // multiple -> single space
+    chop (line, " "); // remove leading / trailing space
     fputs (line, stdout);
   }
   return 0;

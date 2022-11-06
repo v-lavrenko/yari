@@ -43,6 +43,9 @@ void squeeze (char *str, char *what) ;
 void spaces2space (char *str) ; // multiple spaces -> single space
 void cgrams (char *str, uint lo, uint hi, uint step, char *buf, uint eob) ; // character n-grams
 
+void noquot (char *S) ; // erase &quot; &amp; &#x10f; etc
+void noxml (char *S) ; // erase <...>
+
 // erase (overwrite with 'C') every occurence of A...B
 void erase_between (char *buf, char *A, char *B, int C) ;
 char *json_value (char *json, char *key) ;
