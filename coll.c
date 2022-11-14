@@ -60,10 +60,13 @@ coll_t *open_coll (char *path, char *access) {
   if (c->version != COLL_VERSION) { fprintf (stderr, "ERROR: version of %s: %d != %d\n", path, c->version, COLL_VERSION); exit(1); }
   c->vecs = open_mmap (fmt(x,"%s/coll.vecs",path), access, MAP_SIZE);
   c->offs = open_vec (fmt(x,"%s/coll.offs",path), access, sizeof(off_t));
-  if (access[1] == '+') {
+  if (access[0] == 'r') {
+    c->prev = open_vec_if_exists (fmt(x,"%s/coll.prev",path), access);
+    c->next = open_vec_if_exists (fmt(x,"%s/coll.next",path), access);
+  } else if (access[1] == '+') {
     c->prev = open_vec (fmt(x,"%s/coll.prev",path), access, sizeof(uint));
     c->next = open_vec (fmt(x,"%s/coll.next",path), access, sizeof(uint));
-  } else c->prev = c->next = NULL;
+  } else c->prev = c->next = NULL;  
   if (len(c->offs) == 0) { // new matrix => initialize it
     c->offs = resize_vec (c->offs,1); 
     c->prev = resize_vec (c->prev,1); // NULL if c->prev was NULL
