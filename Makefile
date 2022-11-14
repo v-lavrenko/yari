@@ -27,7 +27,7 @@ warn=-W -Wall -Wno-unused-result -Wno-implicit-fallthrough -Wno-null-pointer-ari
 #CC=gcc -m64 $(opt) $(warn) -I . -o $@ $(f64) -fopenmp
 CC=gcc -m64 $(opt) $(warn) -I . -o $@ $(f64) 
 
-exe = testmmap testvec testcoll dict mtx stem kvs hl bio pdb shard pval ts ptail xcut xtime spell query nutil compress hash2 
+exe = testmmap testvec testcoll dict mtx stem kvs hl bio pdb shard pval ts ptail xcut xtime spell query nutil hash2 
 
 all: libyari.a $(exe)
 	etags *.c *.h
@@ -53,7 +53,7 @@ testvec: testvec.c mmap.c vector.c
 
 testcoll: testcoll.c mmap.c vector.c coll.c
 
-dict: dict.c mmap.c vector.c coll.c hash.c timeutil.c
+dict: dict.c mmap.c vector.c coll.c hash.c timeutil.c 
 
 mtx: mtx.c mmap.c vector.c coll.c hash.c matrix.c svm.c \
 	textutil.c stemmer_krovetz.c maxent.c synq.c timeutil.c
