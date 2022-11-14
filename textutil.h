@@ -38,13 +38,14 @@ void reverse (char *str, uint n) ; // reverse sub-string of length n
 uint atou (char *s) ; // string to integer (unsigned, decimal)
 char *itoa (char*_a, uint i) ;
 
-
 void squeeze (char *str, char *what) ;
 void spaces2space (char *str) ; // multiple spaces -> single space
 void cgrams (char *str, uint lo, uint hi, uint step, char *buf, uint eob) ; // character n-grams
 
-void noquot (char *S) ; // erase &quot; &amp; &#x10f; etc
-void noxml (char *S) ; // erase <...>
+// in S find+replace "&plusmn;" -> SRC -> id -> TRG -> "+/-"
+void gsub_xml_refs (char *S, hash_t *SRC, coll_t *TRG) ; 
+void no_xml_refs (char *S) ; // erase &quot; &amp; &#x10f; etc
+void no_xml_tags (char *S) ; // erase <...>
 
 // erase (overwrite with 'C') every occurence of A...B
 void erase_between (char *buf, char *A, char *B, int C) ;
