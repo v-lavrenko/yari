@@ -31,6 +31,28 @@ extern off_t MMAP_MOVES;
 //extern uint  HASH_PROB; // 0:linear 1:quadratic 2:secondary
 //extern float HASH_LOAD; // 0.1 ... 0.9
 
+char *usage =
+  "usage: dict     -load DICT < ids\n"
+  "                -dump DICT > pairs\n"
+  "                -vrfy DICT < pairs\n"
+  "                -keys DICT > ids\n"
+  "                -drop DICT < ids > new\n"
+  "                -keep DICT < ids > old\n"
+  "                 -add DICT < ids\n"
+  "               -merge DICT += DICT2\n"
+  "               -batch DICT += DICT2\n"
+  "           -diff,tail DICT - DICT2\n"
+  "                 -k2i DICT key\n"
+  "                 -i2k DICT id\n"
+  "                 size DICT\n"
+  "                 -dbg DICT\n"
+  "               -inmap MAP < src_trg_pairs\n"
+  "              -outmap MAP\n"
+  "              -usemap MAP < src_strings\n"
+  "                -rand 1-4 logN\n"
+  "                -uniq ... faster uniq\n";
+  
+
 int main (int argc, char *argv[]) {
   char *prm = argv [argc-1];
   uint wait = getprm(prm,"wait=",0);
@@ -61,29 +83,8 @@ int main (int argc, char *argv[]) {
     free_vec (C);
     return 0;
   }
-
   
-  if (argc < 3) {
-    fprintf (stderr, 
-	     "usage: dict     -load DICT < ids\n"
-	     "                -dump DICT > pairs\n"
-	     "                -vrfy DICT < pairs\n"
-	     "                -keys DICT > ids\n"
-	     "                -drop DICT < ids > new\n"
-	     "                -keep DICT < ids > old\n"
-	     "                 -add DICT < ids\n"
-	     "               -merge DICT += DICT2\n"
-	     "               -batch DICT += DICT2\n"
-	     "           -diff,tail DICT - DICT2\n"
-	     "                 -k2i DICT key\n"
-	     "                 -i2k DICT id\n"
-	     "                 size DICT\n"
-	     "                 -dbg DICT\n"
-	     "                -rand 1-4 logN\n"
-	     "                -uniq ... faster uniq\n"
-	     );
-    return 1;
-  }
+  if (argc < 3) return fputs (usage, stderr);
   
   //if (!strcmp(argv[1], "lock")) { MAP_MODE |= MAP_LOCKED;   ++argv; --argc; }
   //if (!strcmp(argv[1], "prep")) { MAP_MODE |= MAP_POPULATE; ++argv; --argc; }
@@ -263,6 +264,60 @@ int main (int argc, char *argv[]) {
     return 0;
   }
   
+  if (!strncmp(argv[1], "-inmap", 6)) {
+    char x[1000], line[100000];
+    hash_t *SRC = open_hash (fmt(x,"%s.src",argv[2]), "w");
+    coll_t *TRG = open_coll (fmt(x,"%s.trg",argv[2]), "w");
+    while (fgets(line, 100000, stdin)) { // expect space-separated: "src trg"
+      char *src = line, *trg = strchr(line,'\t'), *eol = strchr(line,'\n');
+      if (eol) *eol = '\0'; // strip newline
+      if (trg) *trg++ = '\0'; // null-terminate src + advance to trg
+      if (!has_key (SRC,src)) {
+	uint id = key2id  (SRC, src);
+	uint sz = strlen(trg)+1; // include \0
+	//printf ("'%s' -> %d -> '%s' [%d]\n", src, id, trg, sz);
+	put_chunk (TRG, id, trg, sz);	
+      }
+      else printf ("skipping duplicate key: '%s' -> '%s'\n", src, trg);      
+    }
+    printf ("%s [%d] -> %s [%d]\n", SRC->path, nkeys(SRC), TRG->path, nvecs(TRG));
+    free_hash(SRC);
+    free_coll(TRG);
+    return 0;
+  }
+
+  if (!strncmp(argv[1], "-usemap", 4)) {
+    char x[1000], line[100000];
+    hash_t *SRC = open_hash (fmt(x,"%s.src",argv[2]), "r!");
+    coll_t *TRG = open_coll (fmt(x,"%s.trg",argv[2]), "r");
+    while (fgets(line, 100000, stdin)) { // expect space-separated: "src trg"
+      char *src = line, *tab = strchr(line,'\t'), *eol = strchr(line,'\n');
+      if (tab) *tab = '\0';
+      if (eol) *eol = '\0';
+      uint id = has_key (SRC, src);
+      char *trg = id ? get_chunk (TRG,id) : src;
+      puts(trg);
+    }
+    free_hash(SRC);
+    free_coll(TRG);
+    return 0;
+  }
+  
+  if (!strncmp(argv[1], "-outmap", 4)) {
+    char x[1000];
+    hash_t *SRC = open_hash (fmt(x,"%s.src",argv[2]), "r!");
+    coll_t *TRG = open_coll (fmt(x,"%s.trg",argv[2]), "r");
+    uint i, n = nkeys(SRC);
+    for (i=1; i<=n; ++i) {
+      char *src = id2key(SRC,i);
+      char *trg = get_chunk(TRG,i); 
+      printf ("%s\t%s\n", src, trg);
+    }
+    free_hash(SRC);
+    free_coll(TRG);
+    return 0;
+  }
+
   if (!strcmp(argv[1], "-rand")) {
     uint x[1021], p = 1021; (void) x;
     char *test = "mtx load:rcv,truth.qryids1docids2p=wrr3<4truth5-6loadground truth\n";
@@ -275,7 +330,7 @@ int main (int argc, char *argv[]) {
     return 0;
   }
     
-  fprintf (stderr, "ERROR\n");
+  fprintf (stderr, "ERROR: incorrect %s", usage);
   return 0;
 
   ulong lines = 0; 
