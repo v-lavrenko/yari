@@ -57,8 +57,9 @@ inline void* vresize (void *x, uint n) {
 }
 */
 
-void    *new_vec (uint n, uint esize) ;
+void   *open_vec_if_exists (char *path, char *access) ;
 void   *open_vec (char *path, char *access, uint esize) ;
+void    *new_vec (uint n, uint esize) ;
 void    free_vec (void *d) ;
 void   write_vec (void *d, char *path) ;
 void   *read_vec (char *path) ;
