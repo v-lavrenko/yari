@@ -78,7 +78,7 @@ void gsub (char *haystack, char *needle, char with) {
 }
 
 // wipe out HTML: &quot; &amp; &#x10f; -> ' '
-void noquot (char *S) {
+void no_xml_refs (char *S) {
   char *s = S-1, *beg = 0, *r;
   while (*++s) {
     if (*s == '&') r = beg = s; // most recent start
@@ -90,9 +90,29 @@ void noquot (char *S) {
     memset(beg, ' ', s-beg+1);
     beg = 0;
   }
+  spaces2space (S); // multiple -> single space
 }
 
-void noxml (char *S) {
+// in S find "&plusmn;" -> SRC -> TRG -> "+/-"
+void gsub_xml_refs (char *S, hash_t *SRC, coll_t *TRG) {
+  char *beg = S, *end = S;
+  while ((beg = strchr(end,'&')) && // beg -> '&'
+	 (end = strchr(beg,';'))) { // end -> ';'
+    char tmp = end[1]; // save what was after ';'
+    end[1] = '\0'; // null-terminate '&plusmn;'
+    uint id = has_key(SRC,beg); 
+    if (id) { // we have a mapping for '&plusmn;'
+      char *trg = get_chunk(TRG,id); // target '+/-'
+      //printf("replacing '%s' -> '%s'\n", beg, trg);
+      char *p = stpcpy (beg,trg);   // '&plusmn;' ->  '+/-'
+      while (p <= end) *p++ = '\r'; // '+/-_____'
+    }
+    end[1] = tmp; // restore what was after ';'
+  }
+  squeeze (S, "\r");
+}
+
+void no_xml_tags (char *S) {
   char *s = S-1, in = 0;
   while (*++s) {
     if      (*s == '<') { in = 1; *s = ' '; }
