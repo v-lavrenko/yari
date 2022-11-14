@@ -81,7 +81,7 @@ void cut_json (char *line, char **cols, int n) {
 }
  
 int json_like (char *line) { return line[strspn(line," ")] == '{'; }
- 
+
 void cut_stdin (char **cols, int n) {
   size_t sz = 999999;
   int *nums = NULL, nb = 0;
@@ -103,12 +103,27 @@ int strip_xml () {
   char *line = malloc(sz);
   while (0 < (nb = getline(&line,&sz,stdin))) {
     csub (line, "\t\r", ' ') ; // tabs and CR -> space
-    noxml(line); // erase <...>
-    noquot(line); // erase &#x14e;
+    no_xml_tags(line); // erase <...>
     spaces2space (line); // multiple -> single space
     chop (line, " "); // remove leading / trailing space
     fputs (line, stdout);
   }
+  return 0;
+}
+
+int map_refs (char *MAP) {
+  size_t sz = 999999;
+  int nb = 0;
+  char *line = malloc(sz), x[999];
+  hash_t *SRC = MAP ? open_hash (fmt(x,"%s.src",MAP), "r") : NULL;
+  coll_t *TRG = MAP ? open_coll (fmt(x,"%s.trg",MAP), "r") : NULL;
+  while (0 < (nb = getline(&line,&sz,stdin))) {
+    if (MAP) gsub_xml_refs (line, SRC, TRG); // '&#xae;' -> '(R)'
+    else no_xml_refs(line); // erase &#xae; 
+    fputs (line, stdout);
+  }
+  free_hash(SRC);
+  free_coll(TRG);
   return 0;
 }
 
@@ -153,17 +168,25 @@ void stdin_grams (char *prm) {
 }
 */
 
+#define arg(i) ((i < argc) ? argv[i] : NULL)
+#define a(i) ((i < argc) ? argv[i] : "")
+
 char *usage = 
   "xcut 3 2 \\X 17    ... print columns 3, 2, 'X', 17 from stdin\n"
   "xcut age size type ... use 1st line to map age -> column number\n"
   "xcut age size type ... stdin = {JSON} records one-per-line\n"
+  "xcut -h age size   ... print header before cutting\n"
+  "xcut -wc           ... faster than wc byte/word/line counter\n"
+  "xcut -noxml        ... strip CR, <tags>, MAP: '&copy;' -> '(C)'\n"
+  "xcut -refs [MAP]   ... MAP: '&amp;' -> '&' (see dict -inmap)\n"
   ;
 
 int main (int argc, char *argv[]) {
   if (argc < 2) return fprintf (stderr, "\n%s\n", usage);
-  if (!strcmp(argv[1],"-h")) { ++argv; --argc; show_header(argv+1,argc-1); }
-  if (!strcmp(argv[1],"-noxml")) return strip_xml();
-  if (!strcmp(argv[1],"-wc")) return wc_stdin();
+  if (!strcmp(a(1),"-noxml")) return strip_xml();
+  if (!strcmp(a(1),"-refs")) return map_refs(arg(2));
+  if (!strcmp(a(1),"-wc")) return wc_stdin();
+  if (!strcmp(a(1),"-h")) { ++argv; --argc; show_header(argv+1,argc-1); }
   cut_stdin(argv+1,argc-1);
   return 0;
 }
