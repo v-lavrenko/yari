@@ -41,10 +41,14 @@ void *open_vec (char *path, char *access, uint esize) {
   if (v->file > 1) fprintf (stderr, "ERROR: %s is CORRUPTED, delete it\n", path); 
   if (!old) init_vec_t (v, 0, esize, fd); // new vector => init all elements
   else if (*access == 'r') close(fd); // release fd and still keep the mmap
-  else v->file = fd; // replace with stored descriptor with real one
+  else v->file = fd; // replace stored descriptor with the real one
   assert (size == vsizeof(v));
   return v->data;
 }
+
+void *open_vec_if_exists (char *path, char *access) {
+  return file_exists (path) ? open_vec (path, access, 0) : NULL;
+} // esize=0 is ok because we return NULL for non-existent vectors
 
 void free_vec (void *d) {
   if (!d) return;
