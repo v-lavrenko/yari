@@ -119,6 +119,7 @@ void no_xml_tags (char *S) {
     else if (*s == '>') { in = 0; *s = ' '; }
     else if (in) *s = ' ';
   }
+  spaces2space (S);
 }
 
 // in str replace any occurence of chars from punctuation[] with nothing
@@ -252,6 +253,19 @@ char *extract_between (char *buf, char *A, char *B){
   if (!(a = strstr (buf, A))) return 0; // A not found
   a += strlen (A);     // skip A itself
   if (!(b = strstr (a, B))) {
+    fprintf (stderr, "[extract_between] open '%s' not closed by '%s'\n", A, B);
+    return 0;
+  }
+  result = calloc (b - a + 1, sizeof (char));
+  strncpy (result, a, b - a);
+  return result;
+}
+
+char *extract_between_nocase (char *buf, char *A, char *B){
+  char *a, *b, *result = NULL;
+  if (!(a = strcasestr (buf, A))) return 0; // A not found
+  a += strlen (A);     // skip A itself
+  if (!(b = strcasestr (a, B))) {
     fprintf (stderr, "[extract_between] open '%s' not closed by '%s'\n", A, B);
     return 0;
   }
@@ -521,6 +535,23 @@ char *get_xml_docid (char *str) {
   //erase_between (str, "<DOCID>", "</DOCID>", ' ');
   chop (id, " \t"); // chop whitespace around docid
   return id;
+}
+
+char *get_xml_title (char *xml) {
+  char   *s = extract_between (xml, "<title>", "</title>");
+  if (!s) s = extract_between (xml, "<head>", "</head>");
+  if (s) no_xml_tags (s);
+  chop (s, " ");
+  return s;
+}
+
+char *get_xml_author (char *xml) {
+  char   *s = extract_between (xml, "<author>", "</author>");
+  if (!s) s = extract_between (xml, "<auth>", "</auth>");
+  if (!s) s = extract_between (xml, "<src>", "</source>");
+  if (s) no_xml_tags (s);
+  chop (s, " ");
+  return s;
 }
 
 // -------------------------- snippets --------------------------

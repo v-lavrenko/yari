@@ -55,6 +55,7 @@ char *json_pair (char *json, char *_str) ;
 
 // extract the text between A and B
 char *extract_between (char *buf, char *A, char *B) ;
+char *extract_between_nocase (char *buf, char *A, char *B) ;
 
 char *next_token (char **text, char *ws) ;
 
@@ -82,6 +83,8 @@ char **toks2pairs (char **toks, char *prm) ;
 void free_toks (char **toks) ;
 
 char *get_xml_docid (char *xml) ;
+char *get_xml_title (char *str) ;
+char *get_xml_author (char *xml) ;
 
 char *lowercase(char *s); // in-place
 char *uppercase(char *s); // in-place
