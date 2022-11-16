@@ -37,7 +37,8 @@ typedef struct {
 
 qry_t *str2qry (char *str) ; // 'amino -acid +"fab"' -> qry_t[3]
 char  *qry2str (qry_t *Q, hash_t *H) ; // Q -> 'amino -acid +"fab"'
-void  free_qry (qry_t *Q) ; 
+void  free_qry (qry_t *Q) ;
+void dump_qry (qry_t *Q) ;
 void spell_qry (qry_t *Q, hash_t *H, float *F, char *prm) ;
 ix_t *exec_qry (qry_t *Q, hash_t *H, coll_t *INVL, char *prm) ; // Boolean
 ix_t *exec_wsum (char *Q, hash_t *H, coll_t *INVL, char *prm, stats_t *S) ; // bag-of-words
