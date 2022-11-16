@@ -502,10 +502,24 @@ void zprintf (char **buf, int *sz, const char *fmt, ...) {
 // like memcpy, but append to the trg+used
 void memcat (char **trg, int *used, char *src, int sz) {
   if (!*trg) *used = 0; // no buffer -> zero used
-  *trg = safe_realloc (*trg, *used + sz);
+  *trg = safe_realloc (*trg, *used+sz+1);
   memcpy ((*trg)+(*used), src, sz);
   *used = *used + sz;
+  (*trg)[*used] = '\0';
 }
+
+void zcat0 (char **buf, int *sz, char *str, ...) {  
+  va_list args;
+  va_start (args, str);
+  char *next = str;
+  while (next) {
+    memcat (buf, sz, next, strlen(next)+1);
+    next = va_arg (args, char*);
+  }
+  va_end (args);
+}
+
+void zcat (char **buf, int *sz, char *new) { memcat (buf, sz, new, strlen(new)); }
 
 /*
 void stracat_test () {
