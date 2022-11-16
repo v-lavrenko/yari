@@ -60,6 +60,11 @@ void free_qry (qry_t *Q) {
   free_vec (Q);
 }
 
+void dump_qry (qry_t *Q) {
+  qry_t *q = Q-1, *z = Q + len(Q);
+  while (++q<z) printf ("%c\t%c\t%s\t%.2f\n", q->op, q->type, q->tok, q->thr);
+}
+
 char *qry2str (qry_t *Q, hash_t *H) {
   char *buf=0; int sz=0;
   qry_t *q, *last = Q+len(Q)-1;
