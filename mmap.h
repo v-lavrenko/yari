@@ -92,6 +92,7 @@ void stracat (char **dst, int *n, char *src) ;
 char *acat (char *s1, char *s2) ; // must free result
 char *fmt (char *buf, const char *format, ...) ;
 char *fmtn (int sz, const char *format, ...) ;
+void zcat (char **buf, int *sz, char *new) ; // realloc + append new to buf+sz
 void zprintf (char **buf, int *sz, const char *fmt, ...) ; // realloc + sprintf to buf+sz
 void memcat (char **trg, int *used, char *src, int sz) ; // realloc + append to trg+used
 
