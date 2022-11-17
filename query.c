@@ -26,7 +26,7 @@
 #include "query.h"
 #include "matrix.h"
 
-qry_t *str2qry (char *str) {
+qry_t *str2qry (char *str, char stem) {
   lowercase (str);
   csub (str, "\t\r\n", ' ');
   spaces2space (str);
@@ -41,8 +41,10 @@ qry_t *str2qry (char *str) {
     if (!inquote && index("-+.&",*s)) op = *s++; // operator
     if (!inquote && (*s == '\'')) { inquote = *s++; qop = op; } // begin quote
     if (!inquote && *thr) { q->type = *thr; q->thr = atof(thr+1); *thr = 0; }
+    if (!inquote && !*thr && stem == 'K') kstem_stemmer (s,s);
     q->tok = s; // strdup(s)?
     q->op = inquote ? qop : op;
+    if (stop_word (s)) q->op = 'x'; // skip stop words
     q->type = q->type ? q->type : inquote ? inquote : '.';
     if ( inquote && (*last == '\'')) *last = inquote = 0; // end quote
   }
@@ -174,7 +176,7 @@ ix_t *exec_wsum (char *text, hash_t *H, coll_t *INVL, char *prm, stats_t *S) {
 #ifdef MAIN
 
 int dump_parsed_qry (char *qry) {
-  qry_t *Q = str2qry (qry), *q;
+  qry_t *Q = str2qry (qry, 'L'), *q;
   //fprintf(stderr, "input: %d\n", len(Q));
   for (q = Q; q < Q + len(Q); ++q)
     printf ("%c\t%c\t%s\t%.2f\n", q->op, q->type, q->tok, q->thr);
@@ -183,7 +185,7 @@ int dump_parsed_qry (char *qry) {
 }
 
 int dump_spelled_qry (char *qry, char *_H, char *_F, char *prm) {
-  qry_t *Q = str2qry (qry);
+  qry_t *Q = str2qry (qry, 'L');
   hash_t *H = open_hash (_H,"r");
   float *F = mtx_full_row (_F, 1);  
   //expose_spell (Q, H, F, prm);
@@ -198,7 +200,7 @@ int dump_spelled_qry (char *qry, char *_H, char *_F, char *prm) {
 }
 
 int do_exec_qry (char *qry, char *_W, char *_WxD, char *_DxX, char *prm) {
-  qry_t *Q = str2qry (qry);
+  qry_t *Q = str2qry (qry, 'L');
   hash_t *W = open_hash (_W,"r");
   coll_t *WxD = open_coll (_WxD,"r+");
   coll_t *DxX = open_coll (_DxX,"r");

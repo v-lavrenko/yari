@@ -35,7 +35,7 @@ typedef struct {
   //void *children; // for nested queries
 } qry_t;
 
-qry_t *str2qry (char *str) ; // 'amino -acid +"fab"' -> qry_t[3]
+qry_t *str2qry (char *str, char stem) ; // 'amino -acid +"fab"' -> qry_t[3]
 char  *qry2str (qry_t *Q, hash_t *H) ; // Q -> 'amino -acid +"fab"'
 void  free_qry (qry_t *Q) ;
 void dump_qry (qry_t *Q) ;
