@@ -791,11 +791,11 @@ ix_t *parse_vec_svm (char *str, char **id, hash_t *ids) {
 }
 
 void print_vec_csv (ix_t *vec, uint ncols, char *rid, char *fmt) {
-  if (!fmt || !*fmt) fmt = "\t%.2f";
+  if (!fmt || !*fmt) fmt = "%.2f";
   if (!ncols && len(vec)) ncols = vec[len(vec)-1].i;
   if (rid && *rid) printf("%s",rid);
   float *full = vec2full (vec, ncols, 0), *end = full+len(full), *f;
-  for (f = full+1; f < end; ++f) printf (fmt, *f);
+  for (f = full+1; f < end; ++f) { putchar('\t'); printf (fmt, *f); }
   printf ("\n");
   free_vec (full);
 }
