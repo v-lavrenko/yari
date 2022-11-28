@@ -41,7 +41,7 @@ publish:
 %.o: %.c
 	$(CC) -c $<
 
-libyari.a: mmap.o vector.o coll.o hash.o matrix.o netutil.o timeutil.o stemmer_krovetz.o textutil.o synq.o svm.o spell.o query.o
+libyari.a: mmap.o vector.o coll.o hash.o matrix.o netutil.o timeutil.o stemmer_krovetz.o textutil.o synq.o svm.o spell.o query.o dense.o
 	ar -r libyari.a $^
 
 %::
@@ -57,6 +57,9 @@ dict: dict.c mmap.c vector.c coll.c hash.c timeutil.c
 
 mtx: mtx.c mmap.c vector.c coll.c hash.c matrix.c svm.c \
 	textutil.c stemmer_krovetz.c maxent.c synq.c timeutil.c
+
+cumtx: cumtx.cu dense.o
+	nvcc -o $@ cumtx.cu dense.o libyari.a
 
 stem: stem.c stemmer_krovetz.c synq.c mmap.c
 
