@@ -147,6 +147,18 @@ int wc_stdin () {
   return 0;
 }
 
+int nf_stdin () {
+  size_t sz = 999999;
+  int nb = 0;
+  char *line = malloc(sz);
+  while (0 < (nb = getline(&line,&sz,stdin))) {
+    char **toks = split (line, ' ');
+    printf("%d\t%d\n", len(toks), nb);
+    free_vec(toks);
+  }
+  return 0;
+}
+
 void show_header (char **cols, int n) {
   int i; fputc ('#', stdout);
   for (i = 0; i < n; ++i) {
@@ -177,8 +189,10 @@ char *usage =
   "xcut age size type ... stdin = {JSON} records one-per-line\n"
   "xcut -h age size   ... print header before cutting\n"
   "xcut -wc           ... faster than wc byte/word/line counter\n"
+  "xcut -nf           ... awk '{print NF, length}'\n"
   "xcut -noxml        ... strip CR, <tags>, MAP: '&copy;' -> '(C)'\n"
   "xcut -refs [MAP]   ... MAP: '&amp;' -> '&' (see dict -inmap)\n"
+  //  "xcut -lf 'trg'     ... add LF immediately after trigger 'trg'\n"
   ;
 
 int main (int argc, char *argv[]) {
@@ -186,6 +200,8 @@ int main (int argc, char *argv[]) {
   if (!strcmp(a(1),"-noxml")) return strip_xml();
   if (!strcmp(a(1),"-refs")) return map_refs(arg(2));
   if (!strcmp(a(1),"-wc")) return wc_stdin();
+  if (!strcmp(a(1),"-nf")) return nf_stdin();
+  //if (!strcmp(a(1),"-lf")) return LF_after(arg(2));
   if (!strcmp(a(1),"-h")) { ++argv; --argc; show_header(argv+1,argc-1); }
   cut_stdin(argv+1,argc-1);
   return 0;
