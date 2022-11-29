@@ -33,3 +33,14 @@ void mtx_to_slice (coll_t *M, uint r0, uint c0, uint nr, uint nc, float *S) {
     for (uint c = 0; c < nc; ++c) S[r*nc + c] = row[c0+c].x;
   }
 }
+
+// M[r0+r] -> buf [ end[r-1] : end[r] ] for r = 0..nr
+void mtx_to_buf (coll_t *M, ix_t *buf, ulong *off, uint r0, uint nr) {
+  off[0] = 0;
+  for (uint r = 0; r < nr; ++r) {
+    ix_t *row = get_vec_ro (M,r0+r+1);
+    ulong sz = len(row) * sizeof(ix_t);
+    memcpy (buf+off[r], row, sz);
+    off[r+1] = off[r]+sz;
+  }
+}
