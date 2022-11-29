@@ -5,13 +5,14 @@
 #include <cuda_runtime.h>
 
 extern "C" {
-void show_slice (float *S, uint nr, uint nc, const char *tag) ;
-void slice_to_mtx (void *M, uint r0, uint c0, uint nr, uint nc, float *S) ;
-void mtx_to_slice (void *M, uint r0, uint c0, uint nr, uint nc, float *S) ;
-void *open_coll (char *path, const char *access) ;
-void free_coll (void *P);
-uint num_rows (void *rows) ;
-uint num_cols (void *rows) ;
+  void show_slice (float *S, uint nr, uint nc, const char *tag) ;
+  void slice_to_mtx (void *M, uint r0, uint c0, uint nr, uint nc, float *S) ;
+  void mtx_to_slice (void *M, uint r0, uint c0, uint nr, uint nc, float *S) ;
+  void mtx_to_buf (void *M, void *buf, ulong *end, uint r0, uint nr) ;  
+  void *open_coll (char *path, const char *access) ;
+  void free_coll (void *P);
+  uint num_rows (void *rows) ;
+  uint num_cols (void *rows) ;
 }
 
 // see /usr/local/cuda-11.8/targets/x86_64-linux/include/driver_types.h
@@ -25,8 +26,63 @@ size_t gpu_ram (int dev) {
   return bytes;
 }
 
-// AC [a,c] = SUM_b AB[a,b] * BC[b,c] ... assume one thread per cell of AxC
-__global__ void product1 (float *AC, uint na, float *AB, uint nb, float *BC, uint nc) {
+typedef struct { unsigned i; float x; } ix_t;
+
+__global__ void sparse_dot (float *AB, uint na, uint nb,
+			    ix_t *A, ulong *aoff, 
+			    ix_t *B, ulong *boff) {
+  uint a = blockIdx.x * blockDim.x + threadIdx.x; // x is the row of A
+  uint b = blockIdx.y * blockDim.y + threadIdx.y; // y is the row of B  
+  if (a >= na || b >= nb) return; // off the grid
+  ulong a0 = aoff[a], a1 = aoff[a+1]; // row a = A[a0:a1]
+  ulong b0 = boff[b], b1 = boff[b+1]; // row b = B[b0:b1]
+  double result = 0;
+  while ((a0 < a1) && (b0 < b1)) {
+    int eq = (A[a0].i == B[b0].i); // 1 iff a matches b
+    int da = (A[a0].i <= B[b0].i); // 1 iff a needs to advance
+    int db = (B[b0].i <= A[a0].i); // 1 iff b needs to advance
+    result += eq * A[a0].x * B[b0].x;
+    a0 += da;
+    b0 += db;
+  }
+  AB[a*nb + b] = result;
+}
+
+void sparse_product (void *_C, void *_A, void *_B) {
+  fprintf(stderr, "orly?\n");
+  assert (num_cols(_A) == num_cols(_B)); 
+  uint nA = num_rows(_A), nB = num_rows (_B), nC = num_cols (_A);
+  size_t vram = gpu_ram (0);
+  ix_t *A, *B;
+  float *C;
+  ulong *aoff, *boff;
+  cudaMallocManaged(&C, 3607101440); // FIXME!
+  cudaMallocManaged(&A, 3607101440);
+  cudaMallocManaged(&B, 3607101440);
+  cudaMallocManaged(&aoff, (nA+1)*sizeof(ulong));
+  cudaMallocManaged(&boff, (nB+1)*sizeof(ulong));
+  
+  mtx_to_buf (_A, A, aoff, 0, nA);
+  mtx_to_buf (_B, B, boff, 0, nB);
+  
+  dim3 block(32,32); // max threads per block is 2014
+  dim3 grid(nA/32, nB/32); // [nA x nB] total threads, one per cell C[a,b]
+  sparse_dot <<<grid,block>>> (C, nA, nB, A, aoff, B, boff);
+  cudaDeviceSynchronize();
+  
+  //show_slice (AB, na, nb, "AB");
+  //show_slice (BC, nb, nc, "BC");  
+  //show_slice (AC, na, nc, "AC");
+  
+  slice_to_mtx (_C, 0, 0, nA, nB, C);
+  
+  cudaFree(A); cudaFree(B); cudaFree(C);
+  cudaFree (aoff); cudaFree (boff);
+}
+
+
+// AC [a,c] = SUM_b AB[a,b] * BC[b,c] ... assume one thread per cell of AxC, dense
+__global__ void dense_dot (float *AC, uint na, float *AB, uint nb, float *BC, uint nc) {
   uint a = blockIdx.x * blockDim.x + threadIdx.x, b; // x is the row
   uint c = blockIdx.y * blockDim.y + threadIdx.y;    // y is the col
   if (a >= na || c >= nc) return;
@@ -45,7 +101,7 @@ __global__ void set (float *AC, uint na, float *AB, uint nb, float *BC, uint nc)
 
 
 // [AxC] += [AxB] x [BxC]
-void _product (void *AxC, void *AxB, void *BxC) {
+void dense_product (void *AxC, void *AxB, void *BxC) {
   assert (num_cols(AxB) == num_rows(BxC)); 
   uint nA = num_rows(AxB), nB = num_rows (BxC), nC = num_cols (BxC);
   size_t vram = gpu_ram (0), sz = sizeof(float);
@@ -63,7 +119,7 @@ void _product (void *AxC, void *AxB, void *BxC) {
   
   dim3 block(32,32); // max threads per block is 2014
   dim3 grid(na/32, nc/32); // [na x nc] total threads, one per cell AC[a,c]  
-  product1 <<<grid,block>>> (AC, na, AB, nb, BC, nc);
+  dense_dot <<<grid,block>>> (AC, na, AB, nb, BC, nc);
   cudaDeviceSynchronize();
   
   //show_slice (AB, na, nb, "AB");
@@ -80,7 +136,8 @@ int gpu_product (char *_P, char *_A, char *_B, char *prm) {
   void *P = open_coll (_P, "w+");
   void *A = open_coll (_A, "r+");
   void *B = open_coll (_B, "r+");
-  _product (P, A, B);
+  if (strstr(prm,"sparse")) sparse_product (P, A, B);  
+  else                      dense_product (P, A, B);
   free_coll(P); free_coll(A); free_coll(B);
   return 0;
 }
