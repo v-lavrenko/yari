@@ -790,6 +790,12 @@ ix_t *parse_vec_svm (char *str, char **id, hash_t *ids) {
   return vec;
 }
 
+void print_hdr_csv (hash_t *H, uint ncols) {
+  uint i;
+  for (i = 1; i <= ncols; ++i) printf("\t%s", id2key(H,i));
+  putchar('\n');
+}
+
 void print_vec_csv (ix_t *vec, uint ncols, char *rid, char *fmt) {
   if (!fmt || !*fmt) fmt = "%.2f";
   if (!ncols && len(vec)) ncols = vec[len(vec)-1].i;
