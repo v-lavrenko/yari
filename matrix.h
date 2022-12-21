@@ -90,10 +90,11 @@ ix_t *parse_vec_xml (char *str, char **id, hash_t *ids, char *prm) ;
 void print_mtx (coll_t *rows, hash_t *rh, hash_t *ch) ;
 void print_vec_rcv (ix_t *vec, hash_t *ids, char *vec_id, char *fmt) ;
 void print_vec_svm (ix_t *vec, hash_t *ids, char *class, char *svm) ;
-void print_vec_csv (ix_t *vec, uint ncols, char *vec_id, char *fmt) ;
 void print_vec_txt (ix_t*vec, hash_t *ids, char *vec_id, int xml) ;
 void print_vec_top (ix_t *vec, hash_t *dict, uint top) ;
 void print_vec_json (ix_t *vec, hash_t *ids, char *vec_id, char *fmt) ;
+void print_vec_csv (ix_t *vec, uint ncols, char *vec_id, char *fmt) ;
+void print_hdr_csv (hash_t *H, uint ncols);
 
 void transpose_mtx   (coll_t *rows, coll_t *cols) ;
 void transpose_mtx_1 (coll_t *rows, coll_t *cols) ;
