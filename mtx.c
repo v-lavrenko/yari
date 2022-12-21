@@ -157,6 +157,7 @@ void mtx_print (char *prm, char *_M, char *RH, char *CH) {
   fprintf (stderr, "# %s [%dx%d]\n", _M, nr, nc);
   uint beg_i = rno ? rno : rid ? key2id (rh,rid) : 1;
   uint end_i = (rno || rid) ? beg_i : nr;
+  if (csv && ch) print_hdr_csv (ch, nc); // CSV header
   for (i = beg_i; i <= end_i; ++i) {
     ix_t *vec = get_vec (M, i);
     if (!len(vec) && !empty && !csv) { free_vec(vec); continue; }
