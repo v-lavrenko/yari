@@ -307,6 +307,15 @@ int cmp_X (const void *n1, const void *n2) { return *((float*)n2) - *((float*)n1
 
 int cmp_str (const void *a, const void *b) { return strcmp(*(char**)a, *(char**)b); }
 
+int cmp_Ulong_ptr (const void *_a, const void *_b) { return -cmp_ulong_ptr (_a,_b); }
+int cmp_ulong_ptr (const void *_a, const void *_b) {
+  ulong a = **(ulong **)_a, b = **(ulong **)_b;
+  return (a < b) ? -1 : (a > b) ? +1 : 0;
+}
+
+// qsort: The comparison function must return an integer less than,
+// equal to, or greater than zero if the first argument is considered
+// to be respectively less than, equal to, or greater than the second.
 
 ///////////////////////////// simple 2D array
 
