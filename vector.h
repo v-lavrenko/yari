@@ -101,6 +101,9 @@ int cmp_ijk_i (const void *n1, const void *n2) ; // by increasing i
 int cmp_ijk_j (const void *n1, const void *n2) ; // by increasing j
 int cmp_ijk_k (const void *n1, const void *n2) ; // by increasing k
 
+int cmp_ulong_ptr (const void *_a, const void *_b) ; // by increasing *ulong
+int cmp_Ulong_ptr (const void *_a, const void *_b) ; // decreasing
+
 void **new_2D (uint rows, uint cols, uint esize) ; // X[i][j]
 void ***new_3D (uint deep, uint rows, uint cols, uint esize) ; // X[i][j][k]
 void free_2D (void **X) ;
