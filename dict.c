@@ -31,6 +31,42 @@ extern off_t MMAP_MOVES;
 //extern uint  HASH_PROB; // 0:linear 1:quadratic 2:secondary
 //extern float HASH_LOAD; // 0.1 ... 0.9
 
+int dict_uniq(char *prm) {
+  char *addup = strstr(prm,"addup");
+  unsigned long NN=0;
+  //ix_t *C = new_vec(0,sizeof(ix_t)), *c;
+  ulong *C = new_vec(0,sizeof(ulong));
+  hash_t *H = open_hash (0,0);
+  char *line = NULL;
+  size_t sz = 0;
+  while (getline (&line, &sz, stdin) > 0) {
+    if (*line == '\n') continue;
+    ulong freq = addup ? atol(line) : 1;
+    char *word = addup ? strchr(line,'\t')+1 : line;
+    if (word == NULL+1) continue; // addup without \t
+    uint id = key2id(H,word);
+    if (id > len(C)) C = resize_vec (C, id);
+    C[id-1] += freq;
+    //C[id-1].i = id;
+    //C[id-1].x ++;
+    ++NN;
+  }
+  ulong **P = (ulong **)pointers_to_vec (C), **p;
+  sort_vec (P, cmp_Ulong_ptr); 
+  for (p=P; p<P+len(P); ++p) 
+    printf ("%lu\t%s", **p, id2key(H,(*p-C+1)));
+  assert (!strstr(prm,"pct")); // TODO: reimplement the below
+  //double norm = strstr(prm,"pct") ? (NN/100) : 1;
+  //sort_vec (C, cmp_ix_X);
+  //for (c = C; c < C+nkeys(H); ++c)
+  //printf ("%.0f\t%s", c->x / norm, id2key(H,c->i));
+  if (line) free (line);
+  free_hash (H);
+  free_vec (C);
+  free_vec (P);
+  return 0;
+}
+
 char *usage =
   "usage: dict     -load DICT < ids\n"
   "                -dump DICT > pairs\n"
@@ -50,8 +86,11 @@ char *usage =
   "              -outmap MAP\n"
   "              -usemap MAP < src_strings\n"
   "                -rand 1-4 logN\n"
-  "                -uniq ... faster uniq\n";
-  
+  "                -uniq ... faster uniq\n"
+  "                -addup ... add up freq[Tab]word\n";
+
+#define arg(i) ((i < argc) ? argv[i] : NULL)
+#define a(i) ((i < argc) ? argv[i] : "")
 
 int main (int argc, char *argv[]) {
   char *prm = argv [argc-1];
@@ -60,29 +99,9 @@ int main (int argc, char *argv[]) {
   //HASH_FUNC = getprm(prm,"F=",0);
   //HASH_PROB = getprm(prm,"P=",0);
   //HASH_LOAD = getprm(prm,"L=",0.5);
-
-  if (argc > 1 && !strncmp(argv[1], "-uniq", 5)) {
-    double NN=0;
-    ix_t *C = new_vec(0,sizeof(ix_t)), *c;
-    hash_t *H = open_hash (0,0);
-    char *line = NULL;
-    size_t sz = 0;
-    while (getline (&line, &sz, stdin) > 0) {
-      uint id = key2id(H,line);
-      if (id > len(C)) C = resize_vec (C, id);
-      C[id-1].i = id;
-      C[id-1].x ++;
-      ++NN;
-    }
-    double norm = strstr(argv[1],"pct") ? (NN/100) : 1;
-    sort_vec (C, cmp_ix_X);
-    for (c = C; c < C+nkeys(H); ++c)
-      printf ("%.0f\t%s", c->x / norm, id2key(H,c->i));
-    if (line) free (line);
-    free_hash (H);
-    free_vec (C);
-    return 0;
-  }
+  
+  if (argc > 1 && (!strncmp(a(1), "-uniq", 5) ||
+		   !strncmp(a(1), "-addup", 6))) return dict_uniq(a(1));
   
   if (argc < 3) return fputs (usage, stderr);
   
