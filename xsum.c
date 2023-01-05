@@ -42,7 +42,7 @@ void xsum_args (char *A[], int n) {
 }
 
 void xsum_check(char *file) {
-  FILE *in = safe_fopen (file, "r");
+  FILE *in = (*file) ? safe_fopen (file, "r") : stdin;
   ulong ref = 0, good = 0, bad = 0;
   char *path = NULL;
   while (2 == fscanf(in, "%lx %ms", &ref, &path)) {
@@ -59,8 +59,8 @@ void xsum_check(char *file) {
 
 
 char *usage = 
-  "xsum f1 f2 f3 ... fast log-probing checksum with md5-like output\n"
-  "xsum -c file  ... verify checksums in a file\n"
+  "xsum f1 f2 f3  ... fast log-probing checksum with md5-like output\n"
+  "xsum -c [file] ... verify checksums in a file (or on stdin)\n"
   ;
 
 #define a(i) ((i < argc) ? argv[i] : "")
