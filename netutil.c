@@ -385,7 +385,7 @@ int do_client (char *host) {
 
 char *usage =
   "nutil -l [port=1234]\n"
-  "nutil -l 127.0.0.1:1234\n"
+  "nutil -c 127.0.0.1:1234\n"
   ;
 
 int main (int argc, char *argv[]) {
