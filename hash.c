@@ -431,6 +431,13 @@ uint SBox (const char *key, uint len) {
 
 uint sfrand (uint seed) { return seed *= 16807; }
 
+ulong sdbm_hash (char *buf, size_t sz, ulong seed) { // seed = 0
+  char *s = buf-1, *end = buf + sz;
+  while (++s < end) // same as: H(i) = H(i-1) * 65599 + buf[i]
+    seed = *s + (seed << 6) + (seed << 16) - seed;
+  return seed;
+}
+
 /*
 void hwrite (hash_t *t, char *_path) {
   char *path = _path ? strdup (_path) : NULL;
