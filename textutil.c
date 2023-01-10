@@ -42,6 +42,7 @@ char *strRchr (char *beg, char *end, char key) {
   return end;
 }
 
+// find 'c' in "s" and return pointer after 'c', or NULL
 char *strchr1 (char *s, char c) { s = strchr(s,c); return s ? s+1 : 0; }
 
 // in str replace any occurence of chars from what[] with 'with'
@@ -558,7 +559,10 @@ char *get_xml_author (char *xml) {
 char *get_xml_open (char *xml, char *tag) { 
   char *p = xml+1; int n = strlen(tag);
   while ((p = strcasestr (p,tag))) // look for "tag"
-    if (p[-1]=='<' && (p[n]=='>' || p[n]==' ')) return (p-1);  // found "<tag" ? 
+    if (p[-1]=='<' && (p[n]=='>' || p[n]==' ')) // found <tag> or <tag ... ?       
+      //return (p-1); // including tag
+      return strchr1(p+n,'>'); // excluding tag
+  
   return NULL;
 }
 
@@ -566,7 +570,9 @@ char *get_xml_open (char *xml, char *tag) {
 char *get_xml_close (char *xml, char *tag) {
   char *p = xml+2; int n = strlen(tag);
   while ((p = strcasestr (p,tag))) // look for "tag"
-    if (p[-2]=='<' && p[-1]=='/') return p+n+1; // p-2 found "</tag" ?
+    if (p[-2]=='<' && p[-1]=='/' && p[n]=='>') // found "</tag>" ?
+      //return p+n+1; // including tag
+      return p-2; // excluding tag
   return NULL;
 }
 
