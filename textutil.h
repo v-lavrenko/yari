@@ -85,6 +85,11 @@ void free_toks (char **toks) ;
 char *get_xml_docid (char *xml) ;
 char *get_xml_title (char *str) ;
 char *get_xml_author (char *xml) ;
+char *get_xml_open (char *xml, char *tag); // pointer to next opening <tag>
+char *get_xml_close (char *xml, char *tag); // pointer to next closing </tag>
+char *get_xml_intag (char *xml, char *tag); // string between <tag> and </tag>
+char *get_xml_inpath (char *xml, char *path); // string in "body.ref.id"
+char *get_xml_intags (char *xml, char **tags); // string in ["body","ref","id"]
 
 char *lowercase(char *s); // in-place
 char *uppercase(char *s); // in-place
