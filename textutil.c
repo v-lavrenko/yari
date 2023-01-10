@@ -554,6 +554,51 @@ char *get_xml_author (char *xml) {
   return s;
 }
 
+// pointer to next opening <tag...>
+char *get_xml_open (char *xml, char *tag) { 
+  char *p = xml+1; int n = strlen(tag);
+  while ((p = strcasestr (p,tag))) // look for "tag"
+    if (p[-1]=='<' && (p[n]=='>' || p[n]==' ')) return (p-1);  // found "<tag" ? 
+  return NULL;
+}
+
+// pointer to next closing </tag...>
+char *get_xml_close (char *xml, char *tag) {
+  char *p = xml+2; int n = strlen(tag);
+  while ((p = strcasestr (p,tag))) // look for "tag"
+    if (p[-2]=='<' && p[-1]=='/') return p+n+1; // p-2 found "</tag" ?
+  return NULL;
+}
+
+// return string between <tag> and </tag>
+char *get_xml_intag (char *xml, char *tag) {
+  char *beg = xml ? get_xml_open (xml, tag) : NULL; // find "<tag"
+  //if (beg) beg = strchr(beg,'>'); // find end of "<tag ... >"
+  char *end = beg ? get_xml_close (beg, tag) : NULL; // find "</tag"
+  return end ? strndup (beg, end-beg) : NULL;
+}
+
+// ["ref","id"] -> <ref>...<id>_____</id>...</ref>
+char *get_xml_intags (char *xml, char **tags) {
+  char *span = xml, **tag = tags-1, **end = tags+len(tags);
+  while (span && (++tag < end)) { // while we have span and more tags to find
+    char *next = get_xml_intag (span, *tag); // try to match tag in span
+    if (span != xml) free(span); // ^^^ will strdup
+    span = next;
+  }
+  return span; // either NULL or we found all tags
+}
+
+// "ref.id" -> <ref>...<id>_____</id>...</ref>
+char *get_xml_inpath (char *xml, char *path) {
+  if (!strchr(path,'.')) return get_xml_intag (xml,path); // single tag
+  path = strdup(path); // make a copy: split will insert \0 into it
+  char **tags = split(path,'.'); // split path into tags
+  char *match = get_xml_intags (xml, tags);
+  free(path); free_vec(tags);
+  return match;
+}
+
 // -------------------------- snippets --------------------------
 
 // returns SZ chars around 1st match of QRY in TEXT
