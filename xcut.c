@@ -81,9 +81,10 @@ void cut_json (char *line, char **cols, int n) {
 }
 
 void cut_xml (char *line, char **cols, int n) {
-  int i;
+  int i; char *val;
   for (i = 0; i < n; ++i) {
-    char *val = get_xml_inpath (line, cols[i]); // "body.ref.id"
+    if (cols[i][0] == ',') val = get_xml_all_intag (line, cols[i]+1, ','); // "@id"
+    else                   val = get_xml_inpath (line, cols[i]); // "body.ref.id"
     if (val) { fputs(val,stdout); free (val); }
     putchar((i < n-1) ? '\t' : '\n');
   }
@@ -198,6 +199,7 @@ char *usage =
   "xcut 3 2 \\X 17    ... print columns 3, 2, 'X', 17 from stdin\n"
   "xcut age size type ... use 1st line to map age -> column number\n"
   "xcut age size type ... stdin = {JSON} records one-per-line\n"
+  "xcut age size type ... stdin = <XML> documents one-per-line\n"
   "xcut -h age size   ... print header before cutting\n"
   "xcut -wc           ... faster than wc byte/word/line counter\n"
   "xcut -nf           ... awk '{print NF, length}'\n"
