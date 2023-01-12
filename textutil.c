@@ -558,26 +558,30 @@ char *get_xml_author (char *xml) {
 // pointer after next opening <tag...>
 char *get_xml_open (char *xml, char *tag) { 
   char *p = xml+1; int n = strlen(tag);
-  while ((p = strcasestr (p,tag))) // look for "tag"
+  while ((p = strcasestr (p,tag))) { // look for "tag"
     if (p[-1]=='<' && (p[n]=='>' || p[n]==' ')) // found <tag> or <tag ... ?       
       //return (p-1); // including tag
       return strchr1(p+n,'>'); // excluding tag
-  
+    else p += n;
+  }
   return NULL;
 }
 
 // pointer to next closing </tag...>
 char *get_xml_close (char *xml, char *tag) {
   char *p = xml+2; int n = strlen(tag);
-  while ((p = strcasestr (p,tag))) // look for "tag"
+  while ((p = strcasestr (p,tag))) { // look for "tag"
     if (p[-2]=='<' && p[-1]=='/' && p[n]=='>') // found "</tag>" ?
       //return p+n+1; // including tag
       return p-2; // excluding tag
+    else p += n;
+  }
   return NULL;
 }
 
 // return string between <tag> and </tag>
 char *get_xml_intag (char *xml, char *tag) {
+  if ((tag[0]=='i') && (tag[1]=='d') && !tag[2]) return get_xml_docid (xml);
   char *beg = xml ? get_xml_open (xml, tag) : NULL; // find "<tag"
   //if (beg) beg = strchr(beg,'>'); // find end of "<tag ... >"
   char *end = beg ? get_xml_close (beg, tag) : NULL; // find "</tag"
