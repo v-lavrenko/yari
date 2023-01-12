@@ -87,6 +87,46 @@ uint levenstein_distance (char *A, char *B, char *explain) {
   return result;
 }
 
+uint levenstein_uint (uint *A, uint *B) {
+  uint nA = len(A), nB = len(B), a, b;
+  uint **C = (uint **) new_2D (nA+1,nB+1,sizeof(uint));
+  char **D = (char **) new_2D (nA+1,nB+1,sizeof(char));
+  for (a = 0; a <= nA; ++a) C[a][0] = a;
+  for (b = 0; b <= nB; ++b) C[0][b] = b;
+  for (a = 1; a <= nA; ++a) {
+    for (b = 1; b <= nB; ++b) {
+      uint del = C[a-1][b] + 1;
+      uint ins = C[a][b-1] + 1;
+      uint fit = (A[a-1] == B[b-1]);
+      uint sub = C[a-1][b-1] + (fit ? 0 : 3); // 3 => ins+del cheaper than sub
+      uint best = MIN(MIN(ins,del),sub);
+      C[a][b] = best;
+      D[a][b] = (ins == best) ? '<' : (del == best) ? '^' : fit ? '=' : 'S';
+    }
+  }
+  uint result = C[nA][nB];  
+  free_2D((void **)C);
+  free_2D((void **)D);
+  return result;
+}
+
+ix_t *levenstein_track (char **D, uint *A, uint *B) {
+  ix_t *ops = new_vec(0,sizeof(ix_t)), op = {0,0};
+  int nA = len(A), nB = len(B), a=nA, b=nB;  
+  while (a>0 && b>0) {
+    if      (D[a][b] == '=') {--a; --b; op.x = 0; op.i = A[a]; } // keep A[a]
+    else if (D[a][b] == '^') {--a;      op.x =-1; op.i = A[a]; } // del A[a]
+    else if (D[a][b] == '<') {--b;      op.x =+1; op.i = B[b]; } // ins B[b]
+    ops = append_vec (ops, &op);
+  }
+  reverse_vec(ops);
+  return ops; // uint count (ix_t *V, char op, float x) {
+}
+
+uint levenstein_n_del (ix_t *track) { return count (track,'<',0); }
+uint levenstein_n_ins (ix_t *track) { return count (track,'>',0); }
+uint levenstein_edits (ix_t *track) { return count (track,'!',0); }
+
 //////////////////////////////////////////////////////////////////////////////// Norvig spell
 
 // delete/transpose/insert/substitute 'a' into string at X[0..n) at position i
