@@ -68,6 +68,7 @@ void *resize_vec (void *d, uint n) ;
 void *append_vec (void *d, void *el) ;
 void *append_many (void *vec, void *els, uint k) ;
 void *insert_vec (void *vec, uint i, void *el) ; // insert el into position i, shift old [i..n]
+void reverse_vec (void *V) ; // reverse elements in-place
 void    sort_vec (void *d, int (*cmp) (const void *, const void *)) ;
 
 void *bsearch_vec (void *vec, uint id); // pointer to first el >= id
