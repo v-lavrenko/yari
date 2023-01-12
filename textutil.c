@@ -555,7 +555,7 @@ char *get_xml_author (char *xml) {
   return s;
 }
 
-// pointer to next opening <tag...>
+// pointer after next opening <tag...>
 char *get_xml_open (char *xml, char *tag) { 
   char *p = xml+1; int n = strlen(tag);
   while ((p = strcasestr (p,tag))) // look for "tag"
@@ -584,6 +584,14 @@ char *get_xml_intag (char *xml, char *tag) {
   return end ? strndup (beg, end-beg) : NULL;
 }
 
+//char *get_xml_tag_attr (char *xml, char *tag, char *attr) {
+//  char *end = xml ? get_xml_open (xml, tag) : NULL; // find end of "<tag ...>"
+//  char *beg = end ? strRchr (xml, end, '<') : NULL; // find start  
+//  //if (beg) beg = strchr(beg,'>'); // find end of "<tag ... >"
+//  char *end = beg ? get_xml_close (beg, tag) : NULL; // find "</tag"
+//  return end ? strndup (beg, end-beg) : NULL;
+//}
+
 // ["ref","id"] -> <ref>...<id>_____</id>...</ref>
 char *get_xml_intags (char *xml, char **tags) {
   char *span = xml, **tag = tags-1, **end = tags+len(tags);
@@ -603,6 +611,20 @@ char *get_xml_inpath (char *xml, char *path) {
   char *match = get_xml_intags (xml, tags);
   free(path); free_vec(tags);
   return match;
+}
+
+// return all strings between <tag> and </tag>
+char *get_xml_all_intag (char *xml, char *tag, char sep) {
+  char *buf=0; int sz=0;
+  while (1) {
+    char *beg = xml ? get_xml_open (xml, tag) : NULL; // find "<tag"
+    char *end = beg ? get_xml_close (beg, tag) : NULL; // find "</tag"
+    if (!end) break;
+    if (sz) memcat (&buf, &sz, &sep, 1);
+    memcat (&buf, &sz, beg, end-beg);
+    xml = end + strlen(tag);
+  }
+  return buf;
 }
 
 // -------------------------- snippets --------------------------
