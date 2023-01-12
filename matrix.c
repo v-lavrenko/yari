@@ -2112,6 +2112,7 @@ uint count (ix_t *V, char op, float x) {
   if      (op == '=') while (++v < end) n += (v->x == x);
   else if (op == '>') while (++v < end) n += (v->x  > x);
   else if (op == '<') while (++v < end) n += (v->x  < x);
+  else if (op == '!') while (++v < end) n += (v->x != x);
   return n;
 }
 
