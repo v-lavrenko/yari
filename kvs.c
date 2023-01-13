@@ -128,6 +128,41 @@ void load_json (char *C, char *RH, char *prm) { //
 	   vtime(), done, noid, dups);
 }
 
+void load_xml_or_json (char *C, char *RH, char *prm) {
+  char *skip = strstr(prm,"skip");
+  char *Long = strstr(prm,"long"), *join = strstr(prm,"join");
+  char *addk = strstr(prm,"addkeys");
+  uint done = 0, nodoc = 0, noid = 0, dups = 0;
+  size_t SZ = 1<<24, sz = 0;
+  char *buf = malloc(SZ);
+  coll_t *c = open_coll (C, "a+");
+  hash_t *rh = open_hash (RH, (addk ? "a!" : "r!"));
+  while ((sz=getline(&buf, &SZ, stdin)) > 0) { // assume one-per-line
+    int jsonp = buf[strspn(buf," \t")] == '{'; // JSON ot XML?
+    if (!(++done%10000)) show_progress (done, 0, "docs");
+    if (buf[sz-1] == '\n') buf[--sz] = '\0';
+    char *docid = jsonp ? json_docid(buf) : get_xml_docid(buf);
+    if (!docid && ++nodoc < 5) { fprintf (stderr, "ERR: no docid in: %s\n", buf); continue; }
+    uint id = key2id (rh, docid); 
+    free(docid);
+    if (!id) { ++noid; continue; }
+    char *old = get_chunk (c,id);
+    if (old) ++dups;
+    if (old && skip) continue; // keep old
+    if (old && Long && (sz < strlen(old))) continue; // old is longer -> keep it
+    if (old && join) { // append old to new
+      if (jsonp) append_json (&buf, &SZ, old);
+      else       append_sgml (&buf, &SZ, old);
+      sz = strlen(buf);
+    }
+    put_chunk (c, id, buf, sz+1);
+  }
+  free_coll (c); free_hash (rh); free(buf);
+  fprintf (stderr, "[%.0fs] OK: %d, noid: %d, dups: %d\n", 
+	   vtime(), done, noid, dups);
+}
+
+
 static inline char *merge_blobs (char *buf, char *a, char *b) {
   uint aSZ = strlen(a), bSZ = strlen(b), sz = aSZ + bSZ + 1;
   if (len(buf) < sz) buf = resize_vec (buf, sz);
@@ -1198,9 +1233,9 @@ char *usage =
   "kvs                           - optional [parameters] are in brackets\n"
   "  -m 256                      - set mmap size to 256MB\n"
   "  -rs 1                       - set random seed to 1\n"
-  "  -dump XML [HASH id]         - dump all [id] from collection XML\n"
-  "  -load XML HASH [prm]        - stdin -> collection XML indexed by HASH\n"
-  "  -json JSON HASH [prm]       - stdin -> collection JSON indexed by HASH\n"
+  "  -dump XML [HASH id]         - dump all [id] from collection XML/JSON\n"
+  "  -load XML HASH [prm]        - stdin -> collection XML/JSON indexed by HASH\n"
+  //  "  -json JSON HASH [prm]       - stdin -> collection JSON indexed by HASH\n"
   "                                prm: skip, join duplicates, addkeys\n"
   //"  -merge C = A + B            - C[i] = A[i] + B[i] (concatenates records)\n"
   //"  -rekey A a = B b [addnew]   - A[j] = B[i] where key = a[j] = b[i]\n"
@@ -1239,8 +1274,9 @@ int main (int argc, char *argv[]) {
   while (++argv && --argc) {
     if (!strcmp (a(0), "-m")) MAP_SIZE = ((ulong) atoi (a(1))) << 20;
     if (!strcmp (a(0), "-rs")) srandom (atoi(a(1)));
-    if (!strcmp (a(0), "-load")) load_raw (a(1), a(2), a(3));
-    if (!strcmp (a(0), "-json")) load_json (a(1), a(2), a(3));
+    if (!strcmp (a(0), "-load")) load_xml_or_json (a(1), a(2), a(3));
+    if (!strcmp (a(0), "-sgml")) load_raw (a(1), a(2), a(3));  // deprecated
+    if (!strcmp (a(0), "-json")) load_json (a(1), a(2), a(3)); // deprecated
     //if (!strcmp (a(0), "-merge") &&
     //!strcmp (a(2), "="))     merge_colls (a(1), a(3), a(5));
     //if (!strcmp (a(0), "-rekey") &&
