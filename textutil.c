@@ -299,6 +299,12 @@ uint parenspn (char *str) { // span of parenthesized string starting at *str
   return s - str;
 }
 
+char *json_docid (char *json) {
+  char *id = json_value (json, "docid");
+  if (!id) id = json_value (json, "id");
+  return id;
+}
+
 char *json_value (char *json, char *_key) { // { "key1": "val1", "key2": 2 } cat
   if (!json || !_key) return NULL;
   if (*_key == '"') assert ("don't pass quotes to json_value");
@@ -629,6 +635,28 @@ char *get_xml_all_intag (char *xml, char *tag, char sep) {
     xml = end + strlen(tag);
   }
   return buf;
+}
+
+// -------------------------- concatenate docs --------------------------
+
+// {trg},{src} -> {trg, src}
+void append_json (char **trg, size_t *sz, char *src) {
+  char *trg_end = strrchr (*trg,'}'); // find closing }
+  char *src_beg = strchr1 (src,'{'); // right after first {
+  if (!trg_end || !src_beg) return;
+  *trg_end++ = ','; // replace closing { with ,
+  *trg_end = '\0';
+  stracat (trg, sz, src_beg); // wasteful, but clear
+}
+
+// <TRG>,<SRC> -> <TRG SRC>
+void append_sgml (char **trg, size_t *sz, char *src) {
+  char *trg_end = strstr(*trg, "</DOC>"); // immediately before </DOC>
+  char *src_beg = strstr(src, "<DOC");
+  if (src_beg) src_beg = strchr1(src_beg,'>'); // after <DOC...>
+  if (!trg_end || !src_beg) return;
+  *trg_end = '\0';
+  stracat (trg, sz, src_beg); // wasteful, but clear
 }
 
 // -------------------------- snippets --------------------------
