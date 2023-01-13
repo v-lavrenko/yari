@@ -1232,6 +1232,13 @@ void do_stats (char *_M, char *_H) {
   free_coll (M);
 }
 
+void do_size (char *_C) {
+  coll_t *C = open_coll (_C, "r+");
+  size_t nc = nvecs(C), nb = C->offs[0];
+  printf("%ld %s [%ldGB]\n", nc, _C, nb>>30);
+  free_coll(C);
+}
+
 char *usage = 
   "kvs                           - optional [parameters] are in brackets\n"
   "  -m 256                      - set mmap size to 256MB\n"
@@ -1265,6 +1272,7 @@ char *usage =
   "                                F1=0.9 ... keep dragging until F1 = 0.9\n"
   "                                sim=0  ... follow drag only if sim > 0\n"
   "                                top=K  ... drag only K nearest neighbours\n"
+  "  size XML                    - show number of chunks in XML\n"
   ;
 
 #define a(i) ((i < argc) ? argv[i] : "")
@@ -1293,6 +1301,7 @@ int main (int argc, char *argv[]) {
     if (!strcmp (a(0), "-dump")) dump_raw (a(1), a(2), a(3));
     if (!strcmp (a(0), "-rand")) dump_rnd (a(1), a(2));
     if (!strcmp (a(0), "-dmap")) dump_raw_ret (a(1), a(2));
+    if (!strcmp (a(0), "size")) do_size (a(1));
     if (!strcmp (a(0), "-stat")) do_stats (a(1), a(2));
     if (!strcmp (a(0), "-qry")) qry = do_qry (QRY=a(1), DICT=a(2), a(3));
     if (!strcmp (a(0), "-ret")) ret = do_ret (qry, INVL=a(1), a(2)); // free ret
