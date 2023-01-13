@@ -129,17 +129,19 @@ void load_json (char *C, char *RH, char *prm) { //
 }
 
 void load_xml_or_json (char *C, char *RH, char *prm) {
-  char *skip = strstr(prm,"skip");
-  char *Long = strstr(prm,"long"), *join = strstr(prm,"join");
+  char *skip = strstr(prm,"skip"), *join = strstr(prm,"join");
+  char *Long = strstr(prm,"longer");
   char *addk = strstr(prm,"addkeys");
-  uint done = 0, nodoc = 0, noid = 0, dups = 0;
-  size_t SZ = 1<<24, sz = 0;
-  char *buf = malloc(SZ);
+  ulong done = 0, nodoc = 0, noid = 0, dups = 0;
+  size_t SZ = 1<<24;
+  ssize_t sz = 0;
+  char *buf = calloc(1,SZ);
   coll_t *c = open_coll (C, "a+");
   hash_t *rh = open_hash (RH, (addk ? "a!" : "r!"));
   while ((sz=getline(&buf, &SZ, stdin)) > 0) { // assume one-per-line
+    //fprintf(stderr,"%100.100s\n", buf);
     int jsonp = buf[strspn(buf," \t")] == '{'; // JSON ot XML?
-    if (!(++done%10000)) show_progress (done, 0, "docs");
+    if (!(++done%10000)) show_progress (done, 0, " docs");
     if (buf[sz-1] == '\n') buf[--sz] = '\0';
     char *docid = jsonp ? json_docid(buf) : get_xml_docid(buf);
     if (!docid && ++nodoc < 5) { fprintf (stderr, "ERR: no docid in: %s\n", buf); continue; }
@@ -149,16 +151,17 @@ void load_xml_or_json (char *C, char *RH, char *prm) {
     char *old = get_chunk (c,id);
     if (old) ++dups;
     if (old && skip) continue; // keep old
-    if (old && Long && (sz < strlen(old))) continue; // old is longer -> keep it
+    if (old && Long && ((size_t)sz < strlen(old))) continue; // old is longer -> keep it
     if (old && join) { // append old to new
       if (jsonp) append_json (&buf, &SZ, old);
       else       append_sgml (&buf, &SZ, old);
       sz = strlen(buf);
     }
     put_chunk (c, id, buf, sz+1);
+    *buf = '\0';
   }
   free_coll (c); free_hash (rh); free(buf);
-  fprintf (stderr, "[%.0fs] OK: %d, noid: %d, dups: %d\n", 
+  fprintf (stderr, "[%.0fs] OK: %ld, noid: %ld, dups: %ld\n", 
 	   vtime(), done, noid, dups);
 }
 
