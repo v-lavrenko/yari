@@ -1739,6 +1739,19 @@ float *vec2full (ix_t *vec, uint N, float def) {
   return full;
 }
 
+ix_t *ids2vec (uint *U, float x) {
+  uint i, n = len(U);
+  ix_t *V = const_vec (n, x);
+  for (i=0; i<n; ++i) V[i].i = U[i];
+  return V;
+}
+
+uint *vec2ids (ix_t *V) {
+  uint i, n=len(V), *U = new_vec (n, sizeof(uint));
+  for (i=0; i<n; ++i) U[i] = V[i].i;
+  return U;
+}
+
 inline ix_t *vec_find (ix_t *vec, uint i) {
   int lo = -1, hi = len(vec), mid; // both out of range
   while (hi - lo > 1) {
