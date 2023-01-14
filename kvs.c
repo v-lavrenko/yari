@@ -25,7 +25,8 @@
 
 #define Inf 999999999
 
-void dump_raw_ret (char *C, char *RH) {
+void dump_raw_ret (char *C, char *RH, char *prm) {
+  char *tag = getprms(prm,"tag=","",',');
   coll_t *c = open_coll (C, "r+");
   hash_t *h = open_hash (RH, "r!");
   char qryid[9999], docid[999], line[10000], *eol;
@@ -37,7 +38,7 @@ void dump_raw_ret (char *C, char *RH) {
     char *raw = get_chunk(c,i);
     printf ("%s\t%s\n",line,raw);
   }
-  free_coll(c); free_hash(h);
+  free_coll(c); free_hash(h); free(tag);
 }
 
 void dump_rnd (char *C, char *prm) {
@@ -1253,7 +1254,7 @@ char *usage =
   "   merge A a += B b [prm]     - A[j] += B[i] (concat) where key = a[j] = b[i]\n"
   "                                prm: addnew ... add new keys if not in a\n"
   "  -stat XML HASH              - stats (cf,df) from collection XML -> stdout\n"
-  "  -dmap XML HASH              - stdin: qryid docid, stdout: qryid XML[docid]\n"
+  "  -dmap XML HASH [prm]        - stdin: qryid docid, stdout: qryid XML[docid]\n"
   "  -qry 'query' DICT stem=L    - parse query\n"
   "  -ret  INVL [prm]            - retrieved set, prm ignored\n"
   "  -exp  DOCS [prm]            - Q = qw Q + top nw terms from top nd docs\n"
@@ -1300,7 +1301,7 @@ int main (int argc, char *argv[]) {
     //!strcmp (a(2), "+="))    do_merge (a(1), NULL, a(3), NULL, a(4));
     if (!strcmp (a(0), "-dump")) dump_raw (a(1), a(2), a(3));
     if (!strcmp (a(0), "-rand")) dump_rnd (a(1), a(2));
-    if (!strcmp (a(0), "-dmap")) dump_raw_ret (a(1), a(2));
+    if (!strcmp (a(0), "-dmap")) dump_raw_ret (a(1), a(2), a(3));
     if (!strcmp (a(0), "size")) do_size (a(1));
     if (!strcmp (a(0), "-stat")) do_stats (a(1), a(2));
     if (!strcmp (a(0), "-qry")) qry = do_qry (QRY=a(1), DICT=a(2), a(3));
