@@ -87,8 +87,26 @@ uint levenstein_distance (char *A, char *B, char *explain) {
   return result;
 }
 
-uint levenstein_uint (uint *A, uint *B) {
+// best sequence of ops to convert A -> B
+ix_t *levenstein_extract_ops (char **D, ix_t *A, ix_t *B) {
+  ix_t *ops = new_vec(0,sizeof(ix_t)), op = {0,0};
+  int nA = len(A), nB = len(B), a=nA, b=nB;  
+  while (a>0 && b>0) {
+    if      (D[a][b] == '=') {--a; --b; op.x = 0; op.i = A[a].i; } // keep A[a]
+    else if (D[a][b] == '^') {--a;      op.x =-1; op.i = A[a].i; } // del A[a]
+    else if (D[a][b] == '<') {--b;      op.x =+1; op.i = B[b].i; } // ins B[b]
+    ops = append_vec (ops, &op);
+  }
+  while (a>0) {--a; op.x =-1; op.i = A[a].i; ops = append_vec (ops, &op); }
+  while (b>0) {--b; op.x =+1; op.i = B[b].i; ops = append_vec (ops, &op); }
+  reverse_vec(ops);
+  return ops; 
+}
+
+// Levenstein distance between sequences A & B (uint)
+ix_t *levenstein_ops (ix_t *A, ix_t *B) {
   uint nA = len(A), nB = len(B), a, b;
+  if (!nA && !nB) return const_vec(0,0);
   uint **C = (uint **) new_2D (nA+1,nB+1,sizeof(uint));
   char **D = (char **) new_2D (nA+1,nB+1,sizeof(char));
   for (a = 0; a <= nA; ++a) C[a][0] = a;
@@ -97,35 +115,34 @@ uint levenstein_uint (uint *A, uint *B) {
     for (b = 1; b <= nB; ++b) {
       uint del = C[a-1][b] + 1;
       uint ins = C[a][b-1] + 1;
-      uint fit = (A[a-1] == B[b-1]);
+      uint fit = (A[a-1].i == B[b-1].i);
       uint sub = C[a-1][b-1] + (fit ? 0 : 3); // 3 => ins+del cheaper than sub
       uint best = MIN(MIN(ins,del),sub);
       C[a][b] = best;
       D[a][b] = (ins == best) ? '<' : (del == best) ? '^' : fit ? '=' : 'S';
     }
   }
-  uint result = C[nA][nB];  
+  ix_t *ops = levenstein_extract_ops (D,A,B); // [ (0,keep) (-,del) (+,ins) ]
   free_2D((void **)C);
   free_2D((void **)D);
-  return result;
+  return ops;
 }
 
-ix_t *levenstein_track (char **D, uint *A, uint *B) {
-  ix_t *ops = new_vec(0,sizeof(ix_t)), op = {0,0};
-  int nA = len(A), nB = len(B), a=nA, b=nB;  
-  while (a>0 && b>0) {
-    if      (D[a][b] == '=') {--a; --b; op.x = 0; op.i = A[a]; } // keep A[a]
-    else if (D[a][b] == '^') {--a;      op.x =-1; op.i = A[a]; } // del A[a]
-    else if (D[a][b] == '<') {--b;      op.x =+1; op.i = B[b]; } // ins B[b]
-    ops = append_vec (ops, &op);
+#include "hl.h"
+void show_levenstein_ops (ix_t *O, hash_t *h) {
+  ix_t *o = O-1, *end = O+len(O);
+  while (++o < end) {
+    char *op = (o->x > 0) ? bg_GREEN : (o->x < 0) ? bg_RED : "";
+    char *cl = RESET;
+    if (h) printf(" %s%s%s", op, id2key(h,o->i), cl);
+    else   printf(" %s%d%s", op, o->i, cl);
   }
-  reverse_vec(ops);
-  return ops; // uint count (ix_t *V, char op, float x) {
+  putchar('\n');
 }
 
-uint levenstein_n_del (ix_t *track) { return count (track,'<',0); }
-uint levenstein_n_ins (ix_t *track) { return count (track,'>',0); }
-uint levenstein_edits (ix_t *track) { return count (track,'!',0); }
+uint levenstein_n_del (ix_t *ops) { return count (ops,'<',0); }
+uint levenstein_n_ins (ix_t *ops) { return count (ops,'>',0); }
+uint levenstein_edits (ix_t *ops) { return count (ops,'!',0); }
 
 //////////////////////////////////////////////////////////////////////////////// Norvig spell
 
@@ -474,6 +491,69 @@ int do_levenstein (char *A, char *B) {
   return 0;
 }
 
+ix_t *str2vec (char *str, hash_t *h) {
+  lowercase(str);
+  char **toks = split (str,' ');
+  ix_t *vec = toks2vec (toks,h);
+  free_vec(toks); 
+  return vec;
+}
+
+int do_levenstein_ops (char *_A, char *_B) {
+  hash_t *H = open_hash(0,0);
+  ix_t *A = str2vec (_A,H), *B = str2vec(_B,H);
+  ix_t *ops = levenstein_ops (A,B);
+  show_levenstein_ops (ops, H);
+  uint nA = len(A), nB = len(B);
+  uint eqs = count(ops,'=',0);
+  uint del = count(ops,'<',0);
+  uint ins = count(ops,'>',0);
+  printf("A: %d words %d common %d deleted\n", nA, eqs, del);
+  printf("B: %d words %d common %d inserted\n", nB, eqs, ins);
+  free_hash (H); free_vec(A); free_vec(B); free_vec(ops);
+  return 0;
+}
+
+char *__default_ws = " \t\r\n~`!@#$%^&*()_-+=[]{}|\\:;\"'<>,.?/";
+ix_t *xml2vec (char *_str, hash_t *h) {
+  char *str = get_xml_intag (_str, "description");
+  no_xml_refs(str);
+  no_xml_tags(str);
+  csub (str, __default_ws, ' ');
+  lowercase(str);
+  char **toks = split (str,' ');
+  ix_t *vec = toks2vec (toks,h);
+  free_vec(toks);
+  free (str);
+  return vec;
+}
+
+
+int do_xml_pairs (char *_XML, char *_IDS, char *prm) {
+  char *verbose = strstr(prm,"verbose");
+  coll_t *XML = open_coll (_XML, "r+");
+  hash_t *IDS = open_hash (_IDS, "r");
+  char _a[999], _b[999];
+  while (2 == fscanf(stdin, "%s %s", _a, _b)) {
+    hash_t *TOK = open_hash (0, 0);
+    uint a = key2id(IDS,_a), b = key2id(IDS,_b);
+    //printf ("A:%d:%s B:%d:%s\n", a, _a, b, _b);
+    char *_A = get_chunk(XML,a); ix_t *A = xml2vec(_A,TOK);
+    char *_B = get_chunk(XML,b); ix_t *B = xml2vec(_B,TOK);
+    //printf ("A:%d B:%d words\n", len(A), len(B));
+    ix_t *ops = levenstein_ops (A,B);
+    uint dist = count(ops,'!',0), eq = count(ops,'=',0);
+    uint ins = count(ops,'>',0), del = count(ops,'<',0);
+    printf ("%d: +%d -%d / %d=\t%s\t%s\n", dist, ins, del, eq, _a, _b);
+    if (verbose) show_levenstein_ops (ops, TOK);
+    fflush(stdout);
+    free_vec(A); free_vec(B); free_vec(ops); free_hash(TOK);
+  }
+  free_coll(XML); free_hash(IDS); //free_hash(TOK);
+  return 0;
+}
+
+
 #define arg(i) ((i < argc) ? A[i] : NULL)
 #define a(i) ((i < argc) ? A[i] : "")
 
@@ -484,6 +564,8 @@ char *usage =
   "       spell -pub   coronavirus WORD WORD_CF [verbose]\n"
   "       spell -eval  WORD WORD_CF [quiet] < pairs.tsv\n"
   "       spell -dist  word word\n"
+  "       spell -ops  'b a n a' 'b n a'\n"
+  "       spell -pairs XML IDS < stdin: id1 id2\n"
   ;
 
 int main (int argc, char *A[]) {
@@ -494,7 +576,9 @@ int main (int argc, char *A[]) {
   if (!strcmp(a(1),"-pub"))   return do_pubmed (a(2), a(3), a(4), a(5));
   if (!strcmp(a(1),"-eval"))  return do_eval_spell (a(2), a(3), a(4));
   if (!strcmp(a(1),"-dist"))  return do_levenstein (a(2), a(3));
-  
+  if (!strcmp(a(1),"-ops"))  return do_levenstein_ops (a(2), a(3));
+  if (!strcmp(a(1),"-pairs")) return do_xml_pairs (a(2), a(3), a(4));
+
   if (argc == 3) {
     hash_t *H = open_hash (0,0);
     double t0 = 1E3 * ftime();
