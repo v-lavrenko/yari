@@ -44,6 +44,8 @@ uint pubmed_spell (char *word, hash_t *H, float *F, char *prm, uint W, uint *id2
 
 uint levenstein_distance (char *A, char *B, char *explain) ;
 
-uint levenstein_uint (uint *A, uint *B) ; // uint vectors
+ix_t *levenstein_ops (ix_t *A, ix_t *B) ; 
+void show_levenstein_ops (ix_t *O, hash_t *h) ;
+
 
 #endif
