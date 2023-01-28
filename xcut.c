@@ -57,15 +57,21 @@ int *col_nums (char **cols, int n, char *hdr) {
   return nums;
 }
 
+void print_val(char *val, int eol) {
+  if (val) {
+    csub(val,"\t\r\n",' ');
+    fputs(val,stdout);
+  }
+  putchar(eol ? '\n' : '\t');  
+}
+
 void cut_tsv (char *line, int *nums, int n, char **cols) {
   char **F = split(line,'\t');
   int i, NF = len(F);
   for (i = 0; i < n; ++i) {
     int literal = (cols[i][0] == '\\'), c = nums[i];
     char *val = literal ? (cols[i]+1) : (c > 0 && c <= NF) ? F[c-1] : "";
-    char sep = (i < n-1) ? '\t' : '\n';
-    fputs (val,stdout);
-    fputc (sep,stdout);
+    print_val (val, (i+1==n));
   }
   free_vec(F);
 }
@@ -74,9 +80,8 @@ void cut_json (char *line, char **cols, int n) {
   int i;
   for (i = 0; i < n; ++i) {
     char *val = json_value (line, cols[i]);
-    char sep = (i < n-1) ? '\t' : '\n';
-    if (val) { fputs(val,stdout); free (val); }
-    fputc (sep, stdout);
+    print_val (val, (i+1==n));
+    free (val);
   }
 }
 
@@ -85,8 +90,8 @@ void cut_xml (char *line, char **cols, int n) {
   for (i = 0; i < n; ++i) {
     if (cols[i][0] == ',') val = get_xml_all_intag (line, cols[i]+1, ','); // "@id"
     else                   val = get_xml_inpath (line, cols[i]); // "body.ref.id"
-    if (val) { fputs(val,stdout); free (val); }
-    putchar((i < n-1) ? '\t' : '\n');
+    print_val (val, (i+1==n));
+    free (val);
   }
 }
 
