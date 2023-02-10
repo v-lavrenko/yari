@@ -73,8 +73,8 @@ off_t page_align (off_t offs, char side) ; // floor:'<'   ceiling:'>'
 ulong physical_memory () ;
 
 void *safe_malloc (size_t size) ;
-void *safe_calloc (off_t size) ;
-void *safe_realloc (void *buf, off_t size) ;
+void *safe_calloc (size_t size) ;
+void *safe_realloc (void *buf, size_t size) ;
 int safe_open (char *path, char *access) ;
 FILE *safe_fopen (char *path, char *access) ;
 int popen2 (const char *command, pid_t *_pid) ;
@@ -88,7 +88,7 @@ off_t safe_read (int fd, void *buf, off_t count) ;
 off_t safe_write (int fd, void *buf, off_t count) ;
 off_t safe_pread (int fd, void *buf, off_t size, off_t offset) ;
 off_t safe_pwrite (int fd, void *buf, off_t size, off_t offset) ;
-void stracat (char **dst, int *n, char *src) ;
+void stracat (char **dst, size_t *n, char *src) ;
 char *acat (char *s1, char *s2) ; // must free result
 char *fmt (char *buf, const char *format, ...) ;
 char *fmtn (int sz, const char *format, ...) ;

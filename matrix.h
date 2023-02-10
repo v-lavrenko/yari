@@ -165,9 +165,10 @@ float *chk_SCORE (uint N) ;
 ix_t *full2vec (float *full) ;
 ix_t *double2vec (double *full) ;
 ix_t *full2vec_keepzero (float *full) ;
-
-
 float *vec2full (ix_t *vec, uint N, float def) ;
+
+uint *vec2ids (ix_t *V) ; // sequence of ids
+ix_t *ids2vec (uint *U, float x) ;
 
 ix_t *rows_x_vec (coll_t *rows, ix_t *vec) ;
 ix_t *cols_x_vec (coll_t *cols, ix_t *vec) ;

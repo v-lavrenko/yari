@@ -57,15 +57,21 @@ int *col_nums (char **cols, int n, char *hdr) {
   return nums;
 }
 
+void print_val(char *val, int eol) {
+  if (val) {
+    csub(val,"\t\r\n",' ');
+    fputs(val,stdout);
+  }
+  putchar(eol ? '\n' : '\t');  
+}
+
 void cut_tsv (char *line, int *nums, int n, char **cols) {
   char **F = split(line,'\t');
   int i, NF = len(F);
   for (i = 0; i < n; ++i) {
     int literal = (cols[i][0] == '\\'), c = nums[i];
     char *val = literal ? (cols[i]+1) : (c > 0 && c <= NF) ? F[c-1] : "";
-    char sep = (i < n-1) ? '\t' : '\n';
-    fputs (val,stdout);
-    fputc (sep,stdout);
+    print_val (val, (i+1==n));
   }
   free_vec(F);
 }
@@ -74,13 +80,23 @@ void cut_json (char *line, char **cols, int n) {
   int i;
   for (i = 0; i < n; ++i) {
     char *val = json_value (line, cols[i]);
-    char sep = (i < n-1) ? '\t' : '\n';
-    if (val) { fputs(val,stdout); free (val); }
-    fputc (sep, stdout);
+    print_val (val, (i+1==n));
+    free (val);
   }
 }
- 
+
+void cut_xml (char *line, char **cols, int n) {
+  int i; char *val;
+  for (i = 0; i < n; ++i) {
+    if (cols[i][0] == ',') val = get_xml_all_intag (line, cols[i]+1, ','); // ",id"
+    else                   val = get_xml_inpath (line, cols[i]); // "body.ref.id"
+    print_val (val, (i+1==n));
+    free (val);
+  }
+}
+
 int json_like (char *line) { return line[strspn(line," ")] == '{'; }
+int xml_like (char *line) { return line[strspn(line," \t")] == '<'; }
 
 void cut_stdin (char **cols, int n) {
   size_t sz = 999999;
@@ -89,10 +105,11 @@ void cut_stdin (char **cols, int n) {
   while (0 < (nb = getline(&line,&sz,stdin))) {
     if (line[nb-1] == '\n') line[nb-1] = '\0';
     if (!type) {
-      type = json_like (line) ? 'J' : 'T';
+      type = json_like(line) ? 'J' : xml_like(line) ? 'X' : 'T';
       if (type == 'T') nums = col_nums (cols, n, line);
     }
     if (type == 'J') cut_json(line, cols, n);
+    if (type == 'X') cut_xml (line, cols, n);
     if (type == 'T') cut_tsv (line, nums, n, cols);
   }
 }
@@ -152,7 +169,7 @@ int nf_stdin () {
   int nb = 0;
   char *line = malloc(sz);
   while (0 < (nb = getline(&line,&sz,stdin))) {
-    char **toks = split (line, ' ');
+    char **toks = split (line, '\t');
     printf("%d\t%d\n", len(toks), nb);
     free_vec(toks);
   }
@@ -187,9 +204,10 @@ char *usage =
   "xcut 3 2 \\X 17    ... print columns 3, 2, 'X', 17 from stdin\n"
   "xcut age size type ... use 1st line to map age -> column number\n"
   "xcut age size type ... stdin = {JSON} records one-per-line\n"
+  "xcut age size type ... stdin = <XML> documents one-per-line\n"
   "xcut -h age size   ... print header before cutting\n"
   "xcut -wc           ... faster than wc byte/word/line counter\n"
-  "xcut -nf           ... awk '{print NF, length}'\n"
+  "xcut -nf           ... awk -F'\t' '{print NF, length}'\n"
   "xcut -noxml        ... strip CR, <tags>, MAP: '&copy;' -> '(C)'\n"
   "xcut -refs [MAP]   ... MAP: '&amp;' -> '&' (see dict -inmap)\n"
   //  "xcut -lf 'trg'     ... add LF immediately after trigger 'trg'\n"

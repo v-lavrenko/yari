@@ -42,6 +42,7 @@ char *strRchr (char *beg, char *end, char key) {
   return end;
 }
 
+// find 'c' in "s" and return pointer after 'c', or NULL
 char *strchr1 (char *s, char c) { s = strchr(s,c); return s ? s+1 : 0; }
 
 // in str replace any occurence of chars from what[] with 'with'
@@ -298,6 +299,12 @@ uint parenspn (char *str) { // span of parenthesized string starting at *str
   return s - str;
 }
 
+char *json_docid (char *json) {
+  char *id = json_value (json, "docid");
+  if (!id) id = json_value (json, "id");
+  return id;
+}
+
 char *json_value (char *json, char *_key) { // { "key1": "val1", "key2": 2 } cat
   if (!json || !_key) return NULL;
   if (*_key == '"') assert ("don't pass quotes to json_value");
@@ -552,6 +559,104 @@ char *get_xml_author (char *xml) {
   if (s) no_xml_tags (s);
   chop (s, " ");
   return s;
+}
+
+// pointer after next opening <tag...>
+char *get_xml_open (char *xml, char *tag) { 
+  char *p = xml+1; int n = strlen(tag);
+  while ((p = strcasestr (p,tag))) { // look for "tag"
+    if (p[-1]=='<' && (p[n]=='>' || p[n]==' ')) // found <tag> or <tag ... ?       
+      //return (p-1); // including tag
+      return strchr1(p+n,'>'); // excluding tag
+    else p += n;
+  }
+  return NULL;
+}
+
+// pointer to next closing </tag...>
+char *get_xml_close (char *xml, char *tag) {
+  char *p = xml+2; int n = strlen(tag);
+  while ((p = strcasestr (p,tag))) { // look for "tag"
+    if (p[-2]=='<' && p[-1]=='/' && p[n]=='>') // found "</tag>" ?
+      //return p+n+1; // including tag
+      return p-2; // excluding tag
+    else p += n;
+  }
+  return NULL;
+}
+
+// return string between <tag> and </tag>
+char *get_xml_intag (char *xml, char *tag) {
+  if ((tag[0]=='i') && (tag[1]=='d') && !tag[2]) return get_xml_docid (xml);
+  char *beg = xml ? get_xml_open (xml, tag) : NULL; // find "<tag"
+  //if (beg) beg = strchr(beg,'>'); // find end of "<tag ... >"
+  char *end = beg ? get_xml_close (beg, tag) : NULL; // find "</tag"
+  return end ? strndup (beg, end-beg) : NULL;
+}
+
+//char *get_xml_tag_attr (char *xml, char *tag, char *attr) {
+//  char *end = xml ? get_xml_open (xml, tag) : NULL; // find end of "<tag ...>"
+//  char *beg = end ? strRchr (xml, end, '<') : NULL; // find start  
+//  //if (beg) beg = strchr(beg,'>'); // find end of "<tag ... >"
+//  char *end = beg ? get_xml_close (beg, tag) : NULL; // find "</tag"
+//  return end ? strndup (beg, end-beg) : NULL;
+//}
+
+// ["ref","id"] -> <ref>...<id>_____</id>...</ref>
+char *get_xml_intags (char *xml, char **tags) {
+  char *span = xml, **tag = tags-1, **end = tags+len(tags);
+  while (span && (++tag < end)) { // while we have span and more tags to find
+    char *next = get_xml_intag (span, *tag); // try to match tag in span
+    if (span != xml) free(span); // ^^^ will strdup
+    span = next;
+  }
+  return span; // either NULL or we found all tags
+}
+
+// "ref.id" -> <ref>...<id>_____</id>...</ref>
+char *get_xml_inpath (char *xml, char *path) {
+  if (!strchr(path,'.')) return get_xml_intag (xml,path); // single tag
+  path = strdup(path); // make a copy: split will insert \0 into it
+  char **tags = split(path,'.'); // split path into tags
+  char *match = get_xml_intags (xml, tags);
+  free(path); free_vec(tags);
+  return match;
+}
+
+// return all strings between <tag> and </tag>
+char *get_xml_all_intag (char *xml, char *tag, char sep) {
+  char *buf=0; int sz=0;
+  while (1) {
+    char *beg = xml ? get_xml_open (xml, tag) : NULL; // find "<tag"
+    char *end = beg ? get_xml_close (beg, tag) : NULL; // find "</tag"
+    if (!end) break;
+    if (sz) memcat (&buf, &sz, &sep, 1);
+    memcat (&buf, &sz, beg, end-beg);
+    xml = end + strlen(tag);
+  }
+  return buf;
+}
+
+// -------------------------- concatenate docs --------------------------
+
+// {trg},{src} -> {trg, src}
+void append_json (char **trg, size_t *sz, char *src) {
+  char *trg_end = strrchr (*trg,'}'); // find closing }
+  char *src_beg = strchr1 (src,'{'); // right after first {
+  if (!trg_end || !src_beg) return;
+  *trg_end++ = ','; // replace closing { with ,
+  *trg_end = '\0';
+  stracat (trg, sz, src_beg); // wasteful, but clear
+}
+
+// <TRG>,<SRC> -> <TRG SRC>
+void append_sgml (char **trg, size_t *sz, char *src) {
+  char *trg_end = strstr(*trg, "</DOC>"); // immediately before </DOC>
+  char *src_beg = strstr(src, "<DOC");
+  if (src_beg) src_beg = strchr1(src_beg,'>'); // after <DOC...>
+  if (!trg_end || !src_beg) return;
+  *trg_end = '\0';
+  stracat (trg, sz, src_beg); // wasteful, but clear
 }
 
 // -------------------------- snippets --------------------------
