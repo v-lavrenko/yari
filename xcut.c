@@ -88,7 +88,7 @@ void cut_json (char *line, char **cols, int n) {
 void cut_xml (char *line, char **cols, int n) {
   int i; char *val;
   for (i = 0; i < n; ++i) {
-    if (cols[i][0] == ',') val = get_xml_all_intag (line, cols[i]+1, ','); // "@id"
+    if (cols[i][0] == ',') val = get_xml_all_intag (line, cols[i]+1, ','); // ",id"
     else                   val = get_xml_inpath (line, cols[i]); // "body.ref.id"
     print_val (val, (i+1==n));
     free (val);
@@ -169,7 +169,7 @@ int nf_stdin () {
   int nb = 0;
   char *line = malloc(sz);
   while (0 < (nb = getline(&line,&sz,stdin))) {
-    char **toks = split (line, ' ');
+    char **toks = split (line, '\t');
     printf("%d\t%d\n", len(toks), nb);
     free_vec(toks);
   }
@@ -207,7 +207,7 @@ char *usage =
   "xcut age size type ... stdin = <XML> documents one-per-line\n"
   "xcut -h age size   ... print header before cutting\n"
   "xcut -wc           ... faster than wc byte/word/line counter\n"
-  "xcut -nf           ... awk '{print NF, length}'\n"
+  "xcut -nf           ... awk -F'\t' '{print NF, length}'\n"
   "xcut -noxml        ... strip CR, <tags>, MAP: '&copy;' -> '(C)'\n"
   "xcut -refs [MAP]   ... MAP: '&amp;' -> '&' (see dict -inmap)\n"
   //  "xcut -lf 'trg'     ... add LF immediately after trigger 'trg'\n"
