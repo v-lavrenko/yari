@@ -1,6 +1,7 @@
 #include "hash.h"
 #include "textutil.h"
 
+// open NUM files named PFX1..N for "rwa"
 FILE **fopen_files (uint num, char *pfx, char *mode) {
   uint i; char path[9999]; 
   mkdir_parent (pfx);
@@ -10,6 +11,7 @@ FILE **fopen_files (uint num, char *pfx, char *mode) {
   return file;
 }
 
+// close NUM files and remove if CLEAN not NULL
 void fclose_files (FILE **file, char *pfx, char *clean) {
   uint i; char path[9999];
   for (i = 0; i < len(file); ++i) if (file[i]) {
@@ -20,27 +22,42 @@ void fclose_files (FILE **file, char *pfx, char *clean) {
   if (clean) rmdir_parent (pfx);
 }
 
+// read lines from IN, sort into OUT[i] based on column j
 void do_shard (FILE *in, FILE **out, char *prm) {
-  char *mur = strstr (prm,"murmur"), *mad = strstr (prm,"multiadd");
-  hash_t *H = open_hash(0,0);
+  char *key = getprms (prm,"key=",NULL,',');
   uint col = getprm (prm,"col=",0);
-  char *key = getprms (prm,"key=","id",',');
-  char *line = NULL;
-  size_t sz = 0;
+  char *line = NULL; size_t sz = 0;
   while (getline (&line, &sz, in) > 0) {
-    char *val = col ? tsv_value (line,col) : json_value (line,key);
-    uint code = (mad ? multiadd_hashcode (val) :
-		 mur ? murmur3 (val, strlen(val)) : 
-		 key2id (H,val));
+    char *val = (key ? json_value (line,key) :
+		 col ? tsv_value (line,col) : line);
+    uint code = murmur3 (val, strlen(val));
     uint bin =  code % len(out);
-    fprintf (out[bin], "%u %u '%s' %s", bin, code, val, line);
-    //fputs (line, out[bin]);
-    if (val) free (val);
+    //fprintf (out[bin], "%u %u '%s' %s", bin, code, val, line);
+    fputs (line, out[bin]);
+    if (val && (val != line)) free (val);
   }
   if (line) free (line);
   if (key) free (key);
-  if (H) free_hash(H);
 }
+
+
+// merge lines: this is pointless: use "sort -m"
+/*
+void do_merge (FILE *out, FILE **IN, char *prm) {
+  uint i, n = len(IN); // number of input files
+  char **LINE = new_vec (n, sizeof(char*)); // next line for each file
+  int *NB = new_vec (n, sizeof(size_t)); // length of ^^^
+  size_t *SZ = new_vec (n, sizeof(size_t)); // allocated for ^^^
+  for (i=0; i<n; ++i) NB[i] = getline (LINE+i, SZ+i, IN[i]);
+  while (1) { // until all files exhausted
+    // find next i: NB[i]>0 and LINE[i] <= LINE[j] for all j
+    // linear scan, or heap, based on some column?
+    fputs(LINE[i],out); // yield the line
+    NB[i] = getline (LINE+i, SZ+i, IN[i]); // advance
+  }
+  free_vec (LINE); free_vec (SZ); free_vec (NB);
+}
+*/
 
 /*
 void do_merge (FILE **ins, char *key) {
@@ -72,15 +89,15 @@ char *usage =
   "            num=100 ... produce up to 100 bins\n"
   "            pfx=bin ... output to bin.{1,2...100}\n"
   "            append  ... append output files instead of overwriting\n"
-  "            merge   ... merge lines in each bin, write to stdout\n"
-  "            clean   ... remove bin files when done\n"
+  //"            merge   ... merge lines in each bin, write to stdout\n"
+  //"            clean   ... remove bin files when done\n"
   ;
 
 int main (int argc, char *argv[]) {
   if (argc < 2) return fprintf (stderr, "%s", usage); 
   char *prm = argv[1];
   uint num = getprm(prm,"num=",100);
-  char *pfx = getprms(prm,"pfx=","bin",',');
+  char *pfx = getprms(prm,"pfx=","bin.",',');
   char *mode = strstr(prm,"append") ? "a" : "w";
   char *clean = strstr(prm,"clean");
   //char *merge = strstr(prm,"merge");
