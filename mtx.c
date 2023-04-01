@@ -85,7 +85,6 @@ void mtx_stats (char *_S, char *_M, char *prm) {
   }
 }
 
-
 void mtx_load (char *M, char *RH, char *CH, char *type, char *prm) {
   ulong done = 0;
   char *buf = malloc(1<<24), *id = 0;  
@@ -109,7 +108,7 @@ void mtx_load (char *M, char *RH, char *CH, char *type, char *prm) {
   fprintf (stderr, "[%.0fs] stdin --> %s [%s x %s] permissions: %s,%s,%s\n", vtime(), 
 	   m->path, (rh ? rh->path : "numbers"), (ch ? ch->path : "numbers"),
 	   m->access, (rh ? rh->access : "-"),  (ch ? ch->access : "-"));
-  if (rcv) scan_mtx (m, NULL, rh, ch);
+  if (rcv) scan_mtx (m, NULL, rh, ch, prm);
   else while (read_doc (stdin, buf, 1<<24, BEG, END)) {
       if (!xml && *buf == '#') continue; // skip comments (lines starting with '#')
       ix_t *vec = (xml ? parse_vec_xml (buf, &id, ch, prm) :
@@ -1830,6 +1829,7 @@ char *usage =
   "                          position ... store word positions instead of frequencies\n"
   "                          ow=5,uw=5 ... ordered/unordered pairs in a 5-word window\n"
   "                          join/skip/replace ... documents with duplicate ids\n"
+  "                          aggr=1mMsa ... take 1st,min,Max,sum,avg of duplicate RCV cells\n"
   " print:fmt M [R] [C]    - print matrix M using specified format: rcv,csv,svm,txt,json,ids\n"
   "                          R,C       ... used to map row/column numbers -> string ids\n"
   "                          top=9     ... 9 biggest values per row in descending order\n"
