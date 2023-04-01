@@ -97,6 +97,7 @@ void cut_xml (char *line, char **cols, int n) {
 
 int json_like (char *line) { return line[strspn(line," ")] == '{'; }
 int xml_like (char *line) { return line[strspn(line," \t")] == '<'; }
+int tsv_like (char *line) { return strchr(line,'\t') != NULL; }
 
 void cut_stdin (char **cols, int n) {
   size_t sz = 999999;
@@ -105,7 +106,8 @@ void cut_stdin (char **cols, int n) {
   while (0 < (nb = getline(&line,&sz,stdin))) {
     if (line[nb-1] == '\n') line[nb-1] = '\0';
     if (!type) {
-      type = json_like(line) ? 'J' : xml_like(line) ? 'X' : 'T';
+      type = json_like(line) ? 'J' : xml_like(line) ? 'X' : tsv_like(line) ? 'T' : 0;
+      if (!type) { fprintf (stderr, "ERROR: expected TSV,XML,JSON got: '%s'\n", line); return; }
       if (type == 'T') nums = col_nums (cols, n, line);
     }
     if (type == 'J') cut_json(line, cols, n);
