@@ -80,6 +80,7 @@ FILE *safe_fopen (char *path, char *access) ;
 int popen2 (const char *command, pid_t *_pid) ;
 FILE *safe_popen (char *access, char *fmt, ...) ;
 void nonblock(FILE *f) ;
+void *mmap_path (char *path, char *access) ; // mmap whole file
 void *safe_mmap (int fd, off_t offset, off_t size, char *access);
 void *safe_remap (int fd, void *buf, off_t osize, off_t nsize);
 off_t safe_truncate (int fd, off_t size) ;

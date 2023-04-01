@@ -182,12 +182,27 @@ void show_vec (ix_t *vec, char what) {
   printf("\n");
 }
 
-void dedup_vec (ix_t *vec) {
+void dedup_vec (ix_t *vec) { // keep 1st occurrence of every id
   if (!vec || !len(vec)) return;
   ix_t *a = vec-1, *b = vec, *end = vec + len(vec);
   while (++a < end) if (a->i > b->i) *++b = *a;
   a = resize_vec (vec, b - vec + 1);
   assert (a == vec);
+}
+
+float aggr_avg (ix_t *A, ix_t*b) { return ((b-A) * A->x + b->x) / (b-A+1); }
+
+void aggr_vec (ix_t *vec, char aggr) {
+  //printf ("aggr: %c\n", aggr);
+  if (!vec || !len(vec)) return;
+  ix_t *a = vec, *b = vec, *end = vec + len(vec);
+  switch(aggr) {
+  case 'm': while (++b < end) { if (a->i == b->i) a->x = MIN(a->x,b->x); else a=b; } break;
+  case 'M': while (++b < end) { if (a->i == b->i) a->x = MAX(a->x,b->x); else a=b; } break;
+  case 's': while (++b < end) { if (a->i == b->i) a->x = a->x + b->x;    else a=b; } break;
+  case 'a': while (++b < end) { if (a->i == b->i) a->x = aggr_avg(a,b);  else a=b; } break;
+  }
+  dedup_vec (vec);  
 }
 
 void uniq_vec (ix_t *vec) {
@@ -680,13 +695,15 @@ ix_t *simhash (ix_t *vec, uint n, char *distr) {
   //return fps;
 }
 
-void sort_vecs (coll_t *c) {
+void sort_vecs (coll_t *c, char *prm) {  
+  char *aggr = getprmp(prm,"aggr=","1st");
+  //printf ("%s, %s\n", prm, aggr);
   uint i, n = nvecs(c);
   fprintf (stderr, "[%.0fs] sorting %d vecs of %s\n", vtime(), n, c->path); 
   for (i = 1; i <= n; ++i) {
     ix_t *vec = get_vec (c, i);
     sort_vec (vec, cmp_ix_i); // rsort?
-    dedup_vec (vec); //uniq_vec (vec);
+    aggr_vec (vec, aggr[0]); // aggregate duplicate cols in the row
     chop_vec (vec);
     put_vec (c, i, vec);
     free_vec (vec);
@@ -694,7 +711,7 @@ void sort_vecs (coll_t *c) {
   }
 }
 
-void scan_mtx (coll_t *rows, coll_t *cols, hash_t *rh, hash_t *ch) {
+void scan_mtx (coll_t *rows, coll_t *cols, hash_t *rh, hash_t *ch, char *prm) {
   while (1) {
     uint size = MIN(4294967295,MAP_SIZE/sizeof(jix_t));
     jix_t *buf = scan_jix (stdin, size, rh, ch);
@@ -706,8 +723,8 @@ void scan_mtx (coll_t *rows, coll_t *cols, hash_t *rh, hash_t *ch) {
 	     vtime(), len(buf), num_rows(rows), num_cols(rows)); 
     free_vec (buf);
   }
-  if (rows) sort_vecs (rows); 
-  if (cols) sort_vecs (cols);
+  if (rows) sort_vecs (rows, prm);
+  if (cols) sort_vecs (cols, prm);
 }
 
 void print_mtx (coll_t *rows, hash_t *rh, hash_t *ch) {

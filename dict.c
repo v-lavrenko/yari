@@ -31,16 +31,18 @@ extern off_t MMAP_MOVES;
 //extern uint  HASH_PROB; // 0:linear 1:quadratic 2:secondary
 //extern float HASH_LOAD; // 0.1 ... 0.9
 
-int dict_dedup () {
-  hash_t *H = open_hash (0,0);
-  char *line = NULL; size_t sz = 0;
+int dict_dedup() {
+  char dir[1000], *line = NULL; size_t sz = 0;
+  sprintf (dir, "./dedup.%d", getpid()); // temporary directory
+  hash_t *H = open_hash (dir,"w");
   while (getline (&line, &sz, stdin) > 0) {
-    if (has_key (H,line)) continue;
-    fputs(line,stdout);
-    key2id(H,line);
+    if (has_key (H,line)) continue; // already seen this line
+    fputs (line,stdout); // if not: print
+    key2id (H,line); // add to seen
   }
   if (line) free (line);
   free_hash (H);
+  rm_dir (dir);
   return 0;
 }
 
@@ -99,8 +101,8 @@ char *usage =
   "              -outmap MAP\n"
   "              -usemap MAP < src_strings\n"
   "                -rand 1-4 logN\n"
-  "               -dedup ... suppress repeating lines\n"
-  "                -uniq ... uniq -c | sort -rn\n"
+  "               -dedup ... suppress duplicate lines\n"
+  "                -uniq ... sort | uniq -c | sort -rn\n"
   "               -addup ... add up freq[Tab]word\n";
 
 #define arg(i) ((i < argc) ? argv[i] : NULL)

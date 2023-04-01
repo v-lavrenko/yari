@@ -33,8 +33,8 @@ mmap_t *open_mmap (char *path, char *access, off_t size) {
   M->file = safe_open (path, access);
   M->flen = safe_lseek (M->file, 0, SEEK_END);
   M->offs = 0;
-  //if (!size) size = MAX(M->flen,1<<30);
-  size = MAX(M->flen,1<<30);
+  if (!size) size = MAX(M->flen,1<<30);
+  //size = MAX(M->flen,1<<30);
   M->size = page_align (size,'>');
   if (M->flen < M->size) {
     if (*access == 'r') M->size = page_align (M->flen,'>');
@@ -345,6 +345,14 @@ int popen2 (const char *command, pid_t *_pid) { // unsafe: popen()
 void nonblock(FILE *f) {
   int fd = fileno(f), flags = fcntl(fd, F_GETFL, 0);
   fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+}
+
+void *mmap_path (char *path, char *access) {
+  uint fd = safe_open (path, access);
+  off_t flen = safe_lseek (fd, 0, SEEK_END);
+  void *map = safe_mmap (fd, 0, flen, access);
+  close(fd); // map stays open?
+  return map;
 }
 
 #ifndef MAP_POPULATE

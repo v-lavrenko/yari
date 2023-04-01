@@ -48,7 +48,8 @@ ix_t *vec_find (ix_t *vec, uint i) ;
 ix_t *vec_set (ix_t *vec, uint id, float x) ;
 float vec_get (ix_t *vec, uint id) ;
 
-void dedup_vec (ix_t *vec) ; // skip duplicate ids (keep 1st) 
+void dedup_vec (ix_t *vec) ; // skip duplicate ids (keep 1st)
+void aggr_vec (ix_t *vec, char aggr) ; // min, Max, sum, avg, 1st
 void uniq_vec (ix_t *vec) ; // merge duplicate ids (add weights)
 void chop_vec (ix_t *vec) ;
 void trim_vec (ix_t *vec, int k) ;
@@ -80,7 +81,7 @@ ix_t *rand_vec_sphere (uint n); // uniformly over a unit sphere
 ix_t *rand_vec_simplex (uint n); // uniformly over a multinomial simplex
 ix_t *rand_vec_sparse (uint n, uint k) ; // [0,1] for k random positions
 
-void scan_mtx (coll_t *rows, coll_t *cols, hash_t *rh, hash_t *ch) ;
+void scan_mtx (coll_t *rows, coll_t *cols, hash_t *rh, hash_t *ch, char *prm) ;
 ix_t *parse_vec_svm (char *str, char **id, hash_t *ids) ;
 ix_t *parse_vec_csv (char *str, char **id) ;
 ix_t *parse_vec_txt (char *str, char **id, hash_t *ids, char *prm) ;
