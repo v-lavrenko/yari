@@ -31,6 +31,19 @@ extern off_t MMAP_MOVES;
 //extern uint  HASH_PROB; // 0:linear 1:quadratic 2:secondary
 //extern float HASH_LOAD; // 0.1 ... 0.9
 
+int dict_dedup () {
+  hash_t *H = open_hash (0,0);
+  char *line = NULL; size_t sz = 0;
+  while (getline (&line, &sz, stdin) > 0) {
+    if (has_key (H,line)) continue;
+    fputs(line,stdout);
+    key2id(H,line);
+  }
+  if (line) free (line);
+  free_hash (H);
+  return 0;
+}
+
 int dict_uniq(char *prm) {
   char *addup = strstr(prm,"addup");
   unsigned long NN=0;
@@ -86,8 +99,9 @@ char *usage =
   "              -outmap MAP\n"
   "              -usemap MAP < src_strings\n"
   "                -rand 1-4 logN\n"
-  "                -uniq ... faster uniq\n"
-  "                -addup ... add up freq[Tab]word\n";
+  "               -dedup ... suppress repeating lines\n"
+  "                -uniq ... uniq -c | sort -rn\n"
+  "               -addup ... add up freq[Tab]word\n";
 
 #define arg(i) ((i < argc) ? argv[i] : NULL)
 #define a(i) ((i < argc) ? argv[i] : "")
@@ -100,6 +114,7 @@ int main (int argc, char *argv[]) {
   //HASH_PROB = getprm(prm,"P=",0);
   //HASH_LOAD = getprm(prm,"L=",0.5);
   
+  if (argc > 1 && (!strncmp(a(1), "-dedup", 6))) return dict_dedup();
   if (argc > 1 && (!strncmp(a(1), "-uniq", 5) ||
 		   !strncmp(a(1), "-addup", 6))) return dict_uniq(a(1));
   
