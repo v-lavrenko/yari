@@ -76,6 +76,7 @@ int main (int n, char *A[]) {
     fputs(F[0],stdout);
     for (c=1; c<len(F); ++c) { putchar('\t'); fputs(F[c],stdout); }
     putchar('\n');
+    free_vec(F);
   }
   return 0;
 }
