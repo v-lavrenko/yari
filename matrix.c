@@ -193,6 +193,7 @@ void dedup_vec (ix_t *vec) { // keep 1st occurrence of every id
 float aggr_avg (ix_t *A, ix_t*b) { return ((b-A) * A->x + b->x) / (b-A+1); }
 
 void aggr_vec (ix_t *vec, char aggr) {
+  //printf ("aggr: %c\n", aggr);
   if (!vec || !len(vec)) return;
   ix_t *a = vec, *b = vec, *end = vec + len(vec);
   switch(aggr) {
@@ -694,8 +695,9 @@ ix_t *simhash (ix_t *vec, uint n, char *distr) {
   //return fps;
 }
 
-void sort_vecs (coll_t *c, char *prm) {
+void sort_vecs (coll_t *c, char *prm) {  
   char *aggr = getprmp(prm,"aggr=","1st");
+  //printf ("%s, %s\n", prm, aggr);
   uint i, n = nvecs(c);
   fprintf (stderr, "[%.0fs] sorting %d vecs of %s\n", vtime(), n, c->path); 
   for (i = 1; i <= n; ++i) {
