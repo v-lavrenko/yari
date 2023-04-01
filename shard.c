@@ -1,12 +1,13 @@
 #include "hash.h"
 #include "textutil.h"
 
-FILE **fopen_files (uint num, char *pfx, char *mode) {
+FILE **fopen_files (uint n, char *pfx, char *mode) {
   uint i; char path[9999]; 
   mkdir_parent (pfx);
-  FILE **file = new_vec (num, sizeof(FILE*));
-  for (i = 0; i < num; ++i) 
-    file[i] = safe_fopen (fmt (path,"%s%d",pfx,i+1), mode);
+  char *_fmt = n>9999 ? "%s%05d" : n>999 ? "%s%04d" : n>99 ? "%s%03d" : n>9 ? "%s%02d" : "%s%d";
+  FILE **file = new_vec (n, sizeof(FILE*));
+  for (i = 0; i < n; ++i) 
+    file[i] = safe_fopen (fmt (path,_fmt,pfx,i+1), mode);
   return file;
 }
 
@@ -33,8 +34,8 @@ void do_shard (FILE *in, FILE **out, char *prm) {
 		 mur ? murmur3 (val, strlen(val)) : 
 		 key2id (H,val));
     uint bin =  code % len(out);
-    fprintf (out[bin], "%u %u '%s' %s", bin, code, val, line);
-    //fputs (line, out[bin]);
+    //fprintf (out[bin], "%u %u '%s' %s", bin, code, val, line);
+    fputs (line, out[bin]);
     if (val) free (val);
   }
   if (line) free (line);
