@@ -38,7 +38,7 @@ ulong xsum_file (char *path) {
 
 void xsum_args (char *A[], int n) {
   int i = -1;
-  while (++i < n) printf("%016lx\t%s\n", xsum_file(A[i]), A[i]);
+  while (++i < n) { printf("%016lx\t%s\n", xsum_file(A[i]), A[i]); fflush(stdout); }
 }
 
 void xsum_check(char *file) {
