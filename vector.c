@@ -223,6 +223,20 @@ void **pointers_to_vec (void *V) {
   return P;
 }
 
+void reverse_vec (void *V) {
+  uint n = len(V), sz = vesize(V);
+  void *tmp = malloc (sz);
+  void *beg = V, *end = V + (n-1)*sz;
+  while (beg < end) {
+    memcpy (tmp, beg, sz); // beg -> tmp
+    memcpy (beg, end, sz); // end -> beg
+    memcpy (end, tmp, sz); // tmp -> end
+    beg += sz;
+    end -= sz;
+  }
+  free(tmp);
+}
+
 void sort_vec (void *d, int (*cmp) (const void *, const void *)) {
   qsort (d, len(d), vesize(d), cmp); }
 

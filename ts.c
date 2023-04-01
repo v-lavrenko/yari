@@ -207,7 +207,7 @@ void f_window (ix_t *P, uint window, char aggregator) { // avg / min / max in wi
   while (--p >= P) { // back-to-front
     uint T = p->i - window; // time of start of window
     for (q = p; q >= P && q->i >= T; --q); // q+1 is start of window
-    ix_t *last = (p-1)>q ? p-1 : p;
+    ix_t *last = q<(p-1) ? (p-1) : p; // why??
     switch(aggregator) {
     case 'A': p->x = window_avg(q,last); break; // BP(..., p->x)
     case 'm': p->x = window_min(q,last); break;
@@ -217,7 +217,8 @@ void f_window (ix_t *P, uint window, char aggregator) { // avg / min / max in wi
   }
 }
 
-void f_anchor (ix_t *P, char anchor) { // open / close / day-min / day-max
+// x = P[t] at last anchor point t: open | close | day-min | day-Max
+void f_anchor (ix_t *P, char anchor) { 
   ix_t *p = P-1, *last = P+len(P)-1; float A = P->x, prev = P->x;
   while (++p <= last) {
     if (anchor != 'c' && beg_of_day(p,P)) A = p->x; // 
@@ -231,7 +232,8 @@ void f_anchor (ix_t *P, char anchor) { // open / close / day-min / day-max
   }
 }
 
-void f_deltas (ix_t *P, char unit, char *intraday) { // unit = Basis,Log,Cents
+// x = tick-to-tick deltas: P[t] / P[t-1] in BP or LogGain or Cents
+void f_deltas (ix_t *P, char unit, char *intraday) { 
   ix_t *p=P-1, *last = P+len(P)-1;
   float in = P->x;
   while (++p <= last) {
@@ -243,7 +245,8 @@ void f_deltas (ix_t *P, char unit, char *intraday) { // unit = Basis,Log,Cents
   }
 }
 
-void f_tt_EOD (ix_t *P) {
+// x = how many hours left from now till end-of-day (last quote)
+void f_tt_EOD (ix_t *P) { 
   ix_t *last = P+len(P)-1, *p = last+1, *eod = last;
   while (--p >= P) {
     if (end_of_day(p,last)) eod = p;
@@ -251,6 +254,7 @@ void f_tt_EOD (ix_t *P) {
   }
 }
 
+// x = how far back I have to go until +BP or -BP (in log-seconds)
 void f_tt_BP (ix_t *P, float BP) { // time-to-BP
   float gain = bp2gain(BP);
   ix_t *p = P+len(P);
@@ -264,11 +268,11 @@ void f_tt_BP (ix_t *P, float BP) { // time-to-BP
 
 int ts_signals (char *SIG, char *PRC, char *prm) {
   uint wait = str2seconds (getprmp (prm,"wait=","0"));
-  float ttBP = getprm (prm,"ttBP=",0);
-  char *ttEOD = strstr (prm,"ttEOD");
+  float ttBP = getprm (prm,"ttBP=",0); // time till BP gain/loss (backward)
+  char *ttEOD = strstr (prm,"ttEOD"); // time till end-of-day (forward)
   char *intraday = strstr (prm,"intraday");
-  char *deltas = getprmp (prm,"deltas:","");
-  char *type = getprmp (prm,"signals:","-");
+  char *deltas = getprmp (prm,"deltas:",""); // tick-by-tick deltas
+  char *type = getprmp (prm,"signals:","-"); // backward min/max/avg
   coll_t *P = open_coll (PRC, "r+"), *S = open_coll (SIG, "w+");
   uint id, n = num_rows(P);
   for (id = 1; id <=n; ++id) {
@@ -592,10 +596,21 @@ int ts_merge (char *_TRG, char *_SRC, char *_TIC, char *prm) {
 
 char *usage =
   "ts T = targets:gain=BP,loss=BP,trail=^|v,wait=7h,exits,binary PRICES\n"
+  "       T.x = BP(i,j) exit:j if we exceed gain or loss or wait\n"
+  "       binary: replace BP w. -1,+1,0 if bp<loss,bp>gain,between\n"
+  "       exits: replace BP w. exit time+price\n"
   "ts C = codes:bits=10,day PRICES\n"
+  "       last n deltas P[i]-P[i-1] encoded as bits in T.x\n"
   "ts S = signals:close|open|min|Max|Avg|CC,wait=0 PRICES\n"
+  "       S.x = min|Max|Avg up to wait=7h time back (eg 7h)\n"
+  "       if wait=0 -> last close / today open / day min / Max\n"
+  "       ttEOD: S.x = hours from S.i till end-of-day\n"
+  "       ttBP=BP: S.x = log(time) till BP gain/loss (history)\n"
   "ts S = deltas:BP|LP|CP,intraday PRICES\n"
-  "ts W = windows:len=10,hop=1 SERIES\n"
+  "       S.x = tick-to-tick delta P[t]/P[t-1] as BP,log,cent\n"
+  "ts W = windows:hann,welch,len=10,hop=1 SERIES\n"
+  "       time series -> windows of length=len, stride=hop\n"
+  "       squash w. Hann|Welch, or keep as-is if unspecified\n"
   "ts M = motifs SIMS\n"
   "ts signs PRICES TICK\n"
   "ts rank SIG TRG\n"

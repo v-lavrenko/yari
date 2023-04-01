@@ -44,28 +44,38 @@ int benchmark_time() {
 }
 
 int main (int n, char *A[]) {
-  if (n>1 && !strcmp(A[1], "-bench")) return benchmark_time();	   
-  char *_col = "1", *ifmt = "%s", *ofmt = "%F,%T";  int i;
-  for (i=1; i<n; ++i) {    
+  if (n>1 && !strcmp(A[1], "-bench")) return benchmark_time();
+  char *_col = "1", *ifmt = "%s", *ofmt = "%F,%T", *iferr = NULL;
+  int i, nb=0;
+  for (i=1; i<n; ++i) {
     if (!strncmp(A[i],"-f",2)) _col = A[i][2] ? A[i]+2 : ++i<n ? A[i] : _col;
     if (!strncmp(A[i],"-i",2)) ifmt = A[i][2] ? A[i]+2 : ++i<n ? A[i] : ifmt;
     if (!strncmp(A[i],"-o",2)) ofmt = A[i][2] ? A[i]+2 : ++i<n ? A[i] : ofmt;
+    if (!strncmp(A[i],"-e",2)) iferr= A[i][2] ? A[i]+2 : ++i<n ? A[i] : iferr;
   }
-  uint col = atoi(_col), c;
+  uint col = atoi(_col), c, NR=0;
   if (n < 2 || col < 1 || !index(ifmt,'%') || !index(ofmt,'%')) {
-    fprintf(stderr, "USAGE: xtime -f 1 -i '%%s' -o '%%F'\n");
+    fprintf(stderr, "USAGE: xtime -f 1 -i '%%s' -o '%%F' [-e 'Error']\n");
+    fprintf(stderr, "             -f ... 1-based column number (tab-separated)\n");
+    fprintf(stderr, "             -i ... input time format (see strptime)\n");
+    fprintf(stderr, "             -o ... output time format (see strftime)\n");
+    fprintf(stderr, "             -e ... output on error (as-is if omitted)\n");
     return 1;
   }
   --col;
-  char line[9999], buf[999];
-  while (fgets (line, 9998, stdin)) {
-    noeol(line);
+  char *line=NULL, out[999];
+  size_t sz=0;
+  while (0 < (nb = getline(&line,&sz,stdin))) {
+    ++NR;
+    if (line[nb-1] == '\n') line[--nb] = '\0'; // strip newline
     char **F = split(line,'\t');
-    time_t t = strf2time (F[col], ifmt);
-    F[col] = time2strf (buf, ofmt, t);
-    //printf("%ld %s ", t, buf);
-    for (c=0; c<len(F); ++c) { if (c) fputc('\t',stdout); fputs(F[c],stdout); }
-    fputc('\n', stdout);
+    if (len(F) <= col) return fprintf(stderr, "ERROR: no column %d on line %d\n", col, NR);
+    time_t t = strf2time (F[col], ifmt); // parse time in column using 'ifmt'
+    if (t) F[col] = time2strf (out, ofmt, t); // replace with time in 'ofmt' format
+    else if (iferr) F[col] = iferr;
+    fputs(F[0],stdout);
+    for (c=1; c<len(F); ++c) { putchar('\t'); fputs(F[c],stdout); }
+    putchar('\n');
   }
   return 0;
 }

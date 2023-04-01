@@ -33,8 +33,8 @@ mmap_t *open_mmap (char *path, char *access, off_t size) {
   M->file = safe_open (path, access);
   M->flen = safe_lseek (M->file, 0, SEEK_END);
   M->offs = 0;
-  //if (!size) size = MAX(M->flen,1<<30);
-  size = MAX(M->flen,1<<30);
+  if (!size) size = MAX(M->flen,1<<30);
+  //size = MAX(M->flen,1<<30);
   M->size = page_align (size,'>');
   if (M->flen < M->size) {
     if (*access == 'r') M->size = page_align (M->flen,'>');
@@ -239,7 +239,7 @@ void *safe_malloc (size_t size) {
   return buf;
 }
 
-void *safe_calloc (off_t size) {
+void *safe_calloc (size_t size) {
   void *buf = calloc (1, size);
   if (!buf) {
     fprintf (stderr, "[calloc] failed on %lu bytes: [%d] ", (ulong)size, errno);
@@ -248,12 +248,24 @@ void *safe_calloc (off_t size) {
   return buf;
 }
 
-void *safe_realloc (void *buf, off_t size) {
+void *safe_realloc (void *buf, size_t size) {
   buf = realloc (buf, size);
   if (!buf) {
     fprintf (stderr, "[realloc] failed on %lu bytes: [%d] ", (ulong)size, errno);
     perror (""); assert (0); 
   }
+  return buf;
+}
+
+// realloc buf if new size if greater than old
+void *lazy_realloc (void *buf, size_t *old, size_t new) {
+  if (*old >= new) return buf; // big enough
+  buf = realloc (buf, new);
+  if (!buf) {
+    fprintf (stderr, "[realloc] failed on %lu bytes: [%d] ", (ulong)new, errno);
+    perror (""); assert (0); 
+  }
+  *old = new;  
   return buf;
 }
 
@@ -333,6 +345,14 @@ int popen2 (const char *command, pid_t *_pid) { // unsafe: popen()
 void nonblock(FILE *f) {
   int fd = fileno(f), flags = fcntl(fd, F_GETFL, 0);
   fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+}
+
+void *mmap_path (char *path, char *access) {
+  uint fd = safe_open (path, access);
+  off_t flen = safe_lseek (fd, 0, SEEK_END);
+  void *map = safe_mmap (fd, 0, flen, access);
+  close(fd); // map stays open?
+  return map;
 }
 
 #ifndef MAP_POPULATE
@@ -448,10 +468,10 @@ char *acat (char *s1, char *s2) {
 }
 
 // append src to *dst, re-allocating *dst if needed
-void stracat (char **dst, int *n, char *src) {
+void stracat (char **dst, size_t *n, char *src) {
   if (!dst || !n) assert (0 && "[stracat] null pointers");
   if (!*dst) *dst = safe_calloc (*n = 5);
-  int ls = strlen(src)+1, ld = strlen (*dst);
+  size_t ls = strlen(src)+1, ld = strlen (*dst);
   if ((ls + ld) >= (*n)) *dst = safe_realloc (*dst, (*n = *n + ls));
   memcpy ((*dst) + ld, src, ls);
 }

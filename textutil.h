@@ -52,6 +52,7 @@ void erase_between (char *buf, char *A, char *B, int C) ;
 char *json_value (char *json, char *key) ;
 double json_numval (char *json, char *key) ;
 char *json_pair (char *json, char *_str) ;
+char *json_docid (char *json) ;
 
 // extract the text between A and B
 char *extract_between (char *buf, char *A, char *B) ;
@@ -85,6 +86,15 @@ void free_toks (char **toks) ;
 char *get_xml_docid (char *xml) ;
 char *get_xml_title (char *str) ;
 char *get_xml_author (char *xml) ;
+char *get_xml_open (char *xml, char *tag); // pointer to next opening <tag>
+char *get_xml_close (char *xml, char *tag); // pointer to next closing </tag>
+char *get_xml_intag (char *xml, char *tag); // string between <tag> and </tag>
+char *get_xml_inpath (char *xml, char *path); // string in "body.ref.id"
+char *get_xml_intags (char *xml, char **tags); // string in ["body","ref","id"]
+char *get_xml_all_intag (char *xml, char *tag, char sep) ; // all <tag>...</tag>
+
+void append_json (char **trg, size_t *sz, char *src) ; // {trg},{src} -> {trg, src}
+void append_sgml (char **trg, size_t *sz, char *src) ; // <TRG>,<SRC> -> <TRG SRC>
 
 char *lowercase(char *s); // in-place
 char *uppercase(char *s); // in-place

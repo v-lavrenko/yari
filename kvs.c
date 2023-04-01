@@ -25,7 +25,8 @@
 
 #define Inf 999999999
 
-void dump_raw_ret (char *C, char *RH) {
+void dump_raw_ret (char *C, char *RH, char *prm) {
+  char *tag = getprms(prm,"tag=","",',');
   coll_t *c = open_coll (C, "r+");
   hash_t *h = open_hash (RH, "r!");
   char qryid[9999], docid[999], line[10000], *eol;
@@ -37,7 +38,7 @@ void dump_raw_ret (char *C, char *RH) {
     char *raw = get_chunk(c,i);
     printf ("%s\t%s\n",line,raw);
   }
-  free_coll(c); free_hash(h);
+  free_coll(c); free_hash(h); free(tag);
 }
 
 void dump_rnd (char *C, char *prm) {
@@ -127,6 +128,44 @@ void load_json (char *C, char *RH, char *prm) { //
   fprintf (stderr, "[%.0fs] OK: %d, noid: %d, dups: %d\n", 
 	   vtime(), done, noid, dups);
 }
+
+void load_xml_or_json (char *C, char *RH, char *prm) {
+  char *skip = strstr(prm,"skip"), *join = strstr(prm,"join");
+  char *Long = strstr(prm,"longer");
+  char *addk = strstr(prm,"addkeys");
+  ulong done = 0, nodoc = 0, noid = 0, dups = 0;
+  size_t SZ = 1<<24;
+  ssize_t sz = 0;
+  char *buf = calloc(1,SZ);
+  coll_t *c = open_coll (C, "a+");
+  hash_t *rh = open_hash (RH, (addk ? "a!" : "r!"));
+  while ((sz=getline(&buf, &SZ, stdin)) > 0) { // assume one-per-line
+    //fprintf(stderr,"%100.100s\n", buf);
+    int jsonp = buf[strspn(buf," \t")] == '{'; // JSON ot XML?
+    if (!(++done%10000)) show_progress (done, 0, " docs");
+    if (buf[sz-1] == '\n') buf[--sz] = '\0';
+    char *docid = jsonp ? json_docid(buf) : get_xml_docid(buf);
+    if (!docid && ++nodoc < 5) { fprintf (stderr, "ERR: no docid in: %s\n", buf); continue; }
+    uint id = key2id (rh, docid); 
+    free(docid);
+    if (!id) { ++noid; continue; }
+    char *old = get_chunk (c,id);
+    if (old) ++dups;
+    if (old && skip) continue; // keep old
+    if (old && Long && ((size_t)sz < strlen(old))) continue; // old is longer -> keep it
+    if (old && join) { // append old to new
+      if (jsonp) append_json (&buf, &SZ, old);
+      else       append_sgml (&buf, &SZ, old);
+      sz = strlen(buf);
+    }
+    put_chunk (c, id, buf, sz+1);
+    *buf = '\0';
+  }
+  free_coll (c); free_hash (rh); free(buf);
+  fprintf (stderr, "[%.0fs] OK: %ld, noid: %ld, dups: %ld\n", 
+	   vtime(), done, noid, dups);
+}
+
 
 static inline char *merge_blobs (char *buf, char *a, char *b) {
   uint aSZ = strlen(a), bSZ = strlen(b), sz = aSZ + bSZ + 1;
@@ -1194,13 +1233,20 @@ void do_stats (char *_M, char *_H) {
   free_coll (M);
 }
 
+void do_size (char *_C) {
+  coll_t *C = open_coll (_C, "r+");
+  size_t nc = nvecs(C), nb = C->offs[0];
+  printf("%ld %s [%ldGB]\n", nc, _C, nb>>30);
+  free_coll(C);
+}
+
 char *usage = 
   "kvs                           - optional [parameters] are in brackets\n"
   "  -m 256                      - set mmap size to 256MB\n"
   "  -rs 1                       - set random seed to 1\n"
-  "  -dump XML [HASH id]         - dump all [id] from collection XML\n"
-  "  -load XML HASH [prm]        - stdin -> collection XML indexed by HASH\n"
-  "  -json JSON HASH [prm]       - stdin -> collection JSON indexed by HASH\n"
+  "  -dump XML [HASH id]         - dump all [id] from collection XML/JSON\n"
+  "  -load XML HASH [prm]        - stdin -> collection XML/JSON indexed by HASH\n"
+  //  "  -json JSON HASH [prm]       - stdin -> collection JSON indexed by HASH\n"
   "                                prm: skip, join duplicates, addkeys\n"
   //"  -merge C = A + B            - C[i] = A[i] + B[i] (concatenates records)\n"
   //"  -rekey A a = B b [addnew]   - A[j] = B[i] where key = a[j] = b[i]\n"
@@ -1208,7 +1254,7 @@ char *usage =
   "   merge A a += B b [prm]     - A[j] += B[i] (concat) where key = a[j] = b[i]\n"
   "                                prm: addnew ... add new keys if not in a\n"
   "  -stat XML HASH              - stats (cf,df) from collection XML -> stdout\n"
-  "  -dmap XML HASH              - stdin: qryid docid, stdout: qryid XML[docid]\n"
+  "  -dmap XML HASH [prm]        - stdin: qryid docid, stdout: qryid XML[docid]\n"
   "  -qry 'query' DICT stem=L    - parse query\n"
   "  -ret  INVL [prm]            - retrieved set, prm ignored\n"
   "  -exp  DOCS [prm]            - Q = qw Q + top nw terms from top nd docs\n"
@@ -1227,6 +1273,7 @@ char *usage =
   "                                F1=0.9 ... keep dragging until F1 = 0.9\n"
   "                                sim=0  ... follow drag only if sim > 0\n"
   "                                top=K  ... drag only K nearest neighbours\n"
+  "  size XML                    - show number of chunks in XML\n"
   ;
 
 #define a(i) ((i < argc) ? argv[i] : "")
@@ -1239,8 +1286,9 @@ int main (int argc, char *argv[]) {
   while (++argv && --argc) {
     if (!strcmp (a(0), "-m")) MAP_SIZE = ((ulong) atoi (a(1))) << 20;
     if (!strcmp (a(0), "-rs")) srandom (atoi(a(1)));
-    if (!strcmp (a(0), "-load")) load_raw (a(1), a(2), a(3));
-    if (!strcmp (a(0), "-json")) load_json (a(1), a(2), a(3));
+    if (!strcmp (a(0), "-load")) load_xml_or_json (a(1), a(2), a(3));
+    if (!strcmp (a(0), "-sgml")) load_raw (a(1), a(2), a(3));  // deprecated
+    if (!strcmp (a(0), "-json")) load_json (a(1), a(2), a(3)); // deprecated
     //if (!strcmp (a(0), "-merge") &&
     //!strcmp (a(2), "="))     merge_colls (a(1), a(3), a(5));
     //if (!strcmp (a(0), "-rekey") &&
@@ -1253,7 +1301,8 @@ int main (int argc, char *argv[]) {
     //!strcmp (a(2), "+="))    do_merge (a(1), NULL, a(3), NULL, a(4));
     if (!strcmp (a(0), "-dump")) dump_raw (a(1), a(2), a(3));
     if (!strcmp (a(0), "-rand")) dump_rnd (a(1), a(2));
-    if (!strcmp (a(0), "-dmap")) dump_raw_ret (a(1), a(2));
+    if (!strcmp (a(0), "-dmap")) dump_raw_ret (a(1), a(2), a(3));
+    if (!strcmp (a(0), "size")) do_size (a(1));
     if (!strcmp (a(0), "-stat")) do_stats (a(1), a(2));
     if (!strcmp (a(0), "-qry")) qry = do_qry (QRY=a(1), DICT=a(2), a(3));
     if (!strcmp (a(0), "-ret")) ret = do_ret (qry, INVL=a(1), a(2)); // free ret
