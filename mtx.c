@@ -396,6 +396,7 @@ void mtx_weigh (char *TRG, char *prm, char *SRC, char *STATS) { // thread-unsafe
   float rbf = getprm(prm,"rbf=",0),  sig = getprm(prm,"sig=",0);
   char *sorti = strstr(prm,"sort=i"), *sortx = strstr(prm,"sort=x"), *sortX = strstr(prm,"sort=X");
   char *distinct = strstr(prm,"distinct"), *count = strstr(prm,"count");
+  char *aggr = getprmp(prm,"aggr:",0);
   float outside = getprm(prm,"outside=",0);
   
   //float lmj = getprm(prm,"lm:j=",0), lmd = getprm(prm,"lm:d=",0);
@@ -509,6 +510,7 @@ void mtx_weigh (char *TRG, char *prm, char *SRC, char *STATS) { // thread-unsafe
     if      (lsh) { vec = bits2codes (tmp=vec, L);     free_vec (tmp); }
     if (distinct) { vec = distinct_values (tmp=vec,0); free_vec (tmp); }
     if    (count) { vec_x_num (vec,'=',1); sort_vec (vec, cmp_ix_i); uniq_vec (vec); }
+    if     (aggr) { sort_vec (vec, cmp_ix_i); aggr_vec (vec, aggr[0]); }
     if      (Max) { vec->i=1; vec->x = max(vec)->x;      len(vec)=1; }
     else if (Min) { vec->i=1; vec->x = min(vec)->x;      len(vec)=1; }
     else if (Sm0) { vec->i=1; vec->x = sump(0,vec);      len(vec)=1; }
@@ -1829,7 +1831,8 @@ char *usage =
   "                          position ... store word positions instead of frequencies\n"
   "                          ow=5,uw=5 ... ordered/unordered pairs in a 5-word window\n"
   "                          join/skip/replace ... documents with duplicate ids\n"
-  "                          aggr=1mMsa ... take 1st,min,Max,sum,avg of duplicate RCV cells\n"
+  "                          nosort    ... rcv: don't sort/trim/dedup cols in each row\n"
+  "                         aggr:1mMsa ... rcv: take 1st,min,Max,sum,avg of dupl cells\n"
   " print:fmt M [R] [C]    - print matrix M using specified format: rcv,csv,svm,txt,json,ids\n"
   "                          R,C       ... used to map row/column numbers -> string ids\n"
   "                          top=9     ... 9 biggest values per row in descending order\n"
@@ -1873,6 +1876,8 @@ char *usage =
   "                                     sampling simhash:Uniform,Normal,Logistic,Bernoulli\n"
   "                          distinct - column numbers -> per-row counts of unique values\n"
   "                             count - sort|uniq each row: collection of lists -> matrix\n"
+  "                  aggr:{1,s,a,m,M} - aggregate duplicated columns in each list\n"
+  "                                     result = 1st / sum / avg /  min / Max\n"
   "                      sort:{i,x,X} - sort each row by: i=column id, x:incr, X:decr\n"
   "                               uni - uniform weights over top=k features\n"
   "                             ranks - replace weights with rank\n"

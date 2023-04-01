@@ -696,7 +696,7 @@ ix_t *simhash (ix_t *vec, uint n, char *distr) {
 }
 
 void sort_vecs (coll_t *c, char *prm) {  
-  char *aggr = getprmp(prm,"aggr=","1st");
+  char *aggr = getprmp(prm,"aggr:","1st");
   //printf ("%s, %s\n", prm, aggr);
   uint i, n = nvecs(c);
   fprintf (stderr, "[%.0fs] sorting %d vecs of %s\n", vtime(), n, c->path); 
@@ -723,6 +723,7 @@ void scan_mtx (coll_t *rows, coll_t *cols, hash_t *rh, hash_t *ch, char *prm) {
 	     vtime(), len(buf), num_rows(rows), num_cols(rows)); 
     free_vec (buf);
   }
+  if (strstr(prm,"nosort")) return;
   if (rows) sort_vecs (rows, prm);
   if (cols) sort_vecs (cols, prm);
 }
