@@ -72,7 +72,7 @@ uint levenstein_distance (char *A, char *B, char *explain) {
       uint fit = (A[a-1] == B[b-1]);
       uint sub = C[a-1][b-1] + (fit ? 0 : 1);
       uint txp = (a > 1 && A[a-2] == B[b-1] &&
-		  b > 1 && A[a-1] == B[b-2]) ? C[a-2][b-2] + 1 : Infinity;
+		  b > 1 && A[a-1] == B[b-2]) ? C[a-2][b-2] + 1 : 999999999;
       uint best = MIN(MIN(ins,del),MIN(sub,txp));
       C[a][b] = best;
       D[a][b] = (ins == best) ? '<' : (del == best) ? '^' : (txp == best) ? 'T' : fit ? '=' : 'S';
