@@ -135,7 +135,7 @@ void mtx_load (char *M, char *RH, char *CH, char *type, char *prm) {
   if (p) free(p);
   free (buf);
 }
-	      
+
 void mtx_print (char *prm, char *_M, char *RH, char *CH) {
   if (!prm) prm = "";
   uint top = getprm (prm,"top=",0), rno = getprm (prm,"rno=",0);
@@ -158,13 +158,13 @@ void mtx_print (char *prm, char *_M, char *RH, char *CH) {
   uint end_i = (rno || rid) ? beg_i : nr;
   if (csv && ch) print_hdr_csv (ch, nc); // CSV header
   for (i = beg_i; i <= end_i; ++i) {
+    if (ids && has_vec(M,i)) { printf ("%s\n", id2key(rh,i)); continue; }
     ix_t *vec = get_vec (M, i);
     if (!len(vec) && !empty && !csv) { free_vec(vec); continue; }
     else if (!len(vec) && nonempty)  { free_vec(vec); continue; }
     char *rid = id2str(rh,i);
     if      (top) { trim_vec (vec, top); sort_vec (vec, cmp_ix_X); }
-    if      (ids) printf ("%s\n", rid);
-    else if (Len) printf ("%s\t%d\n", rid, len(vec));
+    if      (Len) printf ("%s\t%d\n", rid, len(vec));
     else if (rcv) print_vec_rcv (vec, ch, rid, fmt);
     else if (txt) print_vec_txt (vec, ch, rid, 0);
     else if (xml) print_vec_txt (vec, ch, rid, 1);
@@ -1002,6 +1002,27 @@ void mtx_print_evl (char *SYS, char *TRU, char *prm) {
   free_coll(S); free_coll(T);
 }
 
+// print X[x], Y[y] side-by-side (assuming common column space)
+void mtx_print_XY (char *_X, char *_x, char *_Y, char *_y, char *prm) {
+  coll_t *X = open_coll(_X, "r+");
+  coll_t *Y = open_coll(_Y, "r+");
+  uint ncX = num_cols(X), ncY = num_cols(Y);
+  uint nc = getprm(prm,"nc=",MAX(ncX,ncY));
+  float def = getprm(prm,"def=",0);
+  ix_t *x = get_vec (X, atoi(_x));
+  ix_t *y = get_vec (Y, atoi(_y));
+  if (nc) {
+    ix_t *defx = const_vec(nc,def), *oldx = x;
+    x = vec_x_vec (oldx, '|', defx);
+    free_vec (defx); free_vec (oldx);
+  }
+  ixy_t *C = join (x, y, def), *c;
+  for (c = C; c < C+len(C); ++c) 
+    printf("%d\t%.6f\t%.6f\n",c->i,c->x,c->y);
+  free_vec(x); free_vec(y); free_vec(C);
+  free_coll(X); free_coll(Y);
+}
+
 void mtx_print_roc (char *SYS, char *TRU, char *prm) {
   char *micro = strstr (prm,"micro"), *ranks = strstr (prm,"ranks");
   char *noself = strstr(prm,"noself");
@@ -1053,6 +1074,8 @@ void mtx_print_roc (char *SYS, char *TRU, char *prm) {
   }
   free_vec (np); free_vec (nn); 
 }
+
+
 
 char *strcdr (char *str, char *brk) {
   char *s = strstr(str,brk);
@@ -1633,6 +1656,23 @@ void mtx_letor_eval (char *_RELS, char *_QRYS, char *_DOCS, char *_WTS, char *pr
   free_coll (RELS); free_coll (QRYS); free_coll (DOCS); free_coll (WTS); free_vec (W);
 }
 
+/*
+void mtx_dump_for_svm (char *_X, char *_Y, char *prm) {
+  char *pos = "1", *neg = getprms(prm,"neg=","-1");
+  uint yid = getprm(prm,"yid=",1);
+  coll_t *XX = open_coll (_X, "r+");
+  coll_t *YY = open_coll (_Y, "r+");
+  uint i, nX = num_rows (XX), nY = num_rows (YY);
+  ix_t *Y = get_vec (YY, 1), *y;
+  for (y = Y; y < Y+len(Y); ++y) {
+    ix_t *X = get_vec_ro (XX, y->i);
+    char *trg = (y->x > 0) ? pos : neg;
+    print_vec_svm (X, NULL, trg, "%.8f");
+  }
+  free_vec(Y); free_coll(XX); free_coll(YY); free(neg);
+}
+*/
+
 void mtx_polyex (char *_POLY, char *_ORIG, char *prm) {
   (void) prm;
   coll_t *ORIG = open_coll (_ORIG, "r+");
@@ -1799,6 +1839,37 @@ void mtx_semg (char *_S, char *_P, char *_A, char *prm) { // thread-unsafe: chk_
   free_coll (P); free_coll (A); free_coll (S);
 }
 
+// Maximum Marginal Relevance:
+// best = argmax_i { REL[i] - c max_j SIM[i,j] } across selected j
+void mtx_mmr (char *_SEL, char *_REL, char *_SIM, char *prm) {
+  uint top = getprm(prm,"top=",10); // how many features to sample
+  float c = getprm(prm,"c=",1); // relative cost of redundancy
+  coll_t *SEL = open_coll (_SEL, "w+");
+  coll_t *REL = open_coll (_REL, "r+");
+  coll_t *SIM = open_coll (_SIM, "r+");
+  uint r, nr = num_rows(REL);
+  for (r=1; r<=nr; ++r) {
+    ix_t *rel = get_vec (REL,r); // relevance score for every feature
+    ix_t *red = const_vec (0,0); // redundancy score for every feature
+    ix_t *sel = const_vec (0,0); // selected features
+    while (len(sel) < top) {
+      ix_t *mmr = vec_add_vec (1, rel, -c, red); // MMR[i] = relevant[i] - c redundant[i]
+      ix_t *best = max(mmr); // feature w highest MMR score
+      uint id = best->i;
+      printf ("[%d] adding: [%d] mmr: %.4f rel: %.4f red: %.4f\n",
+	      r, id, best->x, vec_get(rel,id), vec_get(red,id));
+      sel = append_vec (sel, best);
+      vec_set (rel, id, -Infinity); // do not reuse best feature
+      ix_t *sim = get_vec_ro (SIM,id); // similarity of best to all features
+      ix_t *new = vec_x_vec (red, 'M', sim); // redund[i] = max {red[i], sim[i,f]}
+      free_vec (mmr); free_vec (red); red = new;
+    }
+    put_vec (SEL,1,sel);
+    free_vec(rel); free_vec(red); free_vec(sel);
+  }
+  free_coll(REL); free_coll(SIM); free_coll(SEL);
+}
+
 /*
 mtx_t *open_mtx (char *path, char *access) {
   char r = access[0], c = access[1], h = access[2];
@@ -1832,7 +1903,7 @@ char *usage =
   "                          ow=5,uw=5 ... ordered/unordered pairs in a 5-word window\n"
   "                          join/skip/replace ... documents with duplicate ids\n"
   "                          nosort    ... rcv: don't sort/trim/dedup cols in each row\n"
-  "                         aggr:1mMsa ... rcv: take 1st,min,Max,sum,avg of dupl cells\n"
+  "                 aggr:{1,m,M,s,a,l} ... rcv: take 1st,min,Max,sum,avg,last of dups\n"
   " print:fmt M [R] [C]    - print matrix M using specified format: rcv,csv,svm,txt,json,ids\n"
   "                          R,C       ... used to map row/column numbers -> string ids\n"
   "                          top=9     ... 9 biggest values per row in descending order\n"
@@ -1840,6 +1911,7 @@ char *usage =
   "                          empty     ... include empty rows (for csv,svm,txt)\n"
   "                          ints      ... values are integers\n"
   "                          fmt=' %f' ... csv number format (must be last parameter)\n"
+  " print:xy,prm X x Y y   - print X[x] and Y[y] side-by-side, prm:nc=N,def=0\n"
   " print:f1 Sys Tru prm   - evaluation: recall, precision, F1, AP, maxF1\n"
   "                          prm: top=K,b=1,thresh=X,noself\n"
   " print:evl Sys Tru prm  - dump evaluation info for trec_eval\n"
@@ -1876,8 +1948,8 @@ char *usage =
   "                                     sampling simhash:Uniform,Normal,Logistic,Bernoulli\n"
   "                          distinct - column numbers -> per-row counts of unique values\n"
   "                             count - sort|uniq each row: collection of lists -> matrix\n"
-  "                  aggr:{1,s,a,m,M} - aggregate duplicated columns in each list\n"
-  "                                     result = 1st / sum / avg /  min / Max\n"
+  "                aggr:{1,l,s,a,m,M} - aggregate duplicated columns in each list\n"
+  "                                     result = 1st / last / sum / avg /  min / Max \n"
   "                      sort:{i,x,X} - sort each row by: i=column id, x:incr, X:decr\n"
   "                               uni - uniform weights over top=k features\n"
   "                             ranks - replace weights with rank\n"
@@ -1956,6 +2028,8 @@ char *usage =
   "                          classify: Y = K x W.T, where K is testing x training\n"
   " D = dcrm[p=2] P X Y    - CRM gradient: D[d] = SUM_ij P[i,j] |X[i,d] - Y[j,d]|^p\n"
   " S = semg[k=4] P A      - semantic group: S[j,:] = SUM_w topk (P[j,:] .* A[w,:])\n"
+  " MMR = mmr:prm REL SIM  - maximum marginal relevance, prm: top=10,c=1\n"
+  "                          MMR[r,i] = REL[r,i] - c SIM[i,j] over prev. picked j\n"
   " P = A x B.T [type]     - multiply matrix A by B.T: P[r,c] = A[r,:] * B.T[:,c]\n"
   "                          rows of A must be compatible w. rows of B (cols of B.T)\n"
   "                          type: cosine    - cosine/Ochiai coefficient\n"
@@ -2001,7 +2075,7 @@ char *usage =
   " stats[:dump] S A       - S = {CF,DF,L2 of A}, or dump S using dict A\n"
   " size[:r/c] A           - report the dimensions of A (rows/cols)\n"
   " norm[:p=1] A           - p-norm of A: SUM_r,c A[r,c]^p\n"
-  " trace[:avg] A          - sum/average of elements on the diagonal of A\n"
+  " trace[:avg] A          - sum/average of elements on the diagonal of A\n"  
   "\nExamples: http://bit.ly/irtool\n\n"
   ;
 
@@ -2043,6 +2117,7 @@ int main (int argc, char *argv[]) {
   else if (!strncmp(a(1), "stats", 5))  mtx_stats (arg(2), arg(3), a(1));
   else if (!strncmp(a(1), "load:", 5))  mtx_load (arg(2), arg(3), arg(4), a(1)+5, a(5));
   else if (!strncmp(a(1), "quantil",7)) mtx_quantiles (arg(2), arg(3));
+  else if (!strncmp(a(1),"print:XY",8)) mtx_print_XY  (arg(2), a(3), arg(4), a(5), a(1));
   else if (!strncmp(a(1),"print:f1",8)) mtx_print_f1  (arg(2), arg(3), a(4));
   else if (!strcmp (a(1), "print:evl")) mtx_print_evl (arg(2), arg(3), a(4));
   else if (!strcmp (a(1), "print:roc")) mtx_print_roc (arg(2), arg(3), a(4));
@@ -2082,6 +2157,7 @@ int main (int argc, char *argv[]) {
     else if (!strncmp (a(3), "PA:",3))     mtx_PA (tmp, arg(4), arg(5), a(3));
     else if (!strncmp (a(3), "dcrm",4))    mtx_dcrm (tmp, arg(4), arg(5), arg(6), a(3));
     else if (!strncmp (a(3), "semg",4))    mtx_semg (tmp, arg(4), arg(5), a(3));
+    else if (!strncmp (a(3), "mmr",3))     mtx_mmr (tmp, arg(4), arg(5), a(3));
     else if (!strncmp (a(3), "clump",5))   mtx_clump (tmp, arg(4), arg(5), a(3));
     else if (!strcmp  (a(3), "mst"))       mtx_mst (tmp, arg(4));
     else if (!strcmp  (a(3), "reachable")) mtx_reachable (tmp, arg(4), arg(5));
