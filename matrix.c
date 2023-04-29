@@ -196,11 +196,12 @@ void aggr_vec (ix_t *vec, char aggr) {
   //printf ("aggr: %c\n", aggr);
   if (!vec || !len(vec)) return;
   ix_t *a = vec, *b = vec, *end = vec + len(vec);
-  switch(aggr) {
+  switch(aggr) { // min Max sum avg last
   case 'm': while (++b < end) { if (a->i == b->i) a->x = MIN(a->x,b->x); else a=b; } break;
   case 'M': while (++b < end) { if (a->i == b->i) a->x = MAX(a->x,b->x); else a=b; } break;
   case 's': while (++b < end) { if (a->i == b->i) a->x = a->x + b->x;    else a=b; } break;
   case 'a': while (++b < end) { if (a->i == b->i) a->x = aggr_avg(a,b);  else a=b; } break;
+  case 'l': while (++b < end) { if (a->i == b->i) a->x = b->x;           else a=b; } break;
   }
   dedup_vec (vec);  
 }
@@ -702,7 +703,7 @@ void sort_vecs (coll_t *c, char *prm) {
   fprintf (stderr, "[%.0fs] sorting %d vecs of %s\n", vtime(), n, c->path); 
   for (i = 1; i <= n; ++i) {
     ix_t *vec = get_vec (c, i);
-    sort_vec (vec, cmp_ix_i); // rsort?
+    sort_vec (vec, cmp_ix_i); // rsort? no! must be stable for aggr
     aggr_vec (vec, aggr[0]); // aggregate duplicate cols in the row
     chop_vec (vec);
     put_vec (c, i, vec);
