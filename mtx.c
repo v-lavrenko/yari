@@ -686,6 +686,7 @@ void mtx_colset (char *_A, char *_B, char *_H) {
   for (id = 1; id <= N; ++id) {
     ix_t *vec = get_vec (B, id);
     vec_x_set (vec, '*', set) ;
+    //if (len(vec)) put_vec (A, id, vec);
     if (len(vec)) put_vec (A, id, vec);
     free_vec (vec);
     show_progress (++done, N, " vecs masked");
@@ -1239,6 +1240,24 @@ void mtx_paste (char *_S, char *prm, char *_M[], uint nM) { // [ 2:4, 3:5]
     free_coll (M);
   }
   free_coll (S);
+}
+
+void mtx_permute_row (char *_M, char *_rno) {
+  uint rno = atoi(_rno);
+  coll_t *M = open_coll (_M, "a+");
+  ix_t *row = get_vec (M, rno);
+  permute_vec (row, num_cols(M));
+  put_vec (M, rno, row);
+  free_vec (row);
+  free_coll (M);
+}
+
+void mtx_permute_col (char *TRG, char *SRC, char *col) {
+  char TMP[1000]; sprintf (TMP, "TMP.%d", getpid());
+  mtx_transpose ("", SRC, TMP);
+  mtx_permute_row (TMP, col);
+  mtx_transpose ("", TMP, TRG);
+  rm_dir (TMP);
 }
 
 void mtx_shuffle (char *_S, char *_M) {
@@ -1999,7 +2018,8 @@ char *usage =
   "                          c,d,e,f can be positive, negative, or unspecified\n"
   " A = paste B C D ...    - concatenates matrices without renumbering rows/columns\n"
   "                          use paste:horz or paste:vert to cat renumbered slices\n"
-  " A = shuffle B          - randomly re-order (permute) the rows of B (see -r)\n"
+  " A = shuffle B          - randomly re-order (permute) the rows of B (see -r) buggy!\n"
+  " P = permute M c        - permute the values of column c across _all_ rows of M\n"
   " A = sample:[type] B    - down-sample each row to n=N items or with prob. p=P\n"
   " A = subset B [H]       - read ids from stdin and set A[id] = B[id] using hash H\n"
   " A = rowset B [H]       - A[r,*] = B[r,*] for r in {rows}, read from stdin via H\n"
@@ -2146,6 +2166,7 @@ int main (int argc, char *argv[]) {
     else if (!strncmp (a(3), "slice",5))   mtx_slice (tmp, arg(3), arg(4), arg(5));
     else if (!strncmp (a(3), "paste",5))   mtx_paste (tmp, arg(3), argv+4, argc-4);
     else if (!strcmp  (a(3), "shuffle"))   mtx_shuffle (tmp, arg(4));
+    else if (!strcmp  (a(3), "permute"))   mtx_permute_col (tmp, arg(4), arg(5));
     else if (!strncmp (a(3), "sample",6))  mtx_sample (tmp, arg(4), a(3));
     else if (!strncmp (a(3), "subset",6))  mtx_rowset (tmp, arg(4), arg(5));
     else if (!strncmp (a(3), "rowset",6))  mtx_rowset (tmp, arg(4), arg(5));
