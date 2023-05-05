@@ -546,6 +546,15 @@ ix_t *shuffle_vec (ix_t *V) {
   return U;
 }
 
+// permute in-place: scatter values into random columns [1..nc]
+void permute_vec (ix_t *V, uint nc) {
+  uint i, n = len(V);
+  ix_t *P = rand_vec(nc);
+  trim_vec (P, n);
+  for (i=0; i<n; ++i) V[i].i = P[i].i;
+  free_vec(P);
+}
+
 inline float powa (float x, float p) {
   if (p == 2) return x*x;
   if (p == 1) return ABS(x);
