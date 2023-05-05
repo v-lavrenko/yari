@@ -109,6 +109,7 @@ hash_t *reopen_hash (hash_t *h, char *access) {
 char *id2str (hash_t *h, uint id) {
   if (!h) return fmt (malloc(15),"%u",id);
   if (h->access[0] == 'T') return time2str (malloc(20), id);
+  if (!id || id > nkeys(h)) return fmt (malloc(15),"%u",id);
   return strdup(id2key(h,id));
 }
 
