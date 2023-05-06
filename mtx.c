@@ -1861,8 +1861,9 @@ void mtx_semg (char *_S, char *_P, char *_A, char *prm) { // thread-unsafe: chk_
 // Maximum Marginal Relevance:
 // best = argmax_i { REL[i] - c max_j SIM[i,j] } across selected j
 void mtx_mmr (char *_SEL, char *_REL, char *_SIM, char *prm) {
-  uint top = getprm(prm,"top=",10); // how many features to sample
+  uint top = getprm(prm,"top=",10); // how many features to sample  
   float c = getprm(prm,"c=",1); // relative cost of redundancy
+  float drop = getprm(prm,"drop=",0); // dropout
   coll_t *SEL = open_coll (_SEL, "w+");
   coll_t *REL = open_coll (_REL, "r+");
   coll_t *SIM = open_coll (_SIM, "r+");
@@ -1873,15 +1874,19 @@ void mtx_mmr (char *_SEL, char *_REL, char *_SIM, char *prm) {
     ix_t *sel = const_vec (0,0); // selected features
     while (len(sel) < top) {
       ix_t *mmr = vec_add_vec (1, rel, -c, red); // MMR[i] = relevant[i] - c redundant[i]
-      ix_t *best = max(mmr); // feature w highest MMR score
+      ix_t *best = max(mmr); // best feature = highest MMR score
       uint id = best->i;
       printf ("[%d] adding: [%d] mmr: %.4f rel: %.4f red: %.4f\n",
 	      r, id, best->x, vec_get(rel,id), vec_get(red,id));
-      sel = append_vec (sel, best);
       vec_set (rel, id, -Infinity); // do not reuse best feature
-      ix_t *sim = get_vec_ro (SIM,id); // similarity of best to all features
-      ix_t *new = vec_x_vec (red, 'M', sim); // redund[i] = max {red[i], sim[i,f]}
-      free_vec (mmr); free_vec (red); red = new;
+      if (rnd() < drop) printf("dropout!\n");
+      else {
+	sel = append_vec (sel, best); // actually add best to selected set
+	ix_t *sim = get_vec_ro (SIM,id), *tmp; // similarity of best to all features
+	red = vec_x_vec (tmp=red, 'M', sim); // redund[i] = max {red[i], sim[i,f]}
+	free_vec (tmp);
+      }
+      free_vec (mmr);
     }
     put_vec (SEL,1,sel);
     free_vec(rel); free_vec(red); free_vec(sel);
