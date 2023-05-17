@@ -178,6 +178,20 @@ void mtx_print (char *prm, char *_M, char *RH, char *CH) {
   if (fmt) free(fmt);
 }  
 
+void mtx_print_libsvm (char *prm, char *_M, char *RH) {
+  char *fmt = getprms (prm,"fmt=","%.4f",',');
+  coll_t *M = open_coll (_M, "r+");
+  hash_t *rh = RH ? open_hash (RH, "r") : NULL;
+  char *rid = NULL, *trg = NULL;
+  while (2 == fscanf(stdin, "%ms %ms", &rid, &trg)) {
+    uint rno = rh ? key2id (rh,rid) : (uint)atoi(rid);
+    ix_t *vec = get_vec_ro (M, rno);
+    print_vec_svm (vec, NULL, trg, fmt);
+  }
+  free_coll (M); free_hash (rh); 
+  free(fmt); free(rid); free(trg);    
+}
+
 void mtx_quantiles (char *_M, char *_H) {
   char *fmt = "%9d: %10.4f ± %10.4f [%6.2f %6.2f %6.2f %6.2f %6.2f |%6.2f| %6.2f %6.2f %6.2f %6.2f %6.2f] %8s\n";
   char *hmt = "%9s: %10s ± %10s [%6s %6s %6s %6s %6s |%6s| %6s %6s %6s %6s %6s] %4s\n";
@@ -1935,6 +1949,7 @@ char *usage =
   "                          empty     ... include empty rows (for csv,svm,txt)\n"
   "                          ints      ... values are integers\n"
   "                          fmt=' %f' ... csv number format (must be last parameter)\n"
+  " print:libsvm,fmt M [R] - read ID,Y from stdin, print Y,VEC in libsvm format\n"
   " print:xy,prm X x Y y   - print X[x] and Y[y] side-by-side, prm:nc=N,def=0\n"
   " print:f1 Sys Tru prm   - evaluation: recall, precision, F1, AP, maxF1\n"
   "                          prm: top=K,b=1,thresh=X,noself\n"
@@ -2142,6 +2157,7 @@ int main (int argc, char *argv[]) {
   else if (!strncmp(a(1), "stats", 5))  mtx_stats (arg(2), arg(3), a(1));
   else if (!strncmp(a(1), "load:", 5))  mtx_load (arg(2), arg(3), arg(4), a(1)+5, a(5));
   else if (!strncmp(a(1), "quantil",7)) mtx_quantiles (arg(2), arg(3));
+  else if (!strncmp(a(1),"print:libsvm",12)) mtx_print_libsvm (a(1),arg(2),arg(3));
   else if (!strncmp(a(1),"print:XY",8)) mtx_print_XY  (arg(2), a(3), arg(4), a(5), a(1));
   else if (!strncmp(a(1),"print:f1",8)) mtx_print_f1  (arg(2), arg(3), a(4));
   else if (!strcmp (a(1), "print:evl")) mtx_print_evl (arg(2), arg(3), a(4));
