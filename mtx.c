@@ -55,6 +55,27 @@ void mtx_norm (char *_M, char *prm) {
   free_coll (M);
 }
 
+ulong sdbm_hash (char *buf, size_t sz, ulong seed) ;
+void mtx_cksum (char *prm, int nM, char *_M[]) {
+  int seed = getprm(prm,"seed=",1), m;
+  float p = getprm(prm,"p=",0);
+  for (m=0; m<nM; ++m) {
+    if (p) srandom(seed);
+    ulong cksum = 1;
+    coll_t *M = open_coll (_M[m],"r+");
+    uint r, nr = num_rows(M);
+    for (r=1; r<=nr; ++r) {
+      if (p && rnd() > p) continue;
+      void *vec = get_vec_ro(M,r);
+      size_t sz = len(vec) * vesize(vec);
+      cksum = sdbm_hash (vec, sz, cksum);
+    }
+    printf("%016lx\t%s\n", cksum, _M[m]);
+    fflush(stdout);
+    free_coll (M);
+  }
+}
+
 void mtx_trace (char *_M, char *prm) {
   double T = 0, N = 0;
   coll_t *M = open_coll (_M,"r+");
@@ -2116,6 +2137,8 @@ char *usage =
   " size[:r/c] A           - report the dimensions of A (rows/cols)\n"
   " norm[:p=1] A           - p-norm of A: SUM_r,c A[r,c]^p\n"
   " trace[:avg] A          - sum/average of elements on the diagonal of A\n"  
+  " cksum[:prm] A B ...    - fast rough checksum of matrices A,B,...\n"
+  "                          prm: seed=1,p=0.1 random 10% of rows\n"
   "\nExamples: http://bit.ly/irtool\n\n"
   ;
 
@@ -2152,6 +2175,7 @@ int main (int argc, char *argv[]) {
     fprintf (stderr, "RNG SEED is %u\n", seed); argv+=2; argc-=2; }
   argc = remove_sugar (argc, argv);
   if      (!strncmp(a(1), "size", 4))   mtx_size (arg(2), a(1));
+  else if (!strncmp(a(1), "cksum", 5))  mtx_cksum (a(1), argc-2, argv+2);
   else if (!strncmp(a(1), "norm", 4))   mtx_norm (arg(2), a(1));
   else if (!strncmp(a(1), "trace", 5))  mtx_trace (arg(2), a(1));
   else if (!strncmp(a(1), "stats", 5))  mtx_stats (arg(2), arg(3), a(1));
