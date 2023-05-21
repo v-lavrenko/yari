@@ -223,13 +223,15 @@ void mtx_quantiles (char *_M, char *_H) {
   float Q[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
   uint i, n = nvecs(M), N;
   for (i = 1; i <= n; ++i) {
-    char *id = id2str (H, i);
     ix_t *V = get_vec (M, i); N = len(V);
+    if (!N) { free_vec(V); continue; }
+    char *id = id2str (H, i);
     sort_vec (V, cmp_ix_x);
     double avg = sum(V)/N, M2 = sum2(V)/N, std = sqrt(M2-avg*avg);
     float Min = V[0].x, Max = V[N-1].x;
     for (j=0; j<9; ++j) Q[j] = V[q[j]*N/100].x;
     printf (fmt, N, avg, std, Min, Q[0], Q[1], Q[2], Q[3], Q[4], Q[5], Q[6], Q[7], Q[8], Max, id);
+    fflush(stdout);
     free(id); free_vec (V);
   }  
   free_coll (M); free_hash (H);  
@@ -433,6 +435,7 @@ void mtx_weigh (char *TRG, char *prm, char *SRC, char *STATS) { // thread-unsafe
   char *distinct = strstr(prm,"distinct"), *count = strstr(prm,"count");
   char *aggr = getprmp(prm,"aggr:",0);
   float outside = getprm(prm,"outside=",0);
+  float inside = getprm(prm,"inside=",0);
   
   //float lmj = getprm(prm,"lm:j=",0), lmd = getprm(prm,"lm:d=",0);
   //fprintf (stderr, "%s -> %f\n", prm, pow);
@@ -508,8 +511,9 @@ void mtx_weigh (char *TRG, char *prm, char *SRC, char *STATS) { // thread-unsafe
     else if (Cla) weigh_vec_clarity (vec, stats);
     else if (LM && k) { vec = doc2lm (tmp=vec, stats->cf, k, 0); free_vec(tmp); }
     else if (LM && b) { vec = doc2lm (tmp=vec, stats->cf, 0, b); free_vec(tmp); }
-    else if (out) crop_outliers (vec, stats, out);
+    else if (out)     zstd_outliers (vec, stats, out);
     else if (outside) keep_outliers (vec, outside); 
+    else if (inside)  drop_outliers (vec, inside); 
     else if (std) weigh_vec_std (vec, stats);
     else if (cdf) weigh_vec_cdf (vec);
     else if (Lap) weigh_vec_laplacian (vec, stats);
@@ -2019,6 +2023,7 @@ char *usage =
   "                          thresh=X - keep only cells with values >= X\n"
   "                         FS:df=a:b - remove columns with frequency outside [a:b]\n"
   "                         outlier=Z - crop values outside Z standard deviations\n"
+  "                          inside=p - drop values outside p-confidence interval\n"
   "                         outside=p - keep values outside p-confidence interval\n"
   "                              chop - remove zero entries\n"
   "                          mtx2full - convert matrix A to collection of float[]\n"
@@ -2139,6 +2144,7 @@ char *usage =
   " trace[:avg] A          - sum/average of elements on the diagonal of A\n"  
   " cksum[:prm] A B ...    - fast rough checksum of matrices A,B,...\n"
   "                          prm: seed=1,p=0.1 random 10% of rows\n"
+  " rm A                   - rm -rf A\n"
   "\nExamples: http://bit.ly/irtool\n\n"
   ;
 
@@ -2175,6 +2181,7 @@ int main (int argc, char *argv[]) {
     fprintf (stderr, "RNG SEED is %u\n", seed); argv+=2; argc-=2; }
   argc = remove_sugar (argc, argv);
   if      (!strncmp(a(1), "size", 4))   mtx_size (arg(2), a(1));
+  else if (!strcmp(a(1),  "rm"))        rm_dir (arg(2)); 
   else if (!strncmp(a(1), "cksum", 5))  mtx_cksum (a(1), argc-2, argv+2);
   else if (!strncmp(a(1), "norm", 4))   mtx_norm (arg(2), a(1));
   else if (!strncmp(a(1), "trace", 5))  mtx_trace (arg(2), a(1));
