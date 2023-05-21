@@ -1390,7 +1390,7 @@ void weigh_invl_lmd (ix_t *invl, stats_t *s, float mu) {
   }
 }
 
-void crop_outliers (ix_t *vec, stats_t *s, float out) {
+void zstd_outliers (ix_t *vec, stats_t *s, float out) {
   ulong *DF = s->df;
   double *S1 = s->cf, *S2 = s->s2;
   ix_t *v, *end = vec + len(vec);
@@ -1418,11 +1418,42 @@ xy_t cdf_interval (ix_t *X, float p) { // at least p of the values fall into [x,
   return CI;
 }
 
+/*
+xy_t cdf_interval_q (ix_t *X, float p) { // at least p of the values are in [x,y]
+  xy_t CI = {0,0};
+  if (!X || !len(X) || p<=0) return CI;
+  if (p>=1 || len(X) < 30)  return (xy_t) {{min(X)->x, max(X)->x};
+  int top = len(X) * (1-p)/2;
+  qselect (X,  top); CI.x = X[top];
+  qselect (X, -top); CI.y = X[top];
+  return CI;
+}
+*/
+    
 void keep_outliers (ix_t *X, float p) { 
   fprintf (stderr, "[%f..%f] %d -> ", min(X)->x, max(X)->x, len(X));
   xy_t CI = cdf_interval (X,p);
   vec_x_range (X, '-', CI);
   fprintf (stderr, "%d [%f..%f]\n", len(X), CI.x, CI.y);
+}
+
+void drop_outliers (ix_t *X, float p) {
+  float lo = min(X)->x, hi = max(X)->x; 
+  xy_t CI = cdf_interval (X,p);
+  if (lo > CI.x / 2) CI.x = lo; // lo value not far 
+  if (hi < CI.y * 2) CI.y = hi; // hi value not far
+  if (CI.x == lo && CI.y == hi) return; // nothing to do
+  uint n = len(X);
+  vec_x_range (X, '.', CI);
+  fprintf (stderr, "[%f..%f] %d -> %d [%f..%f]\n", lo, hi, n, len(X), min(X)->x, max(X)->x);
+}
+
+void crop_outliers (ix_t *X, float p) {
+  fprintf (stderr, "[%f..%f] %d -> ", min(X)->x, max(X)->x, len(X));
+  xy_t CI = cdf_interval (X,p);
+  vec_x_num (X, 'M', CI.x); // max (x,lo)
+  vec_x_num (X, 'm', CI.y); // min (x,hi)
+  fprintf (stderr, "%d [%f..%f]\n", len(X), min(X)->x, max(X)->x);
 }
 
 // reweigh every vector in M, or given vector V (if M==0)
@@ -2157,6 +2188,7 @@ uint count (ix_t *V, char op, float x) {
   return n;
 }
 
+// sort V, collapse duplicates, replace id by count of dups
 ix_t *distinct_values (ix_t *V, float eps) {
   ix_t *a, *b, *C = copy_vec(V), *end = C+len(C);
   sort_vec (C, cmp_ix_x);

@@ -151,8 +151,10 @@ void weigh_vec_ranks (ix_t *vec) ;
 void weigh_vec_cdf (ix_t *vec) ;
 
 void weigh_invl_lmd (ix_t *invl, stats_t *s, float mu) ;
-void crop_outliers (ix_t *vec, stats_t *s, float Z) ;
+void zstd_outliers (ix_t *vec, stats_t *s, float Z) ;
 void keep_outliers (ix_t *X, float p) ;
+void crop_outliers (ix_t *X, float p) ;
+void drop_outliers (ix_t *X, float p) ;
 xy_t cdf_interval (ix_t *X, float p) ;
 
 // reweigh every vector in M, or given vector V (if M==0)
