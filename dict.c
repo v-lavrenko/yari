@@ -262,15 +262,19 @@ int main (int argc, char *argv[]) {
 
   if (!strcmp(argv[1], "-k2i")) {
     hash_t *h = open_hash (argv[2], "r");
-    char *key = argv[3];
-    printf ("%10d %s\n", key2id (h,key), key);
+    if (argc>3) {
+      char *key = argv[3];
+      printf ("%10d %s\n", key2id (h,key), key);
+    }
     return 0;
   }
   
   if (!strcmp(argv[1], "-i2k")) {
     hash_t *h = open_hash (argv[2], "r");
-    uint i = atoi(argv[3]);
-    printf ("%10d %s\n", i, id2key (h,i));
+    if (argc>3) {
+      uint i = atoi(argv[3]);
+      printf ("%10d %s\n", i, id2key (h,i));
+    }
     return 0;
   }
 
