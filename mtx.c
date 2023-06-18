@@ -1153,10 +1153,14 @@ static uint parse_dim (char *_D) {
 }
 
 void mtx_rnd (char *RND, char *prm, char *_R, char *_C) {
+  uint seed = getprm(prm,"seed=",1);
+  if (!seed) seed = (uint)time(0);
+  srandom(seed);
   float lo = getprm(prm,"lo=",0), hi = getprm(prm,"hi=",1);
   char *sphere = strstr(prm,"sphere"),   *std = strstr(prm,"std");
   char *simplex = strstr(prm,"simplex"), *exp = strstr(prm,"exp");
   char *ones = strstr(prm,"ones"),       *log = strstr(prm,"log");
+  char *boolean = strstr(prm,"boolean");
   uint top = getprm(prm,"top=",0);
   uint R = parse_dim(_R), C = parse_dim(_C), r;
   fprintf (stderr, "%s = %d x %d %s\n", RND, R, C, (ones?ones:"random"));
@@ -1173,6 +1177,7 @@ void mtx_rnd (char *RND, char *prm, char *_R, char *_C) {
     else if    (ones) vec = const_vec (C, 1);
     else if     (top) vec = rand_vec_sparse (C, top);
     else              vec = rand_vec_uni (C, lo, hi);
+    if (boolean) vec_x_num (vec, '=', 1);
     put_vec (rnd, r, vec);
     free_vec (vec);
     show_progress (r, R, " rows");
