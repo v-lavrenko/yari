@@ -1,0 +1,4 @@
+#dig +short myip.opendns.com @resolver1.opendns.com
+#dig +short txt ch whoami.cloudflare @1.0.0.1 | tr -d '"'
+curl 'https://ifconfig.me' # | ifconfig.co | ifconfig.io
+echo ""

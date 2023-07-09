@@ -1,0 +1,5 @@
+#!/bin/tcsh -f
+
+grep --color '<[^>]*>\|$'
+
+#em '<[^>]*>' -f white

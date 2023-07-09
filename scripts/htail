@@ -1,0 +1,15 @@
+#!/bin/tcsh -f
+
+set n = 5
+if (""$1 == "-n") then
+    set n = $2
+    shift && shift
+endif
+
+foreach f ($argv)
+    if ($#argv > 1) echo "==> $f <=="
+    head -n $n $f
+    echo ...
+    tail -n $n $f
+    if ($#argv > 1) echo ""
+end

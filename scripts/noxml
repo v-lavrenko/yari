@@ -1,0 +1,3 @@
+#!/bin/tcsh -f
+
+tr '\t\r' ' ' | sed 's/&[a-z]*;/ /g' | sed 's/<[^>]*>/ /g' | sed 's/  */ /g' | sed 's/^ *//' | sed 's/ *$//g'

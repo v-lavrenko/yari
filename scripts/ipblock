@@ -1,0 +1,12 @@
+#!/bin/tcsh -f
+
+if ("$1" == "") then
+    echo "Usage: ipblock 200.219.245.114"
+    exit
+endif
+
+sudo iptables -A INPUT -s $1 -j DROP
+sudo iptables -L -n # list, numeric
+
+echo "-----"
+echo "To unblock: sudo iptables -D INPUT -s $1 -j DROP"

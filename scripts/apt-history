@@ -1,0 +1,3 @@
+#!/bin/tcsh -f
+
+(cat /var/log/apt/history.log; zcat /var/log/apt/history.log.*.gz) | grep 'Commandline: apt'

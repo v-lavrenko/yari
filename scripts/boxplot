@@ -1,0 +1,14 @@
+#!/bin/tcsh -f
+
+if ("$argv" == "") echo "Usage: boxplot [-logx] [-logy] [-x11] [-tty]" '"'"'plot title'"'" < XY'
+
+set user = `echo $argv | sed \
+	    -e 's/-logx/ set logscale x; /' \
+	    -e 's/-logy/ set logscale y; /' \
+	    -e 's/-x11/  set term x11; /' \
+	    -e 's/-tty/  set term dumb size 130, 60; set autoscale; /' \
+	    -e "s/'[^']*'/ set title &; /" \
+`
+set style = "unset key; set grid; set pointsize 0.5; set style fill solid 0.1"
+
+sort | gnuplot -p -e "$style ; $user ; plot '-' u (1):2:(.5):1 w boxplot"

@@ -1,0 +1,10 @@
+#!/bin/tcsh -f
+
+foreach f ($argv)
+    set cat = `file $f | gawk '{print   /XZ/ ? "xzcat" : \
+					/gzip/ ? "zcat" : \
+					/ASCII/ ? "cat" : \
+					/bzip2/ ? "bzcat" : \
+					/Zstandard/ ? "zstdcat" : "cat"}'`
+    $cat $f
+end
