@@ -41,7 +41,7 @@ hash_t *copy_hash (hash_t *src) {
   return trg;
 }
 
-inline static hash_t *open_hash_inmem () {
+hash_t *open_hash_inmem () {
   hash_t *h = safe_calloc (sizeof (hash_t));
   h->keys = open_coll (NULL, NULL);
   h->indx = new_vec (1024, sizeof(uint));
@@ -96,6 +96,17 @@ void free_hash (hash_t *h) {
   if (h->path) free (h->path);
   memset (h, 0, sizeof(hash_t));
   free (h);
+}
+
+void free_hashes (hash_t *h1, ...) {
+  va_list args;
+  va_start (args, h1);
+  void *h = h1;
+  while (h != (void*)-1) {
+    if (h) free_hash (h);
+    h = va_arg (args, void*);
+  }
+  va_end (args);
 }
 
 hash_t *reopen_hash (hash_t *h, char *access) {

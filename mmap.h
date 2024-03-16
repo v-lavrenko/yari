@@ -80,7 +80,9 @@ FILE *safe_fopen (char *path, char *access) ;
 int popen2 (const char *command, pid_t *_pid) ;
 FILE *safe_popen (char *access, char *fmt, ...) ;
 void nonblock(FILE *f) ;
-void *mmap_path (char *path, char *access) ; // mmap whole file
+void *mmap_file (char *path, char *access) ; // mmap whole file
+void write_file (char *path, char *buf) ;
+char *read_file (char *path) ;
 void *safe_mmap (int fd, off_t offset, off_t size, char *access);
 void *safe_remap (int fd, void *buf, off_t osize, off_t nsize);
 off_t safe_truncate (int fd, off_t size) ;
@@ -90,7 +92,10 @@ off_t safe_write (int fd, void *buf, off_t count) ;
 off_t safe_pread (int fd, void *buf, off_t size, off_t offset) ;
 off_t safe_pwrite (int fd, void *buf, off_t size, off_t offset) ;
 void stracat (char **dst, size_t *n, char *src) ;
-char *acat (char *s1, char *s2) ; // must free result
+char *acat (int n, char **strings) ; // must free result
+char *acat2 (char *a, char *b) ;
+char *acat3 (char *a, char *b, char *c) ;
+char *acat5 (char *a, char *b, char *c, char *d, char *e) ;
 char *fmt (char *buf, const char *format, ...) ;
 char *fmtn (int sz, const char *format, ...) ;
 void zcat (char **buf, int *sz, char *new) ; // realloc + append new to buf+sz
@@ -111,7 +116,7 @@ void rmdir_parent (char *path) ; // unsafe: system
 void show_spinner () ;
 void show_progress (ulong n, ulong N, char *s) ;
 double getprm (char *params, char *name, double def) ;
-char *getprms (char *params, char *name, char *def, char eol) ;
+char *getprms (char *params, char *name, char *def, char *eol) ;
 char *getprmp (char *params, char *name, char *def) ;
 char *getarg (int argc, char *argv[], char *arg, char *def) ;
 

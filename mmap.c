@@ -88,14 +88,14 @@ void *move_mmap (mmap_t *M, off_t offs, off_t size) { // thread-unsafe (if M sha
 }
 
 // checks whether the region [offs..+size] is available from map
-// if not -- shifts map to include the region, 
+// if not -- shifts map to include the region,
 // making sure the mapping aligns on a page boundary
 // if random-access: uses pread() outside of main map
 void *move_mmap_old (mmap_t *M, off_t offs, off_t size) {
   if (offs >= M->offs && (offs+size) <= (M->offs + M->size))
     return M->data + (offs - M->offs); // region already in map
   if (M->next) return move_mmap (M->next, offs, size);
-  if (0) fprintf (stderr, "[%'lu %'lu] outside map(%d) [%'lu %'lu]\n", 
+  if (0) fprintf (stderr, "[%'lu %'lu] outside map(%d) [%'lu %'lu]\n",
 		  (ulong)offs, (ulong)(offs+size), M->file,
 		  (ulong)(M->offs), (ulong)(M->offs + M->size));
   assert (offs+size <= M->flen);
@@ -107,7 +107,7 @@ void *move_mmap_old (mmap_t *M, off_t offs, off_t size) {
   M->data = safe_mmap (M->file, M->offs, M->size, M->mode);
   assert (offs >= M->offs && (offs+size) <= (M->offs + M->size));
   MMAP_MOVES += 1; // += M->size;
-  return M->data + (offs - M->offs); 
+  return M->data + (offs - M->offs);
 }
 
 inline void *move_mmap_older (mmap_t *map, off_t offs, off_t size) {
@@ -347,14 +347,6 @@ void nonblock(FILE *f) {
   fcntl(fd, F_SETFL, flags | O_NONBLOCK);
 }
 
-void *mmap_path (char *path, char *access) {
-  uint fd = safe_open (path, access);
-  off_t flen = safe_lseek (fd, 0, SEEK_END);
-  void *map = safe_mmap (fd, 0, flen, access);
-  close(fd); // map stays open?
-  return map;
-}
-
 #ifndef MAP_POPULATE
 #define MAP_POPULATE 0
 #endif
@@ -447,6 +439,31 @@ off_t safe_pwrite (int fd, void *buf, off_t size, off_t offset) {
   return (off_t) result;
 }
 
+void write_file (char *path, char *buf) {
+  int fd = safe_open (path, "w");
+  safe_write(fd, buf, strlen(buf));
+  close(fd);
+}
+
+char *read_file (char *path) {
+  int fd = safe_open (path, "r");
+  off_t flen = safe_lseek (fd, 0, SEEK_END);
+  safe_lseek (fd, 0, 0);
+  char *buf = safe_malloc (flen+1);
+  off_t got = safe_read (fd, buf, flen);
+  buf[got] = '\0';
+  close(fd);
+  return buf;
+}
+
+void *mmap_file (char *path, char *access) {
+  uint fd = safe_open (path, access);
+  off_t flen = safe_lseek (fd, 0, SEEK_END);
+  void *map = safe_mmap (fd, 0, flen, access);
+  close(fd); // map stays open?
+  return map;
+}
+
 char *___itoa (uint i) { // thread-unsafe: static + buffer overflow
   static char buf[100];
   sprintf (buf, "%u", i);
@@ -459,13 +476,58 @@ char *___ftoa (char *fmt, float f) { // thread-unsafe: static + buffer overflow
   return buf;
 }
 
-char *acat (char *s1, char *s2) {
-  if (!s1 || !s2) return NULL;
-  char *s = malloc (strlen(s1) + strlen(s2) + 1);
-  strcpy (s,s1);
-  strcat (s,s2);
-  return s;
+char *acat2 (char *a, char *b) {
+  if (!a || !b) return NULL;
+  uint sz = strlen(a) + strlen(b);
+  char *S = malloc (sz + 1), *s=S;
+  s = stpcpy (s,a);
+  s = stpcpy (s,b);
+  return S;
 }
+
+char *acat3 (char *a, char *b, char *c) {
+  if (!a || !b || !c) return NULL;
+  uint sz = strlen(a) + strlen(b) + strlen(c);
+  char *S = malloc (sz + 1), *s=S;
+  s = stpcpy (s,a);
+  s = stpcpy (s,b);
+  s = stpcpy (s,c);
+  return S;
+}
+
+char *acat5 (char *a, char *b, char *c, char *d, char *e) {
+  if (!a || !b || !c) return NULL;
+  uint sz = strlen(a) + strlen(b) + strlen(c) + strlen(d) + strlen(e);
+  char *S = malloc (sz + 1), *s=S;
+  s = stpcpy (s,a);
+  s = stpcpy (s,b);
+  s = stpcpy (s,c);
+  s = stpcpy (s,d);
+  s = stpcpy (s,e);
+  return S;
+}
+
+char *acat (int n, char **strings) {
+  int i, sz = 1;
+  for (i=0; i<n; ++i) sz += strlen(strings[i]);
+  char *S = malloc (sz), *s=S;
+  for (i=0; i<n; ++i) s = stpcpy(s,strings[i]);
+  return S;
+}
+
+/*
+void cat (char *s0, ...) {
+  char *buf = NULL, *s = buf;
+  va_list args;
+  va_start (args, s0);
+  char *next = s0;
+  while (next) {
+    memcat (buf, sz, next, strlen(next)+1);
+    next = va_arg (args, char*);
+  }
+  va_end (args);
+}
+*/
 
 // append src to *dst, re-allocating *dst if needed
 void stracat (char **dst, size_t *n, char *src) {
@@ -521,14 +583,16 @@ void zprintf (char **buf, int *sz, const char *fmt, ...) {
 
 // like memcpy, but append to the trg+used
 void memcat (char **trg, int *used, char *src, int sz) {
+  assert (sz >= 0);
+  if (!sz) return;
   if (!*trg) *used = 0; // no buffer -> zero used
-  *trg = safe_realloc (*trg, *used+sz+1);
+  *trg = safe_realloc (*trg, (*used)+sz+1);
   memcpy ((*trg)+(*used), src, sz);
   *used = *used + sz;
   (*trg)[*used] = '\0';
 }
 
-void zcat0 (char **buf, int *sz, char *str, ...) {  
+void zcat0 (char **buf, int *sz, char *str, ...) {
   va_list args;
   va_start (args, str);
   char *next = str;
@@ -685,15 +749,21 @@ char *getprmp (char *params, char *name, char *def) {
   return p ? p + strlen(name) : def;
 }
 
-char *getprms (char *params, char *name, char *def, char eol) {
+char *getprms (char *params, char *name, char *def, char *eol) {
   if (!(params && name)) return def ? strdup(def) : NULL;
   unsigned n = strlen (name);
-  char *p = strstr (params, name), *end;
+  char *p = strstr (params, name);
   if (!p) return def ? strdup(def) : NULL;
-  if ((end = index (p+n, eol))) *end = 0; // null-terminate
-  char *result = strdup(p+n); // take a copy
-  if (end) *end = eol; // undo null-termination
-  return result;
+  size_t sz = strcspn(p+n, eol);
+  return strndup (p+n, sz);
+  /*
+    char *beg = p+n, *end = strchr(beg,eol);
+    return end ? strndup (
+    if ((end = index (p+n, eol))) *end = 0; // null-terminate
+    char *result = strdup(p+n); // take a copy
+    if (end) *end = eol; // undo null-termination
+    return result;
+  */
 }
 
 char *getarg (int argc, char *argv[], char *arg, char *def) {

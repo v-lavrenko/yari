@@ -18,22 +18,23 @@
   # along with YARI. If not, see <http://www.gnu.org/licenses/>.
 
 
-f64=-D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE 
+f64=-D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE
 LIB=-lm -lpthread
 
 opt ?= -g # make opt=-O3 (optimised) or opt=-pg (profile)
 warn=-W -Wall -Wno-unused-result -Wno-implicit-fallthrough -Wno-null-pointer-arithmetic
 
 #CC=gcc -m64 $(opt) $(warn) -I . -o $@ $(f64) -fopenmp
-CC=gcc -m64 $(opt) $(warn) -I . -o $@ $(f64) 
+CC=gcc -m64 $(opt) $(warn) -I . -o $@ $(f64)
 
 exe = testmmap testvec testcoll dict mtx stem kvs hl bio pdb \
-shard pval ts ptail xcut xtime spell query nutil hash2 xsum xsv
+shard pval ts ptail xcut xtime spell query nutil xsum xsv \
+bpe
 
 all: libyari.a $(exe)
 	etags *.c *.h
 
-clean: 
+clean:
 	rm -rf $(exe) *.o *.dSYM libyari.a TAGS
 
 publish:
@@ -42,19 +43,19 @@ publish:
 %.o: %.c
 	$(CC) -c $<
 
-libyari.a: mmap.o vector.o coll.o hash.o matrix.o netutil.o timeutil.o stemmer_krovetz.o textutil.o synq.o svm.o spell.o query.o dense.o
+libyari.a: mmap.o vector.o coll.o hash.o matrix.o netutil.o timeutil.o stemmer_krovetz.o textutil.o synq.o svm.o spell.o query.o dense.o bpe.o cluster.o
 	ar -r libyari.a $^
 
 %::
 	$(CC) $^ $(LIB)
 
-testmmap: testmmap.c mmap.c 
+testmmap: testmmap.c mmap.c
 
 testvec: testvec.c mmap.c vector.c
 
 testcoll: testcoll.c mmap.c vector.c coll.c
 
-dict: dict.c mmap.c vector.c coll.c hash.c timeutil.c 
+dict: dict.c mmap.c vector.c coll.c hash.c timeutil.c textutil.c stemmer_krovetz.c synq.c
 
 mtx: mtx.c mmap.c vector.c coll.c hash.c matrix.c svm.c \
 	textutil.c stemmer_krovetz.c maxent.c synq.c timeutil.c
@@ -100,6 +101,7 @@ hash2: hash2.c hashf.c libyari.a
 	$(CC) -DMAIN $^ $(LIB)
 
 bpe: bpe.c libyari.a
+	$(CC) -DMAIN $^ $(LIB)
 
 xsum: xsum.c libyari.a
 

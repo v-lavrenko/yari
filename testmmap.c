@@ -51,7 +51,7 @@ void detach (void *(*handle) (void *), void *arg) {
 
 uint threads = 0;
 void *test_random_access (void *prm) {
-  char *path = getprms (prm,"path=","RND",',');
+  char *path = getprms (prm,"path=","RND",",");
   char *_mmap = strstr (prm,"mmap");
   char *_read = strstr (prm,"read");
   char *__MMAP = strstr (prm,"MMAP");

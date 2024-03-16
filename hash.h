@@ -41,9 +41,11 @@ typedef struct {
 
 hash_t *open_hash (char *path, char *access);
 void    free_hash (hash_t *h) ;
+void free_hashes (hash_t *h1, ...) ;
 hash_t *copy_hash (hash_t *src) ;
 hash_t *reopen_hash (hash_t *h, char *access);
 hash_t *open_hash_if_exists (char *path, char *access) ;
+hash_t *open_hash_inmem () ;
 
 char *id2str (hash_t *h, uint id) ; // strdup (key2id | itoa(id))
 char *id2key (hash_t *h, uint i) ;

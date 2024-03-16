@@ -57,4 +57,10 @@ typedef struct { uint i; float x; float y; } ixy_t;
 
 typedef struct { uint i; uint j; uint k; } ijk_t;
 
+typedef struct { char *s; uint j; uint k; } sjk_t;
+
+typedef struct { char *s; float x; } sx_t;
+
+typedef struct { char *k; char *v; } kv_t;
+
 #endif

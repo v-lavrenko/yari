@@ -44,11 +44,13 @@ typedef struct {
 coll_t *open_coll (char *_path, char *access) ;
 coll_t *reopen_coll (coll_t *c, char *access) ;
 void free_coll (coll_t *c) ;
+void free_colls (coll_t *c1, ...) ;
 void rm_coll (coll_t *c) ;
 void empty_coll (coll_t *M) ;
 int coll_exists (char *path) ;
 time_t coll_modified (char *path) ;
 coll_t *open_coll_if_exists (char *path, char *access) ;
+coll_t *open_coll_inmem () ;
 
 coll_t *copy_coll (coll_t *src) ;
 

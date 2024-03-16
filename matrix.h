@@ -47,9 +47,12 @@ void chop_jix (jix_t *vec) ;
 ix_t *vec_find (ix_t *vec, uint i) ;
 ix_t *vec_set (ix_t *vec, uint id, float x) ;
 float vec_get (ix_t *vec, uint id) ;
+uint vec_is_sorted (ix_t *V) ;
+
 
 void dedup_vec (ix_t *vec) ; // skip duplicate ids (keep 1st)
 void aggr_vec (ix_t *vec, char aggr) ; // min, Max, sum, avg, 1st
+void sort_uniq_vec (ix_t *vec) ; // sortd by id, then below
 void uniq_vec (ix_t *vec) ; // merge duplicate ids (add weights)
 void chop_vec (ix_t *vec) ;
 void trim_vec (ix_t *vec, int k) ;
@@ -82,6 +85,9 @@ ix_t *rand_vec_sphere (uint n); // uniformly over a unit sphere
 ix_t *rand_vec_simplex (uint n); // uniformly over a multinomial simplex
 ix_t *rand_vec_sparse (uint n, uint k) ; // [0,1] for k random positions
 
+void rand_mtx (coll_t *M, uint nr, uint nc) ;
+void rand_mtx_sparse (coll_t *M, uint nr, uint nc, uint k) ;
+
 void scan_mtx (coll_t *rows, coll_t *cols, hash_t *rh, hash_t *ch, char *prm) ;
 ix_t *parse_vec_svm (char *str, char **id, hash_t *ids) ;
 ix_t *parse_vec_csv (char *str, char **id) ;
@@ -89,7 +95,7 @@ ix_t *parse_vec_txt (char *str, char **id, hash_t *ids, char *prm) ;
 ix_t *parse_vec_xml (char *str, char **id, hash_t *ids, char *prm) ;
 
 
-void print_mtx (coll_t *rows, hash_t *rh, hash_t *ch) ;
+void print_mtx (coll_t *rows, hash_t *rh, hash_t *ch, char *how) ;
 void print_vec_rcv (ix_t *vec, hash_t *ids, char *vec_id, char *fmt) ;
 void print_vec_svm (ix_t *vec, hash_t *ids, char *class, char *svm) ;
 void print_vec_txt (ix_t*vec, hash_t *ids, char *vec_id, int xml) ;
@@ -131,7 +137,8 @@ void update_stats_from_vec (stats_t *s, ix_t *vec) ;
 void update_stats_from_file (stats_t *s, hash_t *dict, char *file) ;
 void free_stats (stats_t *s) ;
 void dump_stats (stats_t *s, hash_t *dict) ;
-stats_t *load_stats (char *path) ;
+stats_t *open_stats (char *path) ;
+stats_t *open_stats_if_exists (char *path) ;
 void save_stats (stats_t *s, char *path) ;
 
 ix_t *doc2lm (ix_t *doc, double *cf, double mu, double lambda) ;
@@ -181,6 +188,9 @@ void rows_x_cols (coll_t *out, coll_t *rows, coll_t *cols) ;
 void rows_x_rows (coll_t *P, coll_t *A, coll_t *B) ;
 void rows_o_rows (coll_t *out, coll_t *A, char op, coll_t *B) ;
 void rows_a_rows (coll_t *out, float wa, coll_t *A, float wb, coll_t *B) ;
+void filter_rows (coll_t *rows, char op, ix_t *mask) ;
+ix_t *cols_x_vec_iseen (coll_t *cols, ix_t *V) ; // SCORE + list of seen ids
+ix_t *cols_x_vec_iskip (coll_t *cols, ix_t *V) ; // SCORE + skip-lists
 
 double dot (ix_t *A, ix_t *B) ;
 double kdot (uint k, ix_t *A, ix_t *B) ;
@@ -237,6 +247,8 @@ float *mtx_full_row (char *_M, uint row) ; // open M, return full(row), close M
 
 ixy_t *join (ix_t *X, ix_t *Y, float def) ;
 void disjoin (ix_t *X, ix_t *Y) ; // X & Y grab 
+ixy_t *ix2ixy (ix_t *ix, float y) ;
+
 
 void vec_x_full (ix_t *V, char op, float *F) ;
 ix_t *vec_x_vec (ix_t *X, char op, ix_t *Y) ;
@@ -267,5 +279,7 @@ void transpose_jix (jix_t *vec) ;
 jix_t *scan_jix (FILE *in, uint num, hash_t *rows, hash_t *cols) ;
 void scan_mtx_rcv (FILE *in, coll_t *M, hash_t *R, hash_t *C, char how, char verb) ;
 void append_jix (coll_t *c, jix_t *jix) ;
+
+void show_jix (jix_t *J, char *tag, char how);
 
 #endif

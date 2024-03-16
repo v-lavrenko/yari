@@ -1,22 +1,22 @@
 /*
-  
+
   Copyright (c) 1997-2021 Victor Lavrenko (v.lavrenko@gmail.com)
-  
+
   This file is part of YARI.
-  
+
   YARI is free software: you can redistribute it and/or modify it
   under the terms of the GNU General Public License as published by
   the Free Software Foundation, either version 3 of the License, or
   (at your option) any later version.
-  
+
   YARI is distributed in the hope that it will be useful, but WITHOUT
   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
   License for more details.
-  
+
   You should have received a copy of the GNU General Public License
   along with YARI. If not, see <http://www.gnu.org/licenses/>.
-  
+
 */
 
 #include <math.h>
@@ -25,7 +25,7 @@
 #include "textutil.h"
 
 jix_t *ix2jix (uint j, ix_t *ix) {
-  ix_t *v; jix_t *jix = new_vec (0, sizeof(jix_t)); 
+  ix_t *v; jix_t *jix = new_vec (0, sizeof(jix_t));
   for (v = ix; v < ix+len(ix); ++v) {
     jix_t new = {j, v->i, v->x};
     jix = append_vec (jix, &new);
@@ -36,32 +36,38 @@ jix_t *ix2jix (uint j, ix_t *ix) {
 uint jix_is_sorted (jix_t *vec) {
   jix_t *v, *end = vec + len(vec);
   for (v = vec+1; v < end; ++v) if (v->j < (v-1)->j) return 0;
-  return 1; 
+  return 1;
+}
+
+uint vec_is_sorted (ix_t *V) {
+  ix_t *v = V, *end = V + len(V);
+  while (++v < end) if (v->i < (v-1)->i) return 0;
+  return 1;
 }
 
 jix_t *scan_jix (FILE *in, uint maxlen, hash_t *rows, hash_t *cols) {
   jix_t *buf = new_vec (0, sizeof(jix_t)), new = {0,0,0};
-  char line[1000], row[1000], col[1000]; 
+  char line[1000], row[1000], col[1000];
   uint fskip=0, rskip=0, cskip=0, vskip=0;
   while (fgets (line, 999, in)) {
     if (*line == '#') { // comments and signals start with a #
       if (!strcmp(line,"# END\n")) break; // stop if end of block
       else continue; // skip over comments
-    } 
+    }
     if (3 != sscanf (line, "%s %s %f", row, col, &new.x)) {
       if (++fskip<9) fprintf (stderr, "cannot parse: %100.100s...\n", line);
-      continue; 
+      continue;
     }
     new.j = rows ? key2id (rows, row) : atol(row); // row id -> integer
     new.i = cols ? key2id (cols, col) : atol(col); // column id -> integer
-    if      (!new.j) { if (++rskip<9) fprintf (stderr, "skipping row [%s] %s", row, line); } 
+    if      (!new.j) { if (++rskip<9) fprintf (stderr, "skipping row [%s] %s", row, line); }
     else if (!new.i) { if (++cskip<9) fprintf (stderr, "skipping col [%s] %s", col, line); }
     //else if (!new.x) { if (++vskip<9) fprintf (stderr, "skipping zero val %s", line); }
     else buf = append_vec (buf, &new); // keep zero values
     if (maxlen && len(buf) >= maxlen) break;
   }
   sort_vec (buf, cmp_jix); // rsort?
-  if (fskip || rskip || cskip) 
+  if (fskip || rskip || cskip)
     fprintf (stderr, "skipped posts: %d format, %d row, %d col, %d val\n", fskip, rskip, cskip, vskip);
   return buf;
 }
@@ -72,9 +78,9 @@ jix_t *coll_jix (coll_t *c, uint num, uint *id) {
     ix_t *vec = get_vec (c,*id), *v;
     if (len(vec) > bEnd - b) { free_vec(vec); break; }
     for (v = vec; v < vec + len(vec); ++v) {
-      b->j = *id; 
-      b->i = v->i; 
-      b->x = v->x; 
+      b->j = *id;
+      b->i = v->i;
+      b->x = v->x;
       ++b; }
     free_vec (vec);
   }
@@ -83,7 +89,7 @@ jix_t *coll_jix (coll_t *c, uint num, uint *id) {
 
 void transpose_jix (jix_t *vec) {
   uint tmp; jix_t *v, *end = vec + len(vec); // swap i <=> j
-  for (v = vec; v < end; ++v) { tmp = v->i; v->i = v->j; v->j = tmp; } 
+  for (v = vec; v < end; ++v) { tmp = v->i; v->i = v->j; v->j = tmp; }
 }
 
 ix_t *next_in_jix (jix_t *jix, jix_t **last) {
@@ -93,7 +99,7 @@ ix_t *next_in_jix (jix_t *jix, jix_t **last) {
   while ((s < end) && (s->j == r->j)) ++s; // [r..s) = same vec
   if (s == r) return NULL; // empty result
   ix_t *vec = new_vec (0, sizeof(ix_t)); // old vec
-  for (t = r; t < s; ++t) { 
+  for (t = r; t < s; ++t) {
     ix_t new = {t->i, t->x};
     vec = append_vec (vec, &new);
   }
@@ -107,11 +113,11 @@ void append_jix (coll_t *c, jix_t *jix) {
   while (r < end) {
     for (s = r+1; (s < end) && (s->j == r->j); ++s); // r..s = same vec
     ix_t *vec = get_or_new_vec (c, r->j, sizeof(ix_t)); // old vec
-    for (t = r; t < s; ++t) { 
+    for (t = r; t < s; ++t) {
       ix_t new = {t->i, t->x};
       vec = append_vec (vec, &new);
     }
-    put_vec (c, r->j, vec); 
+    put_vec (c, r->j, vec);
     free_vec (vec);
     r = t;
   }
@@ -142,7 +148,7 @@ uint mtx_append (coll_t *M, uint id, ix_t *vec, char how) {
   if (how == 's')                                    return 0; // skip
   ix_t *old = get_vec (M,id), *new = 0; uint ok = 0;
   if (how == 'l' && len(vec) > len(old)) { // longer
-    put_vec_write (M, id, vec); 
+    put_vec_write (M, id, vec);
     ok = 1;
   }
   if (how == '+' || how == '|' || how == '&') { // join
@@ -155,19 +161,38 @@ uint mtx_append (coll_t *M, uint id, ix_t *vec, char how) {
 }
 
 void scan_mtx_rcv (FILE *in, coll_t *M, hash_t *R, hash_t *C, char how, char verb) {
-  ix_t *vec; 
+  ix_t *vec;
   if (!in || !M) return;
   while (1) {
-    jix_t *buf = scan_jix (in, 0, R, C), *last = NULL; 
+    jix_t *buf = scan_jix (in, 0, R, C), *last = NULL;
     if (!len(buf)) { free_vec (buf); break; }
     while ((vec = next_in_jix (buf, &last))) {
       mtx_append (M, last->j, vec, how);
       if (verb) fprintf (stderr, "added %s [%d]\n", id2key(R,last->j), len(vec));
       free_vec (vec);
     }
-    fprintf (stderr, "[%.0fs] added %d cells how:%c -> %d rows, %d cols\n", vtime(), len(buf), how, num_rows(M), num_cols(M)); 
+    fprintf (stderr, "[%.0fs] added %d cells how:%c -> %d rows, %d cols\n", vtime(), len(buf), how, num_rows(M), num_cols(M));
     free_vec (buf);
   }
+}
+
+void show_jix (jix_t *J, char *tag, char how) {
+  jix_t *C = copy_vec (J), *c = C, *d, *end = C+len(C);
+  sort_vec (C, cmp_jix_jX);
+  printf("\n%s\n", tag);
+  if (how == '*') {
+    for (c = C; c < end; ++c)
+      printf("\t%d %d %.2f\n", c->j, c->i, c->x);
+  }
+  if (how == 'i') {
+    while (c < end) {
+      for (d = c; d < end && d->j == c->j; ++d); // [c..d) same group
+      printf("\t%d [%ld]", c->j, d-c);
+      while (c < d) printf(" %d", c++->i);
+      printf("\n");
+    }
+  }
+  free_vec (C);
 }
 
 void show_vec (ix_t *vec, char what) {
@@ -203,7 +228,7 @@ void aggr_vec (ix_t *vec, char aggr) {
   case 'a': while (++b < end) { if (a->i == b->i) a->x = aggr_avg(a,b);  else a=b; } break;
   case 'l': while (++b < end) { if (a->i == b->i) a->x = b->x;           else a=b; } break;
   }
-  dedup_vec (vec);  
+  dedup_vec (vec);
 }
 
 void uniq_vec (ix_t *vec) {
@@ -218,10 +243,15 @@ void uniq_vec (ix_t *vec) {
   assert (b == vec);
 }
 
+void sort_uniq_vec (ix_t *vec) {
+  sort_vec (vec, cmp_ix_i);
+  uniq_vec (vec);
+}
+
 void chop_vec (ix_t *vec) {
   ix_t *a, *b, *end = vec + len(vec);
   for (a = b = vec; b < end; ++b) if (b->i && b->x) *a++ = *b;
-  b = resize_vec (vec, a - vec); 
+  b = resize_vec (vec, a - vec);
   assert (b == vec);
 }
 
@@ -253,8 +283,7 @@ ix_t *vec2psg (ix_t *V, uint i, uint w) {
   ix_t *psg = new_vec (w, sizeof(ix_t));
   memcpy (psg, V+beg, w * sizeof(ix_t));
   vec_x_num (psg, '=', 1);
-  sort_vec (psg, cmp_ix_i);
-  uniq_vec (psg);
+  sort_uniq_vec (psg);
   return psg;
 }
 
@@ -267,7 +296,7 @@ ix_t *vec2psg (ix_t *V, uint i, uint w) {
 #define heap_right(p) (((p)<<1)+2)
 
 void heapify_up (ix_t *H, uint i) { // max-heap
-  ix_t tmp; 
+  ix_t tmp;
   while (i > 0) {
     uint p = heap_parent(i);
     if (H[p].x >= H[i].x) break; // parent >= child: done
@@ -296,7 +325,7 @@ void build_heap (ix_t *H, uint N) {
     heapify_down (H,last-d,N);
     //printf("[%d] ",last-d);
     //show_vec(H,'2');
-  } 
+  }
 }
 
 ix_t *heap_push (ix_t *H, ix_t new) {
@@ -305,7 +334,7 @@ ix_t *heap_push (ix_t *H, ix_t new) {
   return H;
 }
 
-ix_t heap_pop (ix_t *H) {  
+ix_t heap_pop (ix_t *H) {
   ix_t result = H[0];
   H[0] = H[--len(H)];
   heapify_down (H,0,len(H));
@@ -314,7 +343,7 @@ ix_t heap_pop (ix_t *H) {
 
 uint isa_heap (ix_t *H) {
   uint i, n = len(H); // auto-handles the case of n < 2
-  for (i=1; i<n; ++i) { 
+  for (i=1; i<n; ++i) {
     uint p = heap_parent(i);
     if (H[i].x > H[p].x) return 0; // child > parent => false
   }
@@ -330,7 +359,7 @@ void topKadd (ix_t *H, uint K, ix_t new) {
     heapify_up (H,n);
   }
   else if (new.x > H[1].x) { // bigger than min of top K => replace
-    H[1] = new; 
+    H[1] = new;
     heapify_do (H,1,n);
   }
 }
@@ -373,7 +402,7 @@ void quickselect (ix_t *A, ix_t *Z, uint K) {
     else           { z = m; }
   }
 }
-	      
+
 void qselect (ix_t *X, int k) { // reorder X to have top k elements first
   uint n = ABS(k), top = k>0, bot = k<0;
   if (len(X) <= n) return;
@@ -381,20 +410,20 @@ void qselect (ix_t *X, int k) { // reorder X to have top k elements first
   while (last > beg) {
     ix_t *pivot = beg + rand() % (last-beg); // faster than medix3
     SWAP(*pivot,*last);
-    for (a = b = beg; a < last; ++a) 
+    for (a = b = beg; a < last; ++a)
       if ((top && a->x > last->x) ||
 	  (bot && a->x < last->x) ||
 	  (a->x == last->x && a->i < last->i)) { SWAP(*a,*b); ++b; }
     SWAP(*last,*b); // beg...b-1 > b >= b+1...last
-    if (b == X+n) break; 
+    if (b == X+n) break;
     else if (b > X+n) {last = b-1; }
-    else if (b < X+n) { beg = b+1; } 
+    else if (b < X+n) { beg = b+1; }
     else break;
   }
 }
 
 /*
-void qselect_test (char *prm) {  
+void qselect_test (char *prm) {
   ix_t *vec) { // qselect test
   uint tries = 10, n=len(vec);
   while (--tries > 0) {
@@ -437,7 +466,7 @@ void test_trim_vec (char *prm) {
   char *_int = strstr(prm,"int");
   char *_const = strstr(prm,"const");
   char *_incr = strstr(prm,"incr");
-  char *_decr = strstr(prm,"decr");  
+  char *_decr = strstr(prm,"decr");
   uint n = getprm(prm,"n=",1000);
   uint k = getprm(prm,"k=",100);
   uint r = getprm(prm,"r=",1E8/n), i;
@@ -448,7 +477,7 @@ void test_trim_vec (char *prm) {
     if (_const) while (++v < end) v->x = 1;
     if (_incr)  while (++v < end) v->x = v-V;
     if (_decr)  while (++v < end) v->x = V+n-v;
-    vecs[i] = V;      
+    vecs[i] = V;
   }
   vtime();
   for (i=0; i<r; ++i) {
@@ -462,7 +491,7 @@ void test_trim_vec (char *prm) {
 void trim_vec (ix_t *X, int k) {
   return trim_vec2(X,k);
   //qselect (X, k);
-  //len(X) = ABS(k); 
+  //len(X) = ABS(k);
   //sort_vec (X, cmp_ix_i);
 }
 
@@ -484,17 +513,17 @@ void trim_vec1 (ix_t *X, int k) {
   while (last > beg) {
     ix_t *pivot = beg + rand() % (last-beg); // faster than medix3
     SWAP(*pivot,*last);
-    for (a = b = beg; a < last; ++a) 
+    for (a = b = beg; a < last; ++a)
       if ((top && a->x > last->x) ||
 	  (bot && a->x < last->x) ||
 	  (a->x == last->x && a->i < last->i)) { SWAP(*a,*b); ++b; }
     SWAP(*last,*b); // beg...b-1 > b >= b+1...last
-    if (b == X+n) break; 
+    if (b == X+n) break;
     else if (b > X+n) {last = b-1; }
-    else if (b < X+n) { beg = b+1; } 
+    else if (b < X+n) { beg = b+1; }
     else break;
   }
-  len(X) = n; 
+  len(X) = n;
   sort_vec (X, cmp_ix_i);
 }
 
@@ -502,7 +531,7 @@ void trim_vec2 (ix_t *vec, int k) {
   uint n = ABS(k), top = k>0;
   if (len(vec) <= n) return;
   sort_vec (vec, (top ? cmp_ix_X : cmp_ix_x));
-  ix_t *tmp = resize_vec (vec, n); 
+  ix_t *tmp = resize_vec (vec, n);
   assert (tmp == vec);
   sort_vec (vec, cmp_ix_i);
 }
@@ -518,7 +547,7 @@ void trim_mtx (coll_t *M, int k) {
 }
 
 float max_of_k_probes (ix_t *vec, int k) {
-  uint n = len(vec); 
+  uint n = len(vec);
   float sup = vec->x;
   while (--k >= 0) {
     float x = vec [rand() % n] . x;
@@ -573,8 +602,8 @@ ix_t *const_vec (uint n, float x) {
 
 ix_t *rand_vec (uint n) {
   ix_t *vec = new_vec (n, sizeof(ix_t)), *v, *end = vec + n;
-  for (v = vec; v < end; ++v) { 
-    v->i = v - vec + 1; 
+  for (v = vec; v < end; ++v) {
+    v->i = v - vec + 1;
     v->x = rnd();
   }
   return vec;
@@ -600,7 +629,7 @@ ix_t *rand_vec_exp (uint n) { // exponential distribution
 
 ix_t *rand_vec_log (uint n) { // logistic distribution
   ix_t *vec = rand_vec (n), *v, *end = vec + len(vec);
-  for (v = vec; v < end; ++v) v->x = - log (1/v->x - 1); 
+  for (v = vec; v < end; ++v) v->x = - log (1/v->x - 1);
   return vec;
 }
 
@@ -626,18 +655,28 @@ ix_t *rand_vec_sparse (uint n, uint k) {
     new.x = (float)r / RAND_MAX;
     vec = append_vec (vec, &new);
   }
-  sort_vec (vec, cmp_ix_i);
-  uniq_vec (vec);
+  sort_uniq_vec (vec);
   return vec;
 }
 
-void rand_mtx (coll_t *M, uint r, uint c) {
-  for (; r > 0; --r) {
-    ix_t *vec = rand_vec (c);
+void rand_mtx (coll_t *M, uint nr, uint nc) {
+  uint r;
+  for (r = 1; r <= nr; ++r) {
+    ix_t *vec = rand_vec (nc);
     put_vec (M, r, vec);
     free_vec (vec);
   }
 }
+
+void rand_mtx_sparse (coll_t *M, uint nr, uint nc, uint k) {
+  uint r;
+  for (r = 1; r <= nr; ++r) {
+    ix_t *vec = rand_vec_sparse (nc, k);
+    put_vec (M, r, vec);
+    free_vec (vec);
+  }
+}
+
 
 ix_t *num2bitvec (ulong num) {
   ix_t *vec = rand_vec (64); uint i;
@@ -657,7 +696,7 @@ ix_t *bits2codes (ix_t *vec, uint ncodes) {
   ix_t *code = new_vec (ncodes, sizeof(ix_t)), *v;
   for (v = vec; v < vec + len(vec); ++v) {
     uint id = v->i - 1, bit = id % bits, c = id / bits;
-    if (v->x > 0) code[c].i |= (1 << bit); // set the bit to 1 
+    if (v->x > 0) code[c].i |= (1 << bit); // set the bit to 1
     //fprintf (stderr, " %u %f %u %u %u\n", id, v->x, c, bit, code[c].i);
   }
   //fprintf (stderr, "\n");
@@ -667,11 +706,11 @@ ix_t *bits2codes (ix_t *vec, uint ncodes) {
     //fprintf (stderr, " %d", code[c].i);
   }
   //fprintf (stderr, "\n");
-  //sort_vec (fps, cmp_ix_i);  uniq_vec (fps); chop_vec (fps);
+  //sort_uniq_vec (fps); chop_vec (fps);
   return code;
 }
 
-//inline float invNcdf (float p) { 
+//inline float invNcdf (float p) {
 //  float q = 2 * p - 1;
 //  return sqrt (- log (1 - q*q) * PI / 2); // this is only half (for <0 or >0)
 //}
@@ -697,7 +736,7 @@ ix_t *simhash (ix_t *vec, uint n, char *distr) {
     }
     //for (b = B; b < BB; ++b) b->x += v->x * (R = murmur3uint(R));
     //X[b].x += v->x * ppndf ((R = murmur3uint (R)) / RAND_MAX);
-    //X[b].x += v->x * rnd(); 
+    //X[b].x += v->x * rnd();
   }
   return B;
   //ix_t *fps = vec2fps (B, L);
@@ -705,11 +744,11 @@ ix_t *simhash (ix_t *vec, uint n, char *distr) {
   //return fps;
 }
 
-void sort_vecs (coll_t *c, char *prm) {  
+void sort_vecs (coll_t *c, char *prm) {
   char *aggr = getprmp(prm,"aggr:","1st");
   //printf ("%s, %s\n", prm, aggr);
   uint i, n = nvecs(c);
-  fprintf (stderr, "[%.0fs] sorting %d vecs of %s\n", vtime(), n, c->path); 
+  fprintf (stderr, "[%.0fs] sorting %d vecs of %s\n", vtime(), n, c->path);
   for (i = 1; i <= n; ++i) {
     ix_t *vec = get_vec (c, i);
     sort_vec (vec, cmp_ix_i); // rsort? no! must be stable for aggr
@@ -729,8 +768,8 @@ void scan_mtx (coll_t *rows, coll_t *cols, hash_t *rh, hash_t *ch, char *prm) {
     if (rows) append_jix (rows, buf);
     if (cols) transpose_jix (buf);
     if (cols) append_jix (cols, buf);
-    fprintf (stderr, "[%.0fs] added %d cells -> %d rows, %d cols\n", 
-	     vtime(), len(buf), num_rows(rows), num_cols(rows)); 
+    fprintf (stderr, "[%.0fs] added %d cells -> %d rows, %d cols\n",
+	     vtime(), len(buf), num_rows(rows), num_cols(rows));
     free_vec (buf);
   }
   if (strstr(prm,"nosort")) return;
@@ -738,12 +777,14 @@ void scan_mtx (coll_t *rows, coll_t *cols, hash_t *rh, hash_t *ch, char *prm) {
   if (cols) sort_vecs (cols, prm);
 }
 
-void print_mtx (coll_t *rows, hash_t *rh, hash_t *ch) {
-  uint id; 
+void print_mtx (coll_t *rows, hash_t *rh, hash_t *ch, char *how) {
+  uint id, txt = !strcmp(how,"txt"), svm = !strcmp(how,"svm");
   for (id = 1; id <= nvecs(rows); ++id) {
     char *rid = id2str(rh,id);
     ix_t *row = get_vec (rows, id);
-    print_vec_rcv (row, ch, rid, 0);
+    if      (txt) print_vec_txt (row, ch, rid, 0);
+    else if (svm) print_vec_svm (row, ch, rid, NULL);
+    else          print_vec_rcv (row, ch, rid, NULL);
     free (rid);
     free_vec(row);
   }
@@ -758,16 +799,23 @@ void print_binary(uint n, uint sz) {
   for (; sz--; n<<=1) putchar(((n&mask)?'+':'-'));
 }
 
+void print_span(float x) {
+  it_t span = unpack_span(x);
+  printf("%d:%d", span.i, span.t);
+}
+
 void print_vec_rcv (ix_t *vec, hash_t *ids, char *vec_id, char *fmt) {
   if (!fmt) fmt = "%.6f";
   uint binary = (*fmt == 'b') ? atoi(fmt+1) : 0;
+  uint pos = !strncmp(fmt,"pos",3);
   ix_t *v = vec, *end = vec + len(vec);
   for (v = vec; v < end; ++v) {
     char *id = id2str (ids, v->i);
     fputs(vec_id,stdout); putchar('\t');
     fputs(id,stdout);     putchar('\t'); //printf ("%s\t%s\t", vec_id, id);
-    if (binary) print_binary((uint)(v->x), binary);
-    else printf (fmt, v->x);
+    if   (binary) print_binary ((uint)(v->x), binary);
+    else if (pos) print_span (v->x);
+    else          printf (fmt, v->x);
     putchar('\n');
     free (id);
   }
@@ -801,20 +849,19 @@ ix_t *parse_vec_svm (char *str, char **id, hash_t *ids) {
   if (id) *id = strdup (next_token (&str," \t"));
   ix_t *vec = new_vec (0, sizeof(ix_t)), new = {0,0}; char *key;
   while ((key = next_token (&str," \t"))) {
-    char *val = strchr(key,':');   
+    char *val = strchr(key,':');
     if (!val) continue;
     *val++ = 0; // null-terminate key + advance to value
     new.i = ids ? key2id(ids,key) : (uint) atol(key);
     new.x = atof(val);
     if (new.i && new.x) vec = append_vec (vec, &new);
   }
-  int bytes; 
+  int bytes;
   while (2 == sscanf (str, " %d:%f%n", &(new.i), &(new.x), &bytes)) {
     if (new.i && new.x) vec = append_vec (vec, &new);
     str += bytes;
   }
-  sort_vec (vec, cmp_ix_i);
-  uniq_vec (vec);
+  sort_uniq_vec (vec);
   return vec;
 }
 
@@ -865,34 +912,55 @@ void print_vec_txt (ix_t *vec, hash_t *ids, char *vec_id, int xml) {
   printf (xml ? "</DOC>\n" : "\n");
 }
 
+ix_t *parse_go_ngrams (char *str, hash_t *ids, int ngramsz, char *positional) {
+  ix_t *vec = new_vec (0, sizeof(ix_t)); int n;
+  sjk_t *tokens = go_tokens (str);
+  stop_tokens (tokens);
+  for (n = 1; n <= ngramsz; ++n) {
+    sjk_t *T = go_ngrams (tokens, n), *t;
+    for (t=T; t < T+len(T); ++t) {
+      float x = positional ? pack_span(t->j,t->k) : 1;
+      uint id = key2id (ids, t->s);
+      ix_t el = {id, x};
+      if (el.i) vec = append_vec (vec, &el);
+    }
+    free_tokens (T);
+  }
+  free_tokens (tokens);
+  if (positional) sort_vec (vec, cmp_ix_x);
+  else sort_uniq_vec (vec);
+  return vec;
+}
+
 ix_t *parse_vec_txt (char *str, char **id, hash_t *ids, char *prm) { // thread-unsafe: stop_toks
-  char *position = strstr (prm, "position");
-  char *stemmer = getprms (prm, "stem=", "L", ',');
+  char *positional = strstr (prm, "position");
+  char *stemmer = getprmp (prm, "stem=", "L");
   uint gram = getprm (prm,"gram=",0), gram_hi = getprm (prm,":",gram);
   uint step = getprm (prm,"char=",1);
   uint toklen = getprm (prm, "toklen=", 50);
+  int ngramsz = getprm (prm,"ngramsz=",0);
   char *stop = strstr (prm, "stop");
   char *nowb = strstr (prm, "nowb");
   char *buf = 0, *ws = strstr(prm,"tokw") ? " \t\r\n" : NULL;
   if (id) *id = strdup (next_token (&str, " \t"));
-  if (nowb) squeeze (str, NULL); // squeeze out punctuation and spaces
+  if (ngramsz) return parse_go_ngrams (str, ids, ngramsz, positional);
+  if (nowb) squeeze (str, NULL, NULL); // squeeze out punctuation and spaces
   if (gram) {
     buf = malloc (1<<26);
     csub (str, ws, '_'); // replace all runs of punctuation with underscore
     cgrams (str, gram, gram_hi, step, buf, 1<<26); // character n-grams
     str = buf; ws = " ";
   }
-  char **toks = str2toks (str, ws, toklen);
-  if (stemmer) stem_toks (toks, stemmer);
-  if (stop)    stop_toks (toks);
+  char **toks = str2toks (str, ws, toklen); // strdup (position lost)
+  if (stemmer) stem_toks (toks, stemmer); // free & strdup
+  if (stop)    stop_toks (toks); // free
   char **pairs = strstr (prm,"w=") ? toks2pairs (toks,prm) : NULL;
   ix_t *vec = toks2vec (pairs?pairs:toks, ids), *v;
-  if (position) for (v = vec; v < vec + len(vec); ++v) v->x = v - vec + 1;
-  else {
-    sort_vec (vec, cmp_ix_i);
-    uniq_vec (vec);
-  }
-  if (stemmer) free(stemmer);
+  if (positional) // sequential token positions
+    for (v = vec; v < vec + len(vec); ++v) v->x = v - vec + 1;
+  else
+    sort_uniq_vec (vec);
+  //if (stemmer) free(stemmer);
   if (buf) free(buf);
   free_toks (pairs);
   free_toks (toks);
@@ -901,7 +969,9 @@ ix_t *parse_vec_txt (char *str, char **id, hash_t *ids, char *prm) { // thread-u
 
 ix_t *parse_vec_xml (char *str, char **id, hash_t *ids, char *prm) {
   if (id) *id = get_xml_docid (str);
-  erase_between (str, "<", ">", ' '); // remove all tags
+  erase_between (str, "<DOCID>", "</DOCID>", ' ');
+  no_xml_tags (str);
+  //erase_between (str, "<", ">", ' '); // remove all tags
   return parse_vec_txt (str, NULL, ids, prm); // normal text, but no docid
 }
 
@@ -946,7 +1016,7 @@ uint *len_cols (coll_t *rows) {
   uint *X = new_vec (nc+1, sizeof(uint));
   for (id = 1; id <= nr; ++id) {
     ix_t *row = get_vec_ro (rows,id), *end = row + len(row), *r = row-1;
-    assert (end[-1].i <= nc || end == row); // check out-of-range [DEBUG]
+    assert (end == row || end[-1].i <= nc); // check out-of-range [DEBUG]
     while (++r < end) X[r->i] += 1;
     if (0 == id%100) show_progress (id, nr, "rows (len_cols)");
   }
@@ -1030,7 +1100,7 @@ xy_t mrange (coll_t *m) {
     ix_t *row = get_vec_ro (m,i), *r, *end = row+len(row);
     for (r = row; r < end; ++r) {
       if (r->x < range.x) range.x = r->x;
-      if (r->x > range.y) range.y = r->x; } 
+      if (r->x > range.y) range.y = r->x; }
   }
   return range;
 }
@@ -1051,7 +1121,7 @@ jix_t *max_rows (coll_t *rows) {
   jix_t *M = new_vec (0, sizeof(jix_t));
   for (id = 1; id <= nr; ++id) {
     ix_t *row = get_vec_ro (rows, id);
-    if (len(row)) { 
+    if (len(row)) {
       ix_t *r = max(row);
       jix_t new = {id, r->i, r->x};
       M = append_vec (M, &new);
@@ -1065,7 +1135,7 @@ jix_t *min_rows (coll_t *rows) {
   jix_t *M = new_vec (0, sizeof(jix_t));
   for (id = 1; id <= nr; ++id) {
     ix_t *row = get_vec_ro (rows, id);
-    if (len(row)) { 
+    if (len(row)) {
       ix_t *r = min(row);
       jix_t new = {id, r->i, r->x};
       M = append_vec (M, &new);
@@ -1162,7 +1232,7 @@ stats_t *coll_stats (coll_t *c) {
   for (r = 1; r <= nr; ++r) {
     ix_t *vec = get_vec_ro (c, r);
     update_stats_from_vec (s, vec);
-    show_progress (r, nr, "stats");
+    show_progress (r, nr, " stats");
   }
   //s->ndocs = num_rows (c);
   //s->nwords = num_cols (c);
@@ -1181,9 +1251,11 @@ void update_stats_from_file (stats_t *s, hash_t *dict, char *file) {
     if (*line == '#') continue; // skip comments
     if (3 != sscanf (line, "%s %d %f", word, &df, &cf)) continue; // can't parse
     id = key2id (dict, word);
-    grow_stats (s, id);
-    s->df[id] = df;
-    s->cf[id] = cf;
+    if (id) {
+      grow_stats (s, id);
+      s->df[id] = df;
+      s->cf[id] = cf;
+    }
     s->nposts += cf;
     if (df > s->ndocs) s->ndocs = df;
   }
@@ -1193,6 +1265,7 @@ void update_stats_from_file (stats_t *s, hash_t *dict, char *file) {
 void dump_stats (stats_t *s, hash_t *dict) {
   uint w = 0, nw = s->nwords;
   //FILE *out = safe_fopen (file, "w");
+  printf ("# %ld %ld %.0f docs/words/posts\n", s->ndocs, s->nwords, s->nposts);
   while (++w <= nw) {
     char *key = id2str(dict,w);
     printf ("%15s %5ld %10.2f\n", key, s->df[w], s->cf[w]);
@@ -1208,30 +1281,39 @@ void save_stats (stats_t *s, char *path) {
   write_vec (s->cf, fmt(x,"%s.cf",path));
 }
 
-stats_t *load_stats (char *path) {
+stats_t *open_stats (char *path) {
   char x[1000];
   stats_t *s = read_vec (fmt(x,"%s.stats",path));
   s->df      = read_vec (fmt(x,"%s.df",path));
   s->cf      = read_vec (fmt(x,"%s.cf",path));
+  s->s2 = NULL;
   return s;
 }
 
-void disjoin_rows (coll_t *rows) { // make all rows disjoint (column = indicator)
-  uint id, n = num_rows (rows);
+stats_t *open_stats_if_exists (char *path) {
+  return file_exists ("%s.stats", path) ? open_stats (path) : NULL;
+}
+
+// extract assignment as jix, sort, push into rows
+void disjoin_rows_append (coll_t *rows) {
+  uint id, nr = num_rows (rows);
   jix_t *M = max_cols (rows); // M = [{max_row, col, max_val}]
   chop_jix (M);
   sort_vec (M, cmp_jix);
-  for (id = 1; id <= n; ++id) del_vec (rows, id);
+  for (id = 1; id <= nr; ++id) del_vec (rows, id);
   append_jix (rows, M);
+  free_vec (M);
 }
 
-void disjoin_rows2 (coll_t *rows) { // make all rows disjoint (column = indicator)
+// transpose rows, trim to 1 max element, transpose back
+void disjoin_rows_transpose (coll_t *rows) {
   coll_t *cols = open_coll (NULL, NULL);
   transpose_mtx (rows, cols);
   uint r, c, nr = num_rows(rows), nc = num_rows(cols);
   for (c = 1; c <= nc; ++c) {
-    ix_t *col = get_vec (cols, c);
-    trim_vec (col, 1);
+    ix_t *col = get_vec (cols, c), *best = max(col);
+    *col = *best;
+    len(col) = 1;
     put_vec (cols, c, col);
     free_vec (col);
   }
@@ -1239,6 +1321,27 @@ void disjoin_rows2 (coll_t *rows) { // make all rows disjoint (column = indicato
   transpose_mtx (cols, rows);
   free_coll (cols);
 }
+
+// extract assignment as jix, filter each row
+void disjoin_rows_filter (coll_t *rows) {
+  uint j, nr = num_rows (rows);
+  jix_t *M = max_cols (rows); // M[col-1] = {max_row, col, max_val}
+  for (j = 1; j <= nr; ++j) {
+    ix_t *R = get_vec (rows, j), *r;
+    for (r = R; r < R+len(R); ++r) {
+      jix_t *assigned = M + r->i - 1; // assignment of column r->i
+      if (assigned->j != j) r->x = 0; // not assigned to this row
+      if (assigned->i != r->i) assert (0 && "disjoin_rows_chop > max_cols error");
+    }
+    chop_vec (R);
+    put_vec (rows, j, R);
+    free_vec (R);
+  }
+  free_vec (M);
+}
+
+// make all rows disjoint (assign column to best row)
+void disjoin_rows (coll_t *rows) { disjoin_rows_filter(rows); }
 
 #define vget(v,i,x) (((i) < len(v)) ? ((v)[i]) : (x))
 
@@ -1305,7 +1408,7 @@ void weigh_vec_ntf (ix_t *vec, stats_t *s) {
   ix_t *v, *end = vec + len(vec);
   double dl = sum (vec), avgdl = s->nposts / s->ndocs;
   double k = s->k ? s->k : 2.0, b = s->b ? s->b : 0.75;
-  for (v = vec; v < end; ++v) 
+  for (v = vec; v < end; ++v)
     v->x = v->x * (1 + k) / (v->x + k * ((1-b) + b * dl / avgdl));
 }
 
@@ -1379,7 +1482,7 @@ void weigh_vec_cdf (ix_t *vec) { // values -> cumulative distribution function
 //void filter_vec (ix_t *vec, uint *keep) {
 //  ix_t *u, *v, *end = vec+len(vec);
 //  for (v = vec; v < end; ++v) if (keep[v->i]) *u++ = *v;
-//  resize_vec (vec, u - vec); 
+//  resize_vec (vec, u - vec);
 //}
 
 void weigh_invl_lmd (ix_t *invl, stats_t *s, float mu) {
@@ -1429,8 +1532,8 @@ xy_t cdf_interval_q (ix_t *X, float p) { // at least p of the values are in [x,y
   return CI;
 }
 */
-    
-void keep_outliers (ix_t *X, float p) { 
+
+void keep_outliers (ix_t *X, float p) {
   fprintf (stderr, "[%f..%f] %d -> ", min(X)->x, max(X)->x, len(X));
   xy_t CI = cdf_interval (X,p);
   vec_x_range (X, '-', CI);
@@ -1438,9 +1541,9 @@ void keep_outliers (ix_t *X, float p) {
 }
 
 void drop_outliers (ix_t *X, float p) {
-  float lo = min(X)->x, hi = max(X)->x; 
+  float lo = min(X)->x, hi = max(X)->x;
   xy_t CI = cdf_interval (X,p);
-  if (lo > CI.x / 2) CI.x = lo; // lo value not far 
+  if (lo > CI.x / 2) CI.x = lo; // lo value not far
   if (hi < CI.y * 2) CI.y = hi; // hi value not far
   if (CI.x == lo && CI.y == hi) return; // nothing to do
   uint n = len(X);
@@ -1457,7 +1560,7 @@ void crop_outliers (ix_t *X, float p) {
 }
 
 // reweigh every vector in M, or given vector V (if M==0)
-void weigh_mtx_or_vec (coll_t *M, ix_t *V, char *prm, stats_t *s) { 
+void weigh_mtx_or_vec (coll_t *M, ix_t *V, char *prm, stats_t *s) {
   char *l2p = strstr(prm,"softmax");
   float  L1 = getprm(prm,"L1=",0);
   float  L2 = getprm(prm,"L2=",0);
@@ -1469,9 +1572,10 @@ void weigh_mtx_or_vec (coll_t *M, ix_t *V, char *prm, stats_t *s) {
   char *inq = strstr(prm,"inq");
   char *idf = strstr(prm,"idf");
   char *r01 = strstr(prm,"range01");
+  char *uni = strstr(prm,"uniform");
   //xy_t R = r01 ? mrange (M) : (xy_t){0,0};
   //if (r01) fprintf(stderr,"---------> RANGE: %f ... %f\n", R.x, R.y);
-  uint i=0, n = M ? num_rows (M) : 1; 
+  uint i=0, n = M ? num_rows (M) : 1;
   while (++i <= n) {
     ix_t *vec = M ? get_vec (M, i) : V;
     if (lmj) weigh_vec_lmj (vec, s);
@@ -1481,6 +1585,7 @@ void weigh_mtx_or_vec (coll_t *M, ix_t *V, char *prm, stats_t *s) {
     if (rbf) vec_x_num (vec, 'r', rbf);
     if (top) trim_vec (vec, top);
     if (thr) vec_x_num (vec, 'T', thr);
+    if (uni) vec_x_num (vec, '=', 1./len(vec));
     if (L1)  vec_x_num (vec, '/', sum(vec)/L1);
     if (L2)  vec_x_num (vec, '/', sqrt(sum2(vec)/L2));
     //if (r01) { vec_x_num (vec, '-', R.x); vec_x_num (vec, '/', R.y-R.x); }
@@ -1522,7 +1627,7 @@ void col_softmax (coll_t *O, coll_t *M) {
   for (i=1; i<=nr; ++i) { // O[r,c] = exp(M[r,c]-K) / sum_r exp(M[r,c]-K)
     ix_t *row = get_vec (M,i), *end = row+len(row), *r = row-1;
     while (++r < end) r->x = exp (r->x - K[r->i]) / S[r->i];
-    put_vec (O,i,row); 
+    put_vec (O,i,row);
     free_vec (row);
   }
   free_vec (K); free_vec (S);
@@ -1534,7 +1639,7 @@ void split_mtx (coll_t *M, float p, coll_t *A, coll_t *B) {
     ix_t *a = new_vec (0, sizeof(ix_t));
     ix_t *b = new_vec (0, sizeof(ix_t));
     ix_t *V = get_vec_ro (M,i), *v;
-    for (v = V; v < V+len(V); ++v) 
+    for (v = V; v < V+len(V); ++v)
       if (p < rnd()) a = append_vec (a, v);
       else           b = append_vec (b, v);
     put_vec (A,i,a); free_vec (a);
@@ -1566,14 +1671,14 @@ void assert_counts (coll_t *mtx, uint *count) {
 void transpose_mtx_1 (coll_t *rows, coll_t *cols) {
   uint id = 1, *count = len_cols (rows);
   prealloc_mtx (cols, count, 1);
-  fprintf (stderr, "[%.0fs] pre-allocated: %d rows -> %d cols\n", 
+  fprintf (stderr, "[%.0fs] pre-allocated: %d rows -> %d cols\n",
 	   vtime(), nvecs(rows), nvecs(cols)); fflush (stdout);
   while (id <= nvecs(rows)) {
     jix_t *buf = coll_jix (rows, MAP_SIZE/sizeof(jix_t), &id);
     transpose_jix (buf);
     sort_vec (buf, cmp_jix);
     append_jix (cols, buf);
-    fprintf (stderr, "[%.0fs] transposed %d rows -> %d cols\n", 
+    fprintf (stderr, "[%.0fs] transposed %d rows -> %d cols\n",
 	     vtime(), id, nvecs(cols)); fflush (stdout);
     free_vec (buf);
   }
@@ -1582,7 +1687,7 @@ void transpose_mtx_1 (coll_t *rows, coll_t *cols) {
 }
 
 uint next_unmapped_id (coll_t *c, uint start) {
-  off_t *offs = c->offs, end = c->vecs->offs + c->vecs->size; 
+  off_t *offs = c->offs, end = c->vecs->offs + c->vecs->size;
   uint id, n = len(offs);
   for (id = start+1; id < n; ++id) {
     assert (offs[id] >= offs[id-1]);
@@ -1595,9 +1700,9 @@ void transpose_mtx_2 (coll_t *rows, coll_t *cols) {
   uint *df = len_cols (rows), beg, end, cid, rid;
   prealloc_mtx (cols, df, 0);
   uint nr = nvecs(rows), nc = nvecs(cols);
-  fprintf (stderr, "[%.0fs] pre-allocated: %d rows -> %d cols\n", vtime(), nr, nc); 
+  fprintf (stderr, "[%.0fs] pre-allocated: %d rows -> %d cols\n", vtime(), nr, nc);
   for (end = beg = 1; beg <= nc; beg = end) {
-    get_chunk (cols, beg); 
+    get_chunk (cols, beg);
     end = next_unmapped_id (cols, beg);
     fprintf (stderr, "[%.0fs] transposing columns %d .. %d\n", vtime(), beg, end);
     for (rid = 1; rid <= nr; ++rid) {
@@ -1612,7 +1717,7 @@ void transpose_mtx_2 (coll_t *rows, coll_t *cols) {
 	  assert (o >= b && n <= e);
 	}
 	ix_t *col = mmap_vec (cols, cid, 0, 0); // already the right size
-	ix_t *new = col + len(col) - df[cid]--; // 
+	ix_t *new = col + len(col) - df[cid]--; //
 	new->i = rid;
 	new->x = r->x;
       }
@@ -1636,18 +1741,18 @@ void transpose_mtx_merge (coll_t *rows, coll_t *cols) {
     sort_vec (JIX, cmp_jix);
     coll_t *out = open_coll (fmt(OUT,"%s.%d",PATH,++K), "w+");
     append_jix (out, JIX);
-    fprintf (stderr, "[%.0fs] %s: %d rows -> %d cols in %s\n", 
-	     vtime(), rows->path, id, num_rows(out), OUT); 
+    fprintf (stderr, "[%.0fs] %s: %d rows -> %d cols in %s\n",
+	     vtime(), rows->path, id, num_rows(out), OUT);
     free_vec (JIX); free_coll (out);
   }
-  while (K > 1) { 
+  while (K > 1) {
     uint k = 0, o = 0, tmp = 0;
     while (k+2 <= K) { // merge pairs: 1+2->1, 3+4->2, ...
       coll_t *in1 = open_coll (fmt(IN1,"%s.%d",PATH,++k), "r+");
       coll_t *in2 = open_coll (fmt(IN2,"%s.%d",PATH,++k), "r+");
       coll_t *out = open_coll (fmt(TMP,"%s.%d",PATH,tmp), "w+");
       uint n1 = num_rows(in1), n2 = num_rows(in2), n = MAX(n1,n2);
-      for (id = 1; id <= n; ++id) { // merge: out = in1 + in2 
+      for (id = 1; id <= n; ++id) { // merge: out = in1 + in2
 	ix_t *v1 = get_vec (in1, id);
 	ix_t *v2 = get_vec (in2, id);
 	ix_t *vo = new_vec (0, sizeof(ix_t));
@@ -1659,16 +1764,16 @@ void transpose_mtx_merge (coll_t *rows, coll_t *cols) {
       free_coll (in1); rm_dir (IN1);
       free_coll (in2); rm_dir (IN2);
       free_coll (out); mv_dir (TMP, fmt(OUT,"%s.%d",PATH,++o));
-      fprintf (stderr, "[%.0fs] %s + %s -> %s\n", vtime(), IN1, IN2, OUT); 
+      fprintf (stderr, "[%.0fs] %s + %s -> %s\n", vtime(), IN1, IN2, OUT);
     }
     if (k < K && o < k) { // odd one at the end
       mv_dir (fmt(IN1,"%s.%d",PATH,++k), fmt(OUT,"%s.%d",PATH,++o));
-      fprintf (stderr, "[%.0fs] %s -> %s\n", vtime(), IN1, OUT); 
+      fprintf (stderr, "[%.0fs] %s -> %s\n", vtime(), IN1, OUT);
     }
     K = o;
   }
   mv_dir (fmt(OUT,"%s.%d",PATH,K), PATH);
-  fprintf (stderr, "[%.0fs] %s -> %s\n", vtime(), OUT, PATH); 
+  fprintf (stderr, "[%.0fs] %s -> %s\n", vtime(), OUT, PATH);
 }
 
 void *map_vec (coll_t *c, uint id, uint n, uint sz) ;
@@ -1681,7 +1786,7 @@ void transpose_mtx (coll_t *rows, coll_t *cols) {
   ulong BS = MIN(np+1,pm/2/sizeof(ix_t));
   ix_t *buf = calloc (BS, sizeof(ix_t));
   ulong *beg = calloc (nw, sizeof(ulong)), used = 0, done = 0;
-  fprintf (stderr, "computed df [%d x %d], will buffer %ldMB", 
+  fprintf (stderr, "computed df [%d x %d], will buffer %ldMB",
 	   nd, nw-1, BS*sizeof(ix_t)/M);
   uint u=1, v=1, w=1, i=0;
   while (v < nw) {
@@ -1725,11 +1830,11 @@ void transpose_mtx (coll_t *rows, coll_t *cols) {
 
 coll_t *transpose (coll_t *M) {
   coll_t *T;
-  char *path = M->path ? acat(M->path,".T") : NULL;
+  char *path = M->path ? acat2(M->path,".T") : NULL;
   if (path && coll_exists(path) && coll_modified(path) > coll_modified (M->path))
     T = open_coll (path, "r+");
   else {
-    T = open_coll (path, "w+"); 
+    T = open_coll (path, "w+");
     float MB = M->offs[0] / (1<<20), ETA = MB/1400;
     if (path) fprintf (stderr, "transposing %s %.0fMB, ETA %.1f minutes\n", path, MB, ETA);
     transpose_mtx (M,T);
@@ -1790,9 +1895,9 @@ ix_t *full2vec_keepzero (float *full) {
 float *vec2full (ix_t *vec, uint N, float def) {
   ix_t *v, *end = vec + len(vec); uint i;
   if (!N && len(vec)) N = (end-1)->i;
-  float *full = new_vec (N+1, sizeof(float)); 
+  float *full = new_vec (N+1, sizeof(float));
   if (def) for (i=0; i<=N; ++i) full[i] = def;
-  for (v = vec; v < end; ++v) 
+  for (v = vec; v < end; ++v)
     if (v->i <= N) full [v->i] = v->x;
     else assert (0 && "incorrect dimensions");
   return full;
@@ -1827,18 +1932,18 @@ inline float vec_get (ix_t *vec, uint id) { // return vec[id]
   return v ? v->x : 0;
 }
 
-inline ix_t *vec_set (ix_t *vec, uint id, float x) { // vec[id] = x 
+inline ix_t *vec_set (ix_t *vec, uint id, float x) { // vec[id] = x
   ix_t *v = vec_find (vec, id), new = {id, x};
   if (v && x) v->x = x; // replace previous value
   else if (v) { v->x = 0; chop_vec (vec); } // remove value
   else if (x) { // insert new value
-    vec = append_vec (vec, &new); 
-    sort_vec (vec, cmp_ix_i); 
-  } 
+    vec = append_vec (vec, &new);
+    sort_vec (vec, cmp_ix_i);
+  }
   return vec;
 }
 
-// multiply every row in the matrix by the vector 
+// multiply every row in the matrix by the vector
 ix_t *rows_x_vec (coll_t *rows, ix_t *vec) {
   //float *VEC = vec2full (vec, 0);
   ix_t *out = const_vec (nvecs(rows), 0), *o;
@@ -1864,13 +1969,13 @@ ix_t *vec_x_rows (ix_t *vec, coll_t *rows) {
   return sum;
 }
 
-// same, but now we have columns of the matrix 
-ix_t *cols_x_vec (coll_t *cols, ix_t *vec) { 
+// same, but now we have columns of the matrix
+ix_t *cols_x_vec (coll_t *cols, ix_t *vec) {
   float *SCORE = new_vec (cols->cdim + 1, sizeof(float)); // safe
   ix_t *v, *c, *col, *end;
   for (v = vec; v < vec + len(vec); ++v) {
     //#pragma omp critical // no need if cols in memory
-    { col = get_vec_mp (cols, v->i); end = col + len(col); } 
+    { col = get_vec_mp (cols, v->i); end = col + len(col); }
     //#pragma omp parallel for private(c) // too slow
     for (c = col; c < end; ++c) SCORE [c->i] += v->x * c->x;
     free_vec (col);
@@ -1893,16 +1998,89 @@ ix_t *cols_x_vec_overlap (coll_t *cols, ix_t *vec) { // coordination-level match
   return result;
 }
 
+void lock (int *x); // in synq.c
+void unlock (int *x);
+
+// static SCORE + seen ids
+ix_t *cols_x_vec_iseen (coll_t *cols, ix_t *V) {
+  static int mutex = 0;
+  static float *S = NULL; // persist across calls
+  lock (&mutex);
+  uint nS = cols->cdim + 1; // largest possible id
+  uint nR = nS / 100; // estimate number of results b
+  uint *I = new_vec (nR, sizeof(uint)), *i=I, *iEnd = I+len(I);
+  S = new_or_resize_vec(S, nS, sizeof(float));
+  ix_t *v, *vEnd = V+len(V), *R=NULL;
+  for (v = V; v < vEnd; ++v) {
+    ix_t *C = get_vec_ro (cols, v->i), *cEnd = C+len(C), *c;
+    for (c = C; c < cEnd; ++c) {
+      float x = c->x * v->x;
+      uint id = c->i;
+      if (i < iEnd && !S[id] && x) *i++ = id; // track id
+      S[id] += x;
+    }
+  }
+  if (i >= iEnd) R = full2vec(S); // ran out of space in I
+  else { // I contains all indices of S with nonzero scores
+    len(I) = i-I;
+    sort_vec (I, cmp_u);
+    R = ids2vec (I,0);
+    vec_x_full (R, '=', S);
+  }
+  free_vec (I);
+  unlock (&mutex);
+  return R;
+}
+
+// static SCORE + skip-lists
+ix_t *cols_x_vec_iskip (coll_t *cols, ix_t *V) {
+  static int mutex = 0;
+  static float *S=NULL; // persist across calls
+  static char *A=NULL, *B=NULL, *C=NULL, *D=NULL; // skip-lists
+  lock (&mutex);
+  const int a=4, b=8, c=12, d=16; //
+  uint nS = cols->cdim, i, di = 1;
+  S = new_or_resize_vec(S, 1+nS, sizeof(float));
+  A = new_or_resize_vec(A, 1+(nS>>a), sizeof(char)); // skip 16 at-a-time
+  B = new_or_resize_vec(B, 1+(nS>>b), sizeof(char)); // skip 256
+  C = new_or_resize_vec(C, 1+(nS>>c), sizeof(char)); // skip 4096
+  D = new_or_resize_vec(D, 1+(nS>>d), sizeof(char)); // skip 65536
+  memset (A, 1, len(A));
+  memset (B, 1, len(B));
+  memset (C, 1, len(C));
+  memset (D, 1, len(D));
+  ix_t *v, *vEnd = V+len(V);
+  for (v = V; v < vEnd; ++v) {
+    ix_t *U = get_vec_ro (cols, v->i), *uEnd = U+len(U), *u;
+    for (u = U; u < uEnd; ++u) {
+      i = u->i;
+      S[i] += u->x * v->x; // score
+      A[i>>a] = B[i>>b] = C[i>>c] = D[i>>d] = 0; // mark
+    }
+  }
+  ix_t *R = new_vec(0, sizeof(ix_t));
+  for (i=1; i<nS; i += di) {
+    ix_t new = {i, S[i]};
+    if (S[i]) R = append_vec(R, &new);
+    di = (D[i>>d] ? (1<<d) :
+	  C[i>>c] ? (1<<c) :
+	  B[i>>b] ? (1<<b) :
+	  A[i>>a] ? (1<<a) : 1);
+  }
+  unlock (&mutex);
+  return R;
+}
+
 void rows_x_cols (coll_t *out, coll_t *rows, coll_t *cols) {
   //coll_t *cols = copy_coll (_cols); // in-memory
   uint nr = num_rows (rows), i = 0;
   //#pragma omp parallel for private(i) schedule(dynamic)
   for (i = 1; i <= nr; ++i) {
     ix_t *R=0, *O=0;
-    //#pragma omp critical 
+    //#pragma omp critical
     { R = get_vec_mp (rows,i); }
     { O = cols_x_vec (cols, R); }
-    //#pragma omp critical 
+    //#pragma omp critical
     { put_vec (out, i, O); }
     free_vec (R); free_vec (O);
     show_progress (i, nr, "rows");
@@ -1910,9 +2088,9 @@ void rows_x_cols (coll_t *out, coll_t *rows, coll_t *cols) {
   //free_coll (cols);
 }
 
-void rows_x_rows (coll_t *P, coll_t *A, coll_t *B) { 
+void rows_x_rows (coll_t *P, coll_t *A, coll_t *B) {
   uint i = 0;
-  while (++i <= num_rows (A)) { 
+  while (++i <= num_rows (A)) {
     ix_t *a = get_vec (A, i);
     ix_t *p = rows_x_vec (B, a);
     chop_vec (p);
@@ -1953,10 +2131,20 @@ void rows_a_rows (coll_t *out, float wa, coll_t *A, float wb, coll_t *B) {
   }
 }
 
+void filter_rows (coll_t *rows, char op, ix_t *mask) {
+  uint n = num_rows (rows), id;
+  for (id = 1; id <= n; ++id) {
+    ix_t *R = get_vec_ro (rows, id);
+    if (op == '&') filter_and (R, mask);
+    else           filter_not (R, mask);
+  }
+}
+
+
 
 // Lp-norm, chi-squared (X2), Bhattacharyya Coefficient (BC)
 /*
-ix_t *cols_x_vec_prm (coll_t *cols, ix_t *vec, float *C, 
+ix_t *cols_x_vec_prm (coll_t *cols, ix_t *vec, float *C,
 		      float p, char *LP, char *X2, char *BC) {
   float *S = chk_SCORE (0), V = sump (p,vec);
   ix_t *v, *c;
@@ -1983,7 +2171,7 @@ void mtx_x_mtx (coll_t *P, coll_t *A, coll_t *B, float(*F)(ix_t*,ix_t*)) {
     ix_t *a = get_vec (A,i);
     ix_t *p = rows_x_vec (B,a);
     put_vec (P, i, p);
-    free_vec (a); 
+    free_vec (a);
     free_vec (p);
   }
 }
@@ -2003,8 +2191,8 @@ void A_x_T (coll_t *P, coll_t *A, coll_t *T) {
 /*
 //  data[NxD] = input
 // means[KxD] = random
-//  sims[NxK] = data x means.T            
-//  prob[NxK] = posterior sims            
+//  sims[NxK] = data x means.T
+//  prob[NxK] = posterior sims
 // means[KxD] = prob.T x data
 //               N x D      K x D      K x N
 void kmeans (coll_t *X, coll_t *M, coll_t *P, uint iter) {
@@ -2113,30 +2301,30 @@ ix_t *min (ix_t *V) {
 
 double sum (ix_t *V) {
   ix_t *end = V + len(V), *v = V;
-  double s = 0; 
+  double s = 0;
   for (; v < end; ++v) s += v->x;
   return s; }
 
 double sum2 (ix_t *V) {
   ix_t *end = V + len(V), *v = V;
-  double s = 0; 
+  double s = 0;
   for (; v < end; ++v) s += v->x * v->x;
   return s; }
 
 double sump (float p, ix_t *V) {
   ix_t *end = V + len(V), *v = V-1;
-  double s = 0; 
+  double s = 0;
   if      (p == 1) while (++v < end) s += v->x;
   else if (p == 2) while (++v < end) s += v->x * v->x;
   else if (p == 0) while (++v < end) s += (v->x != 0);
   else if (p ==.5) while (++v < end) s += sqrt (v->x);
   else             while (++v < end) s += powf (v->x,p);
-  return s; 
+  return s;
 }
 
 double norm (float p, float root, ix_t *V) {
   ix_t *end = V + len(V), *v = V-1;
-  double s = 0; 
+  double s = 0;
   if      (p == 1) while (++v < end) s += ABS(v->x);
   else if (p == 2) while (++v < end) s += v->x * v->x;
   else if (p == 0) while (++v < end) s += (v->x != 0);
@@ -2158,28 +2346,28 @@ ulong sumi (uint *V) {
   return s; }
 
 uint *maxi (uint *V) {
-  uint *end = V + len(V), *v = V-1, *m = V; 
+  uint *end = V + len(V), *v = V-1, *m = V;
   while (++v < end) if (*v > *m) m = v;
   return m; }
 
 double sumf (float *V) {
   float *end = V + len(V), *v = V-1;
-  double s = 0; 
+  double s = 0;
   while (++v < end) s += *v;
   return s; }
 
 float *maxf (float *V) {
-  float *end = V + len(V), *v = V-1, *m = V; 
+  float *end = V + len(V), *v = V-1, *m = V;
   while (++v < end) if (*v > *m) m = v;
   return m; }
 
 float *minf (float *V) {
-  float *end = V + len(V), *v = V-1, *m = V; 
+  float *end = V + len(V), *v = V-1, *m = V;
   while (++v < end) if (*v < *m) m = v;
   return m; }
 
 uint count (ix_t *V, char op, float x) {
-  uint n = 0; 
+  uint n = 0;
   ix_t *v = V-1, *end = V+len(V);
   if      (op == '=') while (++v < end) n += (v->x == x);
   else if (op == '>') while (++v < end) n += (v->x  > x);
@@ -2236,7 +2424,7 @@ double lnP_X_Y (ix_t *X, ix_t *Y, double mu, float *CF, ulong CL) {
   return lnP;
 }
 
-double lnP (ix_t *X, ix_t *Y, double mu, float *CF, ulong CL) { 
+double lnP (ix_t *X, ix_t *Y, double mu, float *CF, ulong CL) {
   return (Y && len(Y)) ? lnP_X_Y (X,Y,mu,CF,CL) : lnP_X_BG (X, CF, CL);
 }
 
@@ -2264,7 +2452,7 @@ double LR (ix_t *X, ix_t *Y, double mu, float *CF, ulong CL) {
 
 double cosine (ix_t *X, ix_t *Y) {
   double norm = sqrt (sum2(X) * sum2(Y));
-  return dot(X,Y) / (norm ? norm : 1); 
+  return dot(X,Y) / (norm ? norm : 1);
 }
 
 double dice (ix_t *X, ix_t *Y) {
@@ -2298,7 +2486,7 @@ double chi2_full (ix_t *A, ix_t *B) {
   double chi2 = 0, sumA = sum(A), sumB = sum(B);
   uint i, n = len(A), m = len(B);
   assert ((n==m) && "full vector dimensions must agree");
-  for (i=0; i<n; ++i) { 
+  for (i=0; i<n; ++i) {
     double a = A[i].x / sumA, b = B[i].x / sumB;
     if (a+b) chi2 += (a-b) * (a-b) / (a+b);
   }
@@ -2311,8 +2499,8 @@ double covariance (ix_t *X, ix_t *Y, uint N) {
   return EXY - EX*EY;
 }
 
-double MSE (ix_t *X, ix_t *Y, uint N) { 
-  return (sum2(X) + sum2(Y) - 2*dot(X,Y)) / N; 
+double MSE (ix_t *X, ix_t *Y, uint N) {
+  return (sum2(X) + sum2(Y) - 2*dot(X,Y)) / N;
 }
 
 double correlation (ix_t *X, ix_t *Y, double N) {
@@ -2336,7 +2524,7 @@ double rsquared (ix_t *Y, ix_t *F, double N) {
 double igain (ix_t *score, ix_t *truth, double N) {
   ixy_t *words = join (score, truth, 0), *w, *wEnd = words+len(words);
   double n01 = 1, n10 = 1, n11 = 1, n00 = 1+MAX(0,N-len(words));
-  for (w = words; w < wEnd; ++w) 
+  for (w = words; w < wEnd; ++w)
     if (w->x && w->y) ++n11;
     else if    (w->x) ++n10;
     else if    (w->y) ++n01;
@@ -2375,19 +2563,19 @@ double evl_AUC (ixy_t *evl, double neg) {
   double AUC = 0, pos = num_rel(evl), TN=neg;
   assert (pos+neg >= len(evl));
   ixy_t *e = evl-1, *end = evl+len(evl);
-  while (++e < end) 
-    if (e->y <= 0) --TN; // false positive 
+  while (++e < end)
+    if (e->y <= 0) --TN; // false positive
     else if (e->x > -Infinity) AUC += TN; // true positive
   return AUC / (pos * neg);
 }
 
 xy_t maxF1 (ix_t *system, ix_t *truth, double b) {
   xy_t best = {0,0}; // b=99 ignores Precision, b=0.01 ignores Recall
-  ixy_t *evl = join (system, truth, -Infinity); 
+  ixy_t *evl = join (system, truth, -Infinity);
   sort_vec (evl, cmp_ixy_X); // sort: descending system score
   double RR = 0, rel = num_rel (evl);
   ixy_t *e = evl-1, *end = evl+len(evl);
-  while (++e < end) if (e->y > 0 && e->x > -Infinity) { 
+  while (++e < end) if (e->y > 0 && e->x > -Infinity) {
       double R = ++RR / rel;
       double P = RR / (e-evl+1);
       double F = (b*b+1)*P*R / (b*b*P+R);
@@ -2412,7 +2600,7 @@ ixy_t rules_cut (coll_t *XX, ix_t *Y, ix_t *mask, float b, char low) {
     free_vec(X);
   }
   if (mask) free_vec(Y);
-  return best; 
+  return best;
 }
 
 ixy_t *rules_chain (coll_t *XX, ix_t *Y, char *prm) {
@@ -2447,7 +2635,7 @@ double weighted_ap (ix_t *system, ix_t *truth) {
   ixy_t *evl = join (system, truth, -Infinity), *e;
   sort_vec (evl, cmp_ixy_X); // sort by decreasing system scores
   double sumPrec = 0, relret = 0, rel = sum (truth);
-  for (e = evl; e < evl + len(evl); ++e) 
+  for (e = evl; e < evl + len(evl); ++e)
     if (e->y > 0 && e->x > -Infinity) // rel docs in the ranking
       sumPrec += (relret += e->y) / (e-evl+1);
   free_vec (evl);
@@ -2459,20 +2647,20 @@ void eval_dump_evl (FILE *out, uint id, ixy_t *evl) {
   fprintf (out, "%d %d", id, numrel);
   for (e = evl; e < evl+len(evl); ++e) {
     uint rank = (e->x > -Infinity) ? (e - evl + 1) : (e - evl + 1E4);
-    if (e->y > 0) fprintf (out, " %d", rank); 
+    if (e->y > 0) fprintf (out, " %d", rank);
   }
   fprintf (out, " /\n");
 }
 
 void eval_dump_roc (FILE *out, uint id, ixy_t *evl, float b) {
   double FP = 0, TP = 0, nP = num_rel(evl), nN = len(evl) - nP; ixy_t *e;
-  fprintf (out, "#%5s %6s %6s   F%3.1f %3s %10s %1s query:%d %.0f+ %.0f-\n", 
+  fprintf (out, "#%5s %6s %6s   F%3.1f %3s %10s %1s query:%d %.0f+ %.0f-\n",
 	   "TPR", "FPR", "Prec", b, "rnk", "score", "R", id, nP, nN);
   for (e = evl; e < evl+len(evl); ++e) {
     if (e->y > 0) ++TP; else ++FP;
     double rnk = TP+FP, TPR = TP/nP, FPR = FP/nN, Prec = TP/rnk;
     double F1 = (b*b+1)*TPR*Prec / (b*b*Prec + TPR);
-    fprintf (out, "%6.4f %6.4f %6.4f %6.4f %3.0f %10.4f %1s\n", 
+    fprintf (out, "%6.4f %6.4f %6.4f %6.4f %3.0f %10.4f %1s\n",
 	     TPR, FPR, Prec, F1, rnk, e->x, ((e->y>0)?"1":"0"));
   }
   //free_vec (evl);
@@ -2490,7 +2678,7 @@ void eval_dump_map (FILE *out, uint id, ixy_t *evl, char *prm) { // thread-unsaf
   } else if (n) {
     fprintf (out, "%4s %4.0f %4.0f %.4f %.4f %.4f %.4f\n", "avg", mRe, mTP, mR, mP, mF1, mAP);
     mP = mR = mF1 = mAP = mRe = mTP = n = 0;
-  } else 
+  } else
     fprintf (out, "%4s %4s %4s %6s %6s %-6s %-6s\n", "Qry", "Rel", "Rret", "Recall", "Precis", "F1", "AveP");
 }
 
@@ -2508,7 +2696,7 @@ ixy_t *join (ix_t *X, ix_t *Y, float def) {
   while (x < endX && y < endY) {
     if      (y->i < x->i) { z->i = y->i; z->x =  def; z->y = y->x; ++z; ++y; }
     else if (x->i < y->i) { z->i = x->i; z->x = x->x; z->y =  def; ++z; ++x; }
-    else                  { z->i = x->i; z->x = x->x; z->y = y->x; ++z; ++x; ++y; } 
+    else                  { z->i = x->i; z->x = x->x; z->y = y->x; ++z; ++x; ++y; }
   }
   while (x < endX) { z->i = x->i; z->x = x->x; z->y =  def; ++z; ++x; }
   while (y < endY) { z->i = y->i; z->x =  def; z->y = y->x; ++z; ++y; }
@@ -2518,7 +2706,7 @@ ixy_t *join (ix_t *X, ix_t *Y, float def) {
 void disjoin (ix_t *X, ix_t *Y) {
   ixy_t *Z = join (X, Y, -Infinity), *zEnd = Z + len(Z), *z;
   ix_t *x = X, *y = Y;
-  for (z = Z; z < zEnd; ++z) 
+  for (z = Z; z < zEnd; ++z)
     if (z->x > z->y) { x->i = z->i; x->x = z->x; ++x; }
     else             { y->i = z->i; y->x = z->y; ++y; }
   assert (x < X+len(X) && y < Y+len(Y));
@@ -2552,7 +2740,7 @@ void filter_and (ix_t *V, ix_t *F) {
     if      (v->i >  f->i) { ++f; } // f but not v => ignore
     else if (v->i <  f->i) { v->i = 0;  ++v; } // v not in f => skip
     else if (v->i == f->i) { ++v; ++f; } // v in f => keep it
-  } 
+  }
   len(V) = v-V; // drop remaining elements in V (if any)
   chop_vec (V);
 }
@@ -2579,8 +2767,8 @@ void filter_set (ix_t *V, ix_t *F, float def) {
   while (v < endV && f < endF) {
     if      (v->i >  f->i) { ++f; } // f but not v => ignore
     else if (v->i <  f->i) { v->x = def;  ++v; } // v not in f => default
-    else if (v->i == f->i) { v->x = f->x; ++v; ++f; } // v in f => 
-  } 
+    else if (v->i == f->i) { v->x = f->x; ++v; ++f; } // v in f =>
+  }
   while (v < endV) { v->x = def; ++v; } // set remains of V to default
   chop_vec (V);
 }
@@ -2622,7 +2810,7 @@ ix_t *jix_to_ix_and_free (jix_t *buf, uint *id) {
   for (b = buf, v = vec; b < end; ++b,++v) {
     //if (b->j != *id) {
     //  fprintf (stderr, "jix: %d != %d %d %f\n", *id, b->j, b->i, b->x);
-    //  continue; 
+    //  continue;
     //}
     assert ((b->j == *id) && "buf should contain only one vector");
     v->i = b->i;
@@ -2630,10 +2818,18 @@ ix_t *jix_to_ix_and_free (jix_t *buf, uint *id) {
   }
   free_vec (buf);
   resize_vec (vec, v-vec);
-  sort_vec (vec, cmp_ix_i);
-  uniq_vec (vec);
+  sort_uniq_vec (vec);
   chop_vec (vec);
   return vec;
+}
+
+ixy_t *ix2ixy (ix_t *ix, float y) {
+  ix_t *v; ixy_t *ixy = new_vec (0, sizeof(ixy_t));
+  for (v = ix; v < ix+len(ix); ++v) {
+    ixy_t new = {v->i, v->x, y};
+    ixy = append_vec (ixy, &new);
+  }
+  return ixy;
 }
 
 ix_t *ixy_to_ix_and_free (ixy_t *Z) {
@@ -2760,7 +2956,7 @@ void num_x_vec (double b, char op, ix_t *A) {
 void vec_x_range (ix_t *A, char op, xy_t R) { // [x,y)
   ix_t *a = A-1, *e = A + len(A);
   switch (op) {
-  case '.': 
+  case '.':
   case '*': while (++a<e) a->x = (R.x <= a->x && a->x <= R.y) ? a->x : 0; break;
   case '-': while (++a<e) a->x = (a->x < R.x  ||  R.y < a->x) ? a->x : 0; break;
   default: assert (0 && "unknown vector-range operation");
@@ -2789,7 +2985,7 @@ inline void f_vec (double (*F) (double), ix_t *A) {
 /// The following is used to convert points from
 /// the linear scale to the gaussian scale.
 /// Linear (0.5) is aligned with Gaussian (0)
-/// 
+///
 /// The code is adopted from Mike Scudder's tdteval
 /// (developed for TDT1)
 

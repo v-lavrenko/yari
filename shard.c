@@ -24,7 +24,7 @@ void fclose_files (FILE **file, char *pfx, char *clean) {
 
 // read lines from IN, sort into OUT[i] based on column j
 void do_shard (FILE *in, FILE **out, char *prm) {
-  char *key = getprms (prm,"key=",NULL,',');
+  char *key = getprms (prm,"key=",NULL,",");
   uint col = getprm (prm,"col=",0);
   char *line = NULL; size_t sz = 0;
   while (getline (&line, &sz, in) > 0) {
@@ -97,7 +97,7 @@ int main (int argc, char *argv[]) {
   if (argc < 2) return fprintf (stderr, "%s", usage); 
   char *prm = argv[1];
   uint num = getprm(prm,"num=",100);
-  char *pfx = getprms(prm,"pfx=","bin.",',');
+  char *pfx = getprms(prm,"pfx=","bin.",",");
   char *mode = strstr(prm,"append") ? "a" : "w";
   char *clean = strstr(prm,"clean");
   //char *merge = strstr(prm,"merge");

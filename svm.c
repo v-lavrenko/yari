@@ -23,12 +23,14 @@
 #include "matrix.h"
 #include "svm.h"
 
+/* defined in vector.{c,h}
 uint tri (uint i, uint j) { // dense lower-triangular matrix
   if (i >= j) return i*(i-1)/2 + j;
   else        return j*(j-1)/2 + i;
 }
 
 uint trilen (uint n) { return (ceil(sqrt(1+8*n)) - 1) / 2; } // n = i(i+1)/2
+*/
 
 static inline void L1 (ix_t *X) { vec_x_num (X,'/',sum(X)); }
 
@@ -77,7 +79,7 @@ void svm_train_1v1 (coll_t *W, coll_t *C, coll_t *K) { // all-pairs
       vec_x_num (Cj,'=',1);
       ix_t *Tij = vec_x_vec (Ci,'-',Cj);     free_vec (Cj);
       ix_t *Wij = svm_weights (Tij, K);      free_vec (Tij); 
-      put_vec (W, tri(i,j), Wij);            free_vec (Wij); 
+      put_vec (W, triang(i,j), Wij);         free_vec (Wij); 
     }
     free_vec (Ci);
   }
@@ -117,8 +119,8 @@ ix_t *svm_1v1 (ix_t *Y) {
   ix_t *C = const_vec (n,0);
   //for (i=0; i<len(Y); ++i) Y[i].x = (Y[i].x > 0) ? +1 : -1;
   for (i=1; i<=n; ++i) {
-    for (j=1; j<i; ++j) C[i-1].x += Y[tri(i,j)-1].x; // i=+, j=- 
-    for (j=n; j>i; --j) C[i-1].x -= Y[tri(j,i)-1].x; // i=-, j=+
+    for (j=1; j<i; ++j) C[i-1].x += Y[triang(i,j)-1].x; // i=+, j=- 
+    for (j=n; j>i; --j) C[i-1].x -= Y[triang(j,i)-1].x; // i=-, j=+
   }
   return C;
 }

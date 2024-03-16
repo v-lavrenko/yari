@@ -191,7 +191,7 @@ int pdb_dump (char *_PDB, char *_IDS, char *_ELS, char *prm) {
   char *sortY = strstr (prm, "sort:y");
   char *sortZ = strstr (prm, "sort:z");
   uint top = getprm (prm, "top=", 0);
-  char *rid = getprms (prm, "dump:", NULL, ',');
+  char *rid = getprms (prm, "dump:", NULL, ",");
   uint id = rid ? key2id (IDS,rid) : 0;
   uint beg = rid ? id : 1, end = rid ? id : nvecs(PDB);  
   if (hdr) printf ("%s\t%s\t%s\t%s\t%s\t%s\t%s\n", "id", "el", "asn", "x", "y", "z", "L2");
@@ -510,8 +510,7 @@ ix_t *peel2hist (ix_t *P, hash_t *ELS, hash_t *BINS, float *thr) {
     //H[2*i].i   = key2id(BINS,fmt(_,"%s_%.1f_%.1f",el,*lo1,*hi1)); // 2..4
     //H[2*i+1].i = key2id(BINS,fmt(_,"%s_%.1f_%.1f",el,*lo2,*hi2)); // 3..5        
   }
-  sort_vec (H, cmp_ix_i);
-  uniq_vec (H);
+  sort_uniq_vec (H);
   return H;
 }
 
@@ -525,8 +524,7 @@ ix_t *quantize_peel (ix_t *P, hash_t *ELS, hash_t *BINS, float dx) {
     H[2*i].i   = key2id(BINS,fmt(_,"%s_%.1f_%.1f",e,K*dx,(k+1)*dx));
     H[2*i+1].i = key2id(BINS,fmt(_,"%s_%.1f_%.1f",e,k*dx,(k+2)*dx));
   }
-  sort_vec (H, cmp_ix_i);
-  uniq_vec (H);
+  sort_uniq_vec (H);
   return H;
 }
 
@@ -557,7 +555,7 @@ int pdb_eval (char *_SIMS, char *_BALL, char *_BIDS, char *_ELS, char *prm) {
   hash_t *BIDS = open_hash (_BIDS, "r");
   hash_t *ELS  = open_hash (_ELS, "r");
   uint top = getprm (prm, "top=", 0);
-  char *QID = getprms (prm, "id=", NULL, ',');
+  char *QID = getprms (prm, "id=", NULL, ",");
   uint qid = QID ? key2id (BIDS, QID) : 0;
   printf ("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", "id", "el", "asn", "x", "y", "z", "L2", "sim");
   ix_t *S = get_vec (SIMS, qid), *s;

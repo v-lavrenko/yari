@@ -20,6 +20,7 @@
 */
 
 #include "hash.h"
+#include "textutil.h"
 
 uint multiadd_hashcode (char *s) ;
 uint murmur3 (const char *key, uint len) ;
@@ -99,11 +100,13 @@ char *usage =
   "                 -dbg DICT\n"
   "               -inmap MAP < src_trg_pairs\n"
   "              -outmap MAP\n"
-  "              -usemap MAP < src_strings\n"
+  "        -usemap,col=1 MAP < tab_separated_lines\n"
   "                -rand 1-4 logN\n"
   "               -dedup ... suppress duplicate lines\n"
   "                -uniq ... sort | uniq -c | sort -rn\n"
-  "               -addup ... add up freq[Tab]word\n";
+  "               -addup ... add up freq[Tab]word\n"
+  "           -load-ints DICT VEC < str_int_pairs\n"
+  "           -dump-ints DICT VEC\n";
 
 #define arg(i) ((i < argc) ? argv[i] : NULL)
 #define a(i) ((i < argc) ? argv[i] : "")
@@ -308,7 +311,7 @@ int main (int argc, char *argv[]) {
     char x[1000], line[100000];
     hash_t *SRC = open_hash (fmt(x,"%s.src",argv[2]), "w");
     coll_t *TRG = open_coll (fmt(x,"%s.trg",argv[2]), "w");
-    while (fgets(line, 100000, stdin)) { // expect space-separated: "src trg"
+    while (fgets(line, 100000, stdin)) { // expect tab-separated: "src trg"
       char *src = line, *trg = strchr(line,'\t'), *eol = strchr(line,'\n');
       if (eol) *eol = '\0'; // strip newline
       if (trg) *trg++ = '\0'; // null-terminate src + advance to trg
@@ -326,24 +329,32 @@ int main (int argc, char *argv[]) {
     return 0;
   }
 
-  if (!strncmp(argv[1], "-usemap", 4)) {
+  if (!strncmp(argv[1], "-usemap", 7)) {
     char x[1000], line[100000];
+    uint col = getprm(argv[1],"col=",1);
     hash_t *SRC = open_hash (fmt(x,"%s.src",argv[2]), "r!");
     coll_t *TRG = open_coll (fmt(x,"%s.trg",argv[2]), "r");
-    while (fgets(line, 100000, stdin)) { // expect space-separated: "src trg"
-      char *src = line, *tab = strchr(line,'\t'), *eol = strchr(line,'\n');
-      if (tab) *tab = '\0';
-      if (eol) *eol = '\0';
-      uint id = has_key (SRC, src);
-      char *trg = id ? get_chunk (TRG,id) : src;
-      puts(trg);
+    while (fgets(line, 100000, stdin)) { // expect tab-separated columns
+      noeol(line);
+      char **F = split(line,'\t');
+      uint i, NF = len(F);
+      for (i=0; i<NF; ++i) {
+	if (i) putchar('\t');
+	if (i+1 == col) {
+	  uint id = has_key (SRC, F[i]);
+	  char *trg = id ? get_chunk (TRG,id) : "ERROR";
+	  fputs(trg, stdout);
+	} else fputs(F[i], stdout);
+      }
+      putchar('\n');
+      free_vec (F);
     }
     free_hash(SRC);
     free_coll(TRG);
     return 0;
   }
-  
-  if (!strncmp(argv[1], "-outmap", 4)) {
+
+  if (!strncmp(argv[1], "-outmap", 7)) {
     char x[1000];
     hash_t *SRC = open_hash (fmt(x,"%s.src",argv[2]), "r!");
     coll_t *TRG = open_coll (fmt(x,"%s.trg",argv[2]), "r");
@@ -369,7 +380,48 @@ int main (int argc, char *argv[]) {
     printf(" %lu random numbers ", i);
     return 0;
   }
-    
+  
+  if (!strcmp(argv[1], "-load-ints")) {
+    hash_t *H = open_hash (argv[2], "r");
+    uint *V = open_vec (argv[3], "w", sizeof(uint)), noval = 0, nokey = 0, done = 0;
+    V = resize_vec(V, nkeys(H)+1);
+    char *line = NULL;
+    size_t sz = 0;
+    while (getline (&line, &sz, stdin) > 0) {
+      char *key = line, *num = strchr (line, '\t');
+      if (!num) { // no 2nd field
+	noeol(line);
+	if (++noval < 5) fprintf(stderr, "SKIP: no value in line '%s'\n", line);
+	continue;
+      }
+      *num++ = '\0';
+      uint id = has_key(H, key);
+      if (!id) { // key not in H
+	if (++nokey < 5) fprintf(stderr, "SKIP: %s has no key for '%s'\n", argv[2], line);
+	continue;
+      }
+      V[id] = atol(num);
+      if (!(++done%1000)) show_progress(done/1000,0,"K lines");
+    }
+    printf("\ndone: %d, no key: %d, no int: %d -> %s[%d]\n",
+	   done, nokey, noval, argv[3], len(V));
+    free(line);
+    free_vec(V);
+    free_hash(H);
+    return 0;
+  }
+
+  if (!strcmp(argv[1], "-dump-ints")) {
+    hash_t *H = open_hash (argv[2], "r");
+    uint *V = open_vec (argv[3], "r", sizeof(uint));
+    uint nH = nkeys(H)+1, nV = len(V), n = MIN(nH,nV), i;
+    if (nV != nH) fprintf(stderr, "WARN: %s[%d] <> [%d]%s\n", argv[2], nH, nV, argv[3]);
+    for (i = 1; i < n; ++i) printf ("%s\t%u\n", id2key(H,i), V[i]);
+    free_vec(V);
+    free_hash(H);
+    return 0;
+  }
+
   fprintf (stderr, "ERROR: incorrect %s", usage);
   return 0;
 

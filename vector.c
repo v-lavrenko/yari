@@ -19,6 +19,7 @@
   
 */
 
+#include <math.h>
 #include "vector.h"
 
 static inline void *init_vec_t (vec_t *v, uint n, uint s, int fd) {
@@ -65,6 +66,17 @@ void free_vec (void *d) {
   }
 }
 
+void free_vecs (void *v1, ...) {
+  va_list args;
+  va_start (args, v1);
+  void *v = v1;
+  while (v != (void*)-1) {
+    if (v) free_vec (v);
+    v = va_arg (args, void*);
+  }
+  va_end (args);
+}
+
 // resize vector to 'num' elements, re-allocate if needed
 // vector will be physically resized to next power of 2
 void *resize_vec (void *d, uint n) {
@@ -86,6 +98,10 @@ void *resize_vec (void *d, uint n) {
   //if (a > c) memset (v->data + c*esz, 0, (a-c)*esz);
   memset ((void*)v + old_size, 0, new_size - old_size);
   return v->data;
+}
+
+void *new_or_resize_vec (void *d, uint n, uint esz) {
+  return d ? resize_vec (d, n) : new_vec (n, esz);
 }
 
 // append an element to the end of vector
@@ -211,7 +227,7 @@ void *read_vec (char *path) {
   safe_lseek (fd, 0, SEEK_SET);
   safe_read (fd, v, size);
   v->file = 0; // vector is in memory
-  assert (size == vsizeof(v));
+  //assert (size == vsizeof(v));
   close (fd);
   return v->data;
 }
@@ -259,8 +275,22 @@ void *bsearch_vec (void *vec, uint id) { // assume id is 1st field in each eleme
 
 int cmp_jix (const void *n1, const void *n2) { // by increasing j then i
   jix_t *r1 = (jix_t*) n1, *r2 = (jix_t*) n2; 
-  uint di = r1->i - r2->i, dj = r1->j - r2->j;
+  int di = r1->i - r2->i, dj = r1->j - r2->j;
   return dj ? dj : di; }
+
+int cmp_jix_i (const void *n1, const void *n2) { // by increasing i then j
+  jix_t *r1 = (jix_t*) n1, *r2 = (jix_t*) n2; 
+  int di = r1->i - r2->i, dj = r1->j - r2->j;
+  return di ? di : dj; }
+
+int cmp_jix_X (const void *n1, const void *n2) { // by decreasing x
+  jix_t *r1 = (jix_t*) n1, *r2 = (jix_t*) n2;
+  return r2->x - r1->x; }
+
+int cmp_jix_jX (const void *n1, const void *n2) { // increasing j then decreasing x
+  jix_t *r1 = (jix_t*) n1, *r2 = (jix_t*) n2;
+  int dj = r1->j - r2->j;
+  return dj ? dj : (r2->x - r1->x); }
 
 int cmp_it_i (const void *n1, const void *n2) { // by increasing i
   uint i1 = ((it_t*)n1)->i, i2 = ((it_t*)n2)->i; 
@@ -319,6 +349,9 @@ int cmp_xy_X (const void *n1, const void *n2) { // by decreasing x
 int cmp_x (const void *n1, const void *n2) { return -cmp_X (n1,n2); }
 int cmp_X (const void *n1, const void *n2) { return *((float*)n2) - *((float*)n1); }
 
+int cmp_u (const void *n1, const void *n2) { return -cmp_X (n1,n2); }
+int cmp_U (const void *n1, const void *n2) { return *((uint*)n2) - *((uint*)n1); }
+
 int cmp_str (const void *a, const void *b) { return strcmp(*(char**)a, *(char**)b); }
 
 int cmp_Ulong_ptr (const void *_a, const void *_b) { return -cmp_ulong_ptr (_a,_b); }
@@ -326,6 +359,12 @@ int cmp_ulong_ptr (const void *_a, const void *_b) {
   ulong a = **(ulong **)_a, b = **(ulong **)_b;
   return (a < b) ? -1 : (a > b) ? +1 : 0;
 }
+
+int cmp_sjk_s (const void *n1, const void *n2) {
+  char *s1 = ((sjk_t*)n1)->s, *s2 = ((sjk_t*)n2)->s;
+  return strcmp(s1, s2);
+}
+
 
 // qsort: The comparison function must return an integer less than,
 // equal to, or greater than zero if the first argument is considered
@@ -359,6 +398,20 @@ void free_3D (void ***X) {
   void ***x = X-1, ***end = X+len(X);
   while (++x < end) if (*x) free_2D(*x);
   free_vec (X);
+}
+
+///////////////////////////// triangular 2D array
+
+// convert (row,col) to offset in 1D array
+inline uint triang (uint i, uint j) { // dense lower-triangular matrix
+  if (i >= j) return i*(i-1)/2 + j;
+  else        return j*(j-1)/2 + i;
+}
+
+// convert offset o to number of rows & columns i
+// o = i(i+1)/2 --> beforac
+inline uint trilen (uint o) {
+  return (ceil(sqrt(1+8*o)) - 1) / 2;
 }
 
 /*

@@ -61,10 +61,12 @@ void   *open_vec_if_exists (char *path, char *access) ;
 void   *open_vec (char *path, char *access, uint esize) ;
 void    *new_vec (uint n, uint esize) ;
 void    free_vec (void *d) ;
+void   free_vecs (void *v1, ...) ;
 void   write_vec (void *d, char *path) ;
 void   *read_vec (char *path) ;
 void   *copy_vec (void *d) ;
 void *resize_vec (void *d, uint n) ;
+void *new_or_resize_vec (void *d, uint n, uint esz);
 void *append_vec (void *d, void *el) ;
 void *append_many (void *vec, void *els, uint k) ;
 void *insert_vec (void *vec, uint i, void *el) ; // insert el into position i, shift old [i..n]
@@ -82,6 +84,10 @@ void *ref_vec_el (void **vec, uint i) ;
 void **pointers_to_vec (void *V) ; // vector of n pointers 
 
 int cmp_jix (const void *n1, const void *n2) ; // by increasing j then i
+int cmp_jix_X (const void *n1, const void *n2) ; // by decreasing x
+int cmp_jix_i (const void *n1, const void *n2) ; // by increasing i then j
+int cmp_jix_jX (const void *n1, const void *n2) ; // incr. j then decr. X
+
 int cmp_it_i (const void *n1, const void *n2) ; // by increasing i
 int cmp_it_t (const void *n1, const void *n2) ; // by increasing t
 int cmp_ix_i (const void *n1, const void *n2) ; // by increasing i
@@ -97,18 +103,25 @@ int cmp_xy_x (const void *n1, const void *n2) ; // by increasing x
 int cmp_xy_X (const void *n1, const void *n2) ; // by decreasing x
 int cmp_x (const void *n1, const void *n2) ; // increasing float
 int cmp_X (const void *n1, const void *n2) ; // decreasing float
+int cmp_u (const void *n1, const void *n2) ; // increasing uint
+int cmp_U (const void *n1, const void *n2) ; // decreasing uint
 int cmp_str (const void *a, const void *b) ; // strings, lexically
 int cmp_ijk_i (const void *n1, const void *n2) ; // by increasing i
 int cmp_ijk_j (const void *n1, const void *n2) ; // by increasing j
 int cmp_ijk_k (const void *n1, const void *n2) ; // by increasing k
+int cmp_sjk_s (const void *n1, const void *n2) ; // lexically
 
 int cmp_ulong_ptr (const void *_a, const void *_b) ; // by increasing *ulong
 int cmp_Ulong_ptr (const void *_a, const void *_b) ; // decreasing
+
 
 void **new_2D (uint rows, uint cols, uint esize) ; // X[i][j]
 void ***new_3D (uint deep, uint rows, uint cols, uint esize) ; // X[i][j][k]
 void free_2D (void **X) ;
 void free_3D (void ***X) ;
+
+uint triang (uint i, uint j) ; // (i,j) --> offset in lower-triangular
+uint trilen (uint o) ; // triangular offset -> number of rows & columns
 
 #endif
 

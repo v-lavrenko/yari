@@ -28,7 +28,7 @@ int coll_exists (char *path) { return file_exists ("%s/coll.vecs", path); }
 
 time_t coll_modified (char *path) { return file_modified ("%s/coll.vecs",path); }
 
-static inline coll_t *open_coll_inmem () {
+coll_t *open_coll_inmem () {
   coll_t *c = safe_calloc (sizeof(coll_t)); 
   c->offs = new_vec (1, sizeof(off_t)); 
   return c; 
@@ -103,6 +103,17 @@ void free_coll (coll_t *c) {
   free (c->path);
   free (c->access);
   free (c);
+}
+
+void free_colls (coll_t *c1, ...) {
+  va_list args;
+  va_start (args, c1);
+  void *c = c1;
+  while (c != (void*)-1) {
+    if (c) free_coll (c);
+    c = va_arg (args, void*);
+  }
+  va_end (args);
 }
 
 coll_t *reopen_coll (coll_t *c, char *access) {

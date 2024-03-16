@@ -1,22 +1,22 @@
 /*
-  
+
   Copyright (c) 1997-2021 Victor Lavrenko (v.lavrenko@gmail.com)
-  
+
   This file is part of YARI.
-  
+
   YARI is free software: you can redistribute it and/or modify it
   under the terms of the GNU General Public License as published by
   the Free Software Foundation, either version 3 of the License, or
   (at your option) any later version.
-  
+
   YARI is distributed in the hope that it will be useful, but WITHOUT
   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
   License for more details.
-  
+
   You should have received a copy of the GNU General Public License
   along with YARI. If not, see <http://www.gnu.org/licenses/>.
-  
+
 */
 
 #include "math.h"
@@ -26,7 +26,7 @@
 #define Inf 999999999
 
 void dump_raw_ret (char *C, char *RH, char *prm) {
-  char *tag = getprms(prm,"tag=","",',');
+  char *tag = getprms(prm,"tag=","",",");
   coll_t *c = open_coll (C, "r+");
   hash_t *h = open_hash (RH, "r!");
   char qryid[9999], docid[999], line[10000], *eol;
@@ -66,7 +66,7 @@ void dump_raw (char *C, char *RH, char *id) {
   uint i = no ? no : *id ? key2id(h,id) : 1;
   uint n = *id ? i : nvecs(c);
   //printf ("%s %s %d %d\n", C, RH, i, n);
-  for (; i <= n; ++i) 
+  for (; i <= n; ++i)
     if (has_vec (c,i))
       printf ("%s\n", (char*)get_chunk(c,i));
   free_coll(c); free_hash(h);
@@ -87,17 +87,17 @@ void load_raw (char *C, char *RH, char *prm) {
     put_chunk (c, id, buf, sz);
     if (!(++done%20000)) {
       if (done%1000000) fprintf (stderr, ".");
-      else fprintf (stderr, "[%.0fs] %d strings\n", vtime(), done); 
+      else fprintf (stderr, "[%.0fs] %d strings\n", vtime(), done);
     }
   }
   fprintf (stderr, "[%.0fs] %d strings\n", vtime(), nvecs(c));
   free_coll (c); free_hash (rh); free (buf);
 }
 
-void load_json (char *C, char *RH, char *prm) { // 
+void load_json (char *C, char *RH, char *prm) { //
   char *skip = strstr(prm,"skip"), *join = strstr(prm,"join");
   char *addk = strstr(prm,"addkeys");
-  uint done = 0, nodoc = 0, noid = 0, dups = 0, SZ = 1<<24;  
+  uint done = 0, nodoc = 0, noid = 0, dups = 0, SZ = 1<<24;
   char *json = malloc(SZ);
   coll_t *c = open_coll (C, "a+");
   hash_t *rh = open_hash (RH, (addk ? "a!" : "r!"));
@@ -105,10 +105,10 @@ void load_json (char *C, char *RH, char *prm) { //
     if (!(++done%10000)) show_progress (done, 0, "JSON records");
     uint sz = strlen (json);
     if (json[sz-1] == '\n') json[--sz] = '\0';
-    char *docid = json_value (json, "docid"); 
+    char *docid = json_value (json, "docid");
     if (!docid) docid = json_value (json, "id");
     if (!docid && ++nodoc < 5) { fprintf (stderr, "ERR: no docid in: %s\n", json); continue; }
-    uint id = key2id (rh, docid); 
+    uint id = key2id (rh, docid);
     free(docid);
     if (!id) { ++noid; continue; }
     char *old = get_chunk (c,id);
@@ -121,11 +121,11 @@ void load_json (char *C, char *RH, char *prm) { //
       sz = strlen (json);
       ++dups;
     }
-    //if (has_vec(c,id)) ++dups; else 
+    //if (has_vec(c,id)) ++dups; else
     put_chunk (c, id, json, sz+1);
   }
   free_coll (c); free_hash (rh); free(json);
-  fprintf (stderr, "[%.0fs] OK: %d, noid: %d, dups: %d\n", 
+  fprintf (stderr, "[%.0fs] OK: %d, noid: %d, dups: %d\n",
 	   vtime(), done, noid, dups);
 }
 
@@ -146,7 +146,7 @@ void load_xml_or_json (char *C, char *RH, char *prm) {
     if (buf[sz-1] == '\n') buf[--sz] = '\0';
     char *docid = jsonp ? json_docid(buf) : get_xml_docid(buf);
     if (!docid && ++nodoc < 5) { fprintf (stderr, "ERR: no docid in: %s\n", buf); continue; }
-    uint id = key2id (rh, docid); 
+    uint id = key2id (rh, docid);
     free(docid);
     if (!id) { ++noid; continue; }
     char *old = get_chunk (c,id);
@@ -162,7 +162,7 @@ void load_xml_or_json (char *C, char *RH, char *prm) {
     *buf = '\0';
   }
   free_coll (c); free_hash (rh); free(buf);
-  fprintf (stderr, "[%.0fs] OK: %ld, noid: %ld, dups: %ld\n", 
+  fprintf (stderr, "[%.0fs] OK: %ld, noid: %ld, dups: %ld\n",
 	   vtime(), done, noid, dups);
 }
 
@@ -193,7 +193,7 @@ void merge_colls (char *_C, char *_A, char *_B) { // C = A + B
     char *c = (a && b) ? buf : a ? a : b;
     uint sz = c ? (strlen(c)+1) : 0;
     if (c) put_chunk (C, i, c, sz);
-    if (!(i%10)) show_progress (i,n,"blobs merged");
+    if (!(i%10)) show_progress (i,n," blobs merged");
   }
   fprintf (stderr, "done: %s[%d]\n", _C, nvecs(C));
   free_coll(A); free_coll(B); free_coll(C); free_vec(buf);
@@ -212,8 +212,8 @@ for (j=1; j<=nj; ++j) {
   if (!i) continue; // key not in A[H]
   char *b = get_chunk(B,i);
   if (b) put_chunk (A, j, b, strlen(b)+1);
- } 
- free_vec(inv); 
+ }
+ free_vec(inv);
 */
 
 void rekey_coll (char *_A, char *_H, char *_B, char *_G, char *prm) { // A[j] = B[i] where H[j] = G[i]
@@ -224,14 +224,14 @@ void rekey_coll (char *_A, char *_H, char *_B, char *_G, char *prm) { // A[j] = 
   uint i, j, nB = nvecs(B); assert (nB <= len(map));
   fprintf (stderr, "rekey: %s[%d] -> %s using map[%d]\n", _B, nB, _A, len(map));
   for (i=1; i<=nB; ++i) {
-    if (!(i%10)) show_progress (i,nB,"blobs rekeyed");
+    if (!(i%10)) show_progress (i,nB," blobs rekeyed");
     j = map[i-1];
     if (!j) continue; // key not in A[H]
     char *b = get_chunk(B,i);
     if (b) put_chunk (A, j, b, strlen(b)+1);
   }
   fprintf (stderr, "done: %s[%d]\n", _A, nvecs(A));
-  free_coll(A); free_coll(B); free_vec(map); 
+  free_coll(A); free_coll(B); free_vec(map);
 }
 
 void do_merge (char *A, char *H, char *B, char *G, char *prm) { // A[j] += B[i] where key = H[j] = G[i]
@@ -268,8 +268,27 @@ void do_merge2 (char *_A, char *_H, char *_B, char *_G, char *prm) { // A[j] += 
     if (a && b) b = buf = merge_blobs (buf,a,b);
     if (b) put_chunk (A, j, b, strlen(b)+1);
   }
-  free_coll(A); free_coll(B); free_vec(buf); free_vec(map); // free_hash(H); free_hash(G); 
+  free_coll(A); free_coll(B); free_vec(buf); free_vec(map); // free_hash(H); free_hash(G);
   fprintf (stderr, "\n");
+}
+
+void do_rekey (char *_A, char *_H, char *_B, char *_G, char *prm) { // A[j] = B[i] where H[j] = G[i]
+  char *access = strstr(prm,"addnew") ? "a!" : "r!";
+  uint *map = hash2hash (_G, _H, access), drop = 0;
+  coll_t *A = open_coll (_A, "a+");
+  coll_t *B = open_coll (_B, "r+");
+  uint i, j, nB = nvecs(B); assert (nB <= len(map));
+  fprintf (stderr, "rekey: %s[%d] -> %s using map[%d]\n", _B, nB, _A, len(map));
+  for (i=1; i<=nB; ++i) {
+    if (!(i%10)) show_progress (i,nB," blobs rekeyed");
+    j = map[i-1];
+    if (!j) { ++drop; continue; } // key not in A[H]
+    char *b = get_chunk(B,i);
+    //off_t sz = chunk_sz (B, i); // strlen is faster... wtf?
+    if (b) put_chunk (A, j, b, strlen(b)+1);
+  }
+  fprintf (stderr, "done: %s[%d] dropped: %d\n", _A, nvecs(A), drop);
+  free_coll(A); free_coll(B); free_vec(map);
 }
 
 ix_t *do_qry (char *QRY, char *DICT, char *prm) {
@@ -297,11 +316,11 @@ ix_t *do_exp (ix_t *qry, ix_t *ret, char *DOCS, char *prm) {
   coll_t *docs = open_coll (DOCS, "r+");
   trim_vec (ret, nd); // top 10 docs
   //vec_x_num (ret, '*', 3); // slightly curved softmax
-  softmax (ret); 
-  ix_t *exp = cols_x_vec (docs, ret); 
+  softmax (ret);
+  ix_t *exp = cols_x_vec (docs, ret);
   trim_vec (exp, nw); // top 30 words
   ix_t *new = vec_add_vec (qw, qry, 1, exp);
-  free_vec (exp); free_vec (qry); free_coll (docs); 
+  free_vec (exp); free_vec (qry); free_coll (docs);
   return new;
 }
 
@@ -312,11 +331,11 @@ void do_sort (ix_t *ret, char *ORDER, char *prm) {
   float *order = vec2full (ord, 0, 0);
   vec_x_full (ret, '=', order);
   sort_vec (ret, (asc ? cmp_ix_x : cmp_ix_X));
-  free_vec (order); free_coll (O); 
+  free_vec (order); free_coll (O);
 }
 
 void do_pairs (ix_t *rnk, char *RANKS, char *PAIRS) {
-  char buf[1000], *RANKs = fmt (buf, "%s.%d", RANKS, getpid()); 
+  char buf[1000], *RANKs = fmt (buf, "%s.%d", RANKS, getpid());
   coll_t *ranks = open_coll (RANKs, "w+");
   coll_t *pairs = open_coll (PAIRS, "r+");
   ix_t *D = copy_vec (rnk), *d, *s;
@@ -345,18 +364,18 @@ void do_out (ix_t *rnk, char *TEXT, char *RNDR){ // unsafe: system()
   for (r = rnk; r < rnk + len(rnk); ++r) {
     uint rank = r-rnk+1;
     char *txt = get_chunk (text, r->i), path[1000];
-    
+
     //printf ("# rank %6d doc %6d score %.4f\n", rank, r->i, r->x);
     if (RNDR && *RNDR) {
       sprintf (path, "src/%d.txt", rank);
       FILE *out = safe_fopen (path, "w");
-      fprintf (out, "%s", txt); 
+      fprintf (out, "%s", txt);
       fclose (out);
-      
+
       sprintf (path, "%s src/%d.txt > src/%d.log 2>&1", RNDR, rank, rank);
       system (path);
     }
-    
+
     txt = strdup (txt);
     csub (txt, "\r\n", ' '); //for (t = txt; *t; ++t) if (*t == '\n') *t = ' '; // chop newlines
     //erase_between (txt, "<DOC ", ">", ' ');
@@ -375,8 +394,8 @@ void do_out (ix_t *rnk, char *TEXT, char *RNDR){ // unsafe: system()
     //    } else { // dump a copy of XML
       //    }
   }
-  free_coll (text); 
-  //free_coll (docs); 
+  free_coll (text);
+  //free_coll (docs);
   //free_hash (dict);
 }
 
@@ -394,7 +413,7 @@ void init_centroid (ixy_t *rnk, ix_t *seeds, coll_t *docs) {
   ix_t *centr = cols_x_vec (docs, seeds); // mean of their vecs
   ixy_t *d;
   for (d = rnk; d < rnk+len(rnk); ++d) { // for each doc:
-    ix_t *doc = get_vec (docs, d->i); 
+    ix_t *doc = get_vec (docs, d->i);
     d->x = cosine (doc, centr); // similarity of doc to centr
     free_vec (doc);
   }
@@ -429,7 +448,7 @@ void init_ranks (ixy_t *rnk, coll_t *docs, char *prm) {
 
 void ddrag (ixy_t *rnk, ixy_t *seed, coll_t *docs, float thresh) {
   ixy_t *d, *end = rnk + len(rnk);
-  ix_t *svec = get_vec (docs, seed->i); 
+  ix_t *svec = get_vec (docs, seed->i);
   for (d = seed+1; d < end; ++d) { // for all docs following seed
     ix_t *dvec = get_vec (docs, d->i);
     float sim = cosine (dvec, svec);
@@ -457,7 +476,7 @@ void sdrag (ixy_t *rnk, ixy_t *seed, coll_t *sims, float thresh) {
 
 void post_drag_rerank (ixy_t *rnk) {
   ixy_t *d, *end = rnk + len(rnk);
-  for (d = rnk; d < end; ++d) 
+  for (d = rnk; d < end; ++d)
     if (d->x > 0) d->x = d-rnk; // positive => keep current rank
     else          d->x = d-rnk + 1E6; // negative => end of list
   sort_vec (rnk, cmp_ixy_x); // NOTE: ascending order
@@ -604,7 +623,7 @@ void do_mst (char *OUT, char *RETS, char *DOCS, char *prm) {
     mst_rerank (rnk, docs);
     sort_vec (rnk, cmp_ix_i);
     put_vec (out, q, rnk);
-    free_vec(rnk); 
+    free_vec(rnk);
     show_progress (q, nq, "ranked lists");
   }
   free_coll (rets); free_coll (docs); free_coll (out);
@@ -650,13 +669,13 @@ void thr_ttest (ix_t *vec) {
     double Lm2 = (Lsum2 += x*x) / nL, Rm2 = (Rsum2 -= x*x) / nR;
     double Lvar = Lm2 - Lmean*Lmean, Rvar = Rm2 - Rmean*Rmean;
     if (0) printf ("%3.0f %.4f left: %.4f : %.4f +/- %.4f ... right: %.4f : %.4f +/- %.4f\n",
-	    nL, x, 
-	    Lsum1, Lmean, Lvar, 
+	    nL, x,
+	    Lsum1, Lmean, Lvar,
 	    Rsum1, Rmean, Rvar);
     double Z = (Lmean - Rmean);// / sqrt (Lvar/nL + Rvar/nR);
     //if (i==1) continue;
     //if (Z > best_z) { best_i = i; best_z = Z; }
-    if (nL>1 && nR>1) printf ("%3.0f %.4f z=%.4f %.4f / %.4f <=> %.4f / %.4f\n", 
+    if (nL>1 && nR>1) printf ("%3.0f %.4f z=%.4f %.4f / %.4f <=> %.4f / %.4f\n",
 			      nL, x, Z, Lmean, Lvar, Rmean, Rvar);
   }
   //for (i=0; i<best_i; ++i) _vec[i].x += 1;
@@ -711,7 +730,7 @@ void do_thr (char *OUT, char *RETS, char *prm) {
     free_vec (ret);
     show_progress (r, nr, "ranked lists");
   }
-  printf ("%d ranked lists\n", nr); 
+  printf ("%d ranked lists\n", nr);
   free_coll (rets); free_coll (outs);
 }
 
@@ -719,20 +738,20 @@ void do_thr (char *OUT, char *RETS, char *prm) {
 // -rnk : try out different drag models : supercedes -test and -test2
 //////////////////////////////////////////////////////////////////////
 
-void dump_svm_vec (float y, ix_t *vec, FILE *out) { 
+void dump_svm_vec (float y, ix_t *vec, FILE *out) {
   ix_t *v = vec-1, *vEnd = vec+len(vec);
   fprintf (out, "%.0f", y);
   while (++v < vEnd) fprintf (out, " %d:%.4f", v->i, v->x);
   fprintf (out, "\n");
 }
 
-void save_svm_vec (float y, ix_t *vec, char *path, char *mode) { 
-  FILE *out = safe_fopen (path, mode); 
+void save_svm_vec (float y, ix_t *vec, char *path, char *mode) {
+  FILE *out = safe_fopen (path, mode);
   dump_svm_vec (y, vec, out);
   fclose(out);
 }
 
-void save_svm_vecs (ix_t *set, coll_t *vecs, char *path, char *mode) { 
+void save_svm_vecs (ix_t *set, coll_t *vecs, char *path, char *mode) {
   FILE *out = safe_fopen (path, mode); ix_t *s;
   for (s = set; s < set + len(set); ++s) {
     ix_t *vec = get_vec (vecs, s->i);
@@ -742,11 +761,11 @@ void save_svm_vecs (ix_t *set, coll_t *vecs, char *path, char *mode) {
   fclose(out);
 }
 
-void load_svm_preds (ix_t *set, char *path) { 
-  char line[999]; 
+void load_svm_preds (ix_t *set, char *path) {
+  char line[999];
   ix_t *s = set, *sEnd = set + len(set);
-  FILE *in = safe_fopen (path, "r"); 
-  while (fgets (line, 999, in) ) 
+  FILE *in = safe_fopen (path, "r");
+  while (fgets (line, 999, in) )
     if (*line == 'l' || *line == '#') continue;
     else if (s < sEnd) s++->x = atof (line);
     else fprintf (stderr, "ERROR: extra line in %s: %s", path, line);
@@ -780,20 +799,19 @@ rnk_t *ixy_to_rnk (ixy_t *ixy, uint top) {
 
 uint rnk_count (char what, rnk_t *rnk, uint set) {
   uint count = 0; rnk_t *r, *end = rnk+len(rnk);
-  for (r = rnk; r < end; ++r) 
+  for (r = rnk; r < end; ++r)
     if      (what == 'r' && r->rel == set)                  ++count; // relevant to set
     else if (what == 's' && r->set == set)                  ++count; // currently in set
     else if (what == 'd' && r->set == set && r->sim == Inf) ++count; // dragged to set
     else if (what == 'm' && r->rel > count) count = r->rel; // max set id
-  return count; 
+  return count;
 }
 
 ix_t *rnk_sets (rnk_t *rnk) {
   uint i, n = len(rnk);
   ix_t *sets = const_vec (n,1);
   for (i=0;i<n;++i) sets[i].i = rnk[i].rel;
-  sort_vec (sets, cmp_ix_i);
-  uniq_vec (sets);
+  sort_uniq_vec (sets);
   return sets;
 }
 
@@ -810,12 +828,12 @@ uint rnk_num_sets (rnk_t *rnk) { // count sets with rel docs
 }
 
 float rnk_eval_binary (rnk_t *rnk, char *type) {
-  float relret = 0, rel = 0, ret = 0, ap = 0; 
+  float relret = 0, rel = 0, ret = 0, ap = 0;
   rnk_t *r;
   for (r = rnk; r < rnk+len(rnk); ++r) {
     if (r->rel == 1) ++rel;
     if (r->set == 1) ++ret;
-    if (r->rel == 1 && r->set == 1) ap += (++relret / ret); 
+    if (r->rel == 1 && r->set == 1) ap += (++relret / ret);
   }
   if (*type == 'R') return relret / rel;
   if (*type == 'P') return relret / ret;
@@ -830,7 +848,7 @@ float rnk_eval_multi (rnk_t *rnk, char *type) {
   float *rel = new_vec (m,sizeof(float)), sumR  = 0;
   float *ret = new_vec (m,sizeof(float)), sumP  = 0;
   float *ap  = new_vec (m,sizeof(float)), sumAP = 0;
-  rnk_t *r; 
+  rnk_t *r;
   for (r = rnk; r < rnk+len(rnk); ++r) {
     uint set = r->set, tru = r->rel, ok = (set == tru) ? 1 : 0;
     assert (r->rel < m && r->set < m);
@@ -892,7 +910,7 @@ void rnk_show_set (rnk_t *rnk, uint set) {
 
 void rnk_show (rnk_t *rnk) {
   uint set, m = rnk_max_set(rnk);
-  for (set = 0; set <= m; ++set) 
+  for (set = 0; set <= m; ++set)
     if (!set || rnk_count ('r',rnk,set)) rnk_show_set (rnk,set);
 }
 
@@ -915,7 +933,7 @@ float ret_thresh (ix_t *_ret, uint top) {
 ix_t *rnk_get_ret (coll_t *sims, uint doc, char *prm) {
   float knn = getprm (prm, "knn=", 1);// P = getprm (prm, "P=", 1);
   ix_t *nns = get_vec (sims, doc); // similarity of dragged doc to everything
-  if (knn == 1) return nns; 
+  if (knn == 1) return nns;
   trim_vec (nns, knn); // take top nearest neighbours with weights
   //vec_x_num (nns, '^', P); // smooth / sharpen the weights
   vec_x_num (nns, '/', sum(nns)); // make weights sum to 1
@@ -924,10 +942,10 @@ ix_t *rnk_get_ret (coll_t *sims, uint doc, char *prm) {
   return ret;
 }
 
-void rnk_drag_1nn (rnk_t *rnk, rnk_t *r, uint set, char *prm) { 
+void rnk_drag_1nn (rnk_t *rnk, rnk_t *r, uint set, char *prm) {
   float thresh = getprm (prm, "sim=", -Inf); // similarity threshold
   uint top = getprm (prm, "top=", 10); // max neighbours to drag
-  ix_t *ret = rnk_get_ret (SIMS, r->doc, prm); /// get_vec (sims, r->doc);   
+  ix_t *ret = rnk_get_ret (SIMS, r->doc, prm); /// get_vec (sims, r->doc);
   if (thresh == -Inf) thresh = ret_thresh (ret, top);
   printf ("t=%.2f\n", thresh);
   trim_vec (ret, top);
@@ -951,7 +969,7 @@ ix_t *nearest_docs (ix_t *set, int knn, rnk_t *rnk, uint rank) {
 
 ix_t *nearest_knn (ix_t *set, uint K, rnk_t *rnk) {
   ix_t *out = rnk_select (rnk, "a", 0), *d; // all docs we need
-  for (d = out; d < out+len(out); ++d) { // for each doc 
+  for (d = out; d < out+len(out); ++d) { // for each doc
     ix_t *tmp = get_vec (SIMT,d->i); // sim of all docs to this one
     ix_t *sim = vec_x_vec (tmp, '&', set); // remove docs not in set
     trim_vec (sim, K); // pick k nearest neighbours (from set)
@@ -967,7 +985,7 @@ ix_t *examples_for_set (uint set, rnk_t *rnk, char *prm) {
   int Near = getprm (prm, "near=", 0), Far = getprm (prm, "far=", 0);
   int rank = getprm (prm, "rank=", 0);
   float farw = getprm (prm, "farw=", 1);
-  ix_t *pos = rnk_select (rnk,"dragged",set); vec_x_num (pos,'=',1); 
+  ix_t *pos = rnk_select (rnk,"dragged",set); vec_x_num (pos,'=',1);
   if (Near && len(pos)) { // add docs nearest to positive examples
     float irank = getprm (prm, "irank=",0), p = getprm (prm,"p=",0); (void) irank;
     ix_t *near = nearest_docs (pos, Near, rnk, 0);
@@ -982,7 +1000,7 @@ ix_t *examples_for_set (uint set, rnk_t *rnk, char *prm) {
     ix_t *all = rnk_select (rnk,"Dragged",0);        vec_x_num (all,'=',1);
     ix_t *far = nearest_docs (all, -Far, rnk, rank); vec_x_num (far,'=',1);
     free_vec (pos); free_vec (all);
-    pos = far; 
+    pos = far;
     vec_x_num (pos, '/', sum(pos)/farw); // make weights sum to farw
   }
   return pos;
@@ -993,18 +1011,18 @@ void rnk_drag_svm (rnk_t *rnk, char *prm) { // thread-unsafe: centroid + system(
   save_svm_vec (0, centroid(DOCS), "./train.vecs", "w");
   for (set = 0; set <= m; ++set) {
     if (set && !rnk_count ('r',rnk,set)) continue;
-    ix_t *pos = examples_for_set (set, rnk, prm); 
-    vec_x_num (pos,'=',set); 
-    save_svm_vecs (pos, DOCS, "./train.vecs", "a"); 
+    ix_t *pos = examples_for_set (set, rnk, prm);
+    vec_x_num (pos,'=',set);
+    save_svm_vecs (pos, DOCS, "./train.vecs", "a");
     free_vec (pos);
   }
   ix_t *test = rnk_select (rnk, "All docs", 0), *a;
-  save_svm_vecs (test, DOCS, "./test.vecs", "w");  
+  save_svm_vecs (test, DOCS, "./test.vecs", "w");
   system ("./csvm.csh"); // test.vecs -> SVM -> test.predictions
   load_svm_preds (test, "./test.pred");
   rnk_t *r, *rEnd = rnk+len(rnk);
   for (r=rnk, a=test; r < rEnd; ++r, ++a) if (r->sim < Inf) r->set = a->x;
-  free_vec (test); 
+  free_vec (test);
 }
 
 void rnk_drag_ann (rnk_t *rnk, char *prm) {
@@ -1012,7 +1030,7 @@ void rnk_drag_ann (rnk_t *rnk, char *prm) {
   uint set, m = rnk_max_set (rnk);
   for (set = 0; set <= m; ++set) {
     if (set && !rnk_count ('r',rnk,set)) continue;
-    ix_t *pos = examples_for_set (set, rnk, prm); 
+    ix_t *pos = examples_for_set (set, rnk, prm);
     ix_t *ret = knn ? nearest_knn(pos,knn,rnk) : nearest_docs(pos,len(rnk),rnk,0);
     rnk_t *r, *rEnd = rnk+len(rnk);
     for (r = rnk; r < rEnd; ++r) {
@@ -1024,7 +1042,7 @@ void rnk_drag_ann (rnk_t *rnk, char *prm) {
 }
 
 ix_t *qry_centr (ix_t *docs) {
-  ix_t *qry = cols_x_vec (DOCS, docs); 
+  ix_t *qry = cols_x_vec (DOCS, docs);
   vec_x_num (qry, '/', sum(docs));
   return qry;
 }
@@ -1072,7 +1090,7 @@ ix_t *qry_gain (ix_t *pos, ix_t *neg) {
 
 ix_t *rnk_qry (ix_t *pos, char *prm) { // thread-unsafe: qry_diff qry_clarity
   uint qlen = getprm(prm,"len=",0);
-  //strstr(prm,"gain") ? qry_gain (pos, neg) : 
+  //strstr(prm,"gain") ? qry_gain (pos, neg) :
   ix_t *qry = (strstr(prm,"clar") ? qry_clarity (pos, prm) :
 	       strstr(prm,"logr") ? qry_logr (pos, prm) :
 	       strstr(prm,"cent") ? qry_centr (pos) :
@@ -1083,20 +1101,20 @@ ix_t *rnk_qry (ix_t *pos, char *prm) { // thread-unsafe: qry_diff qry_clarity
 }
 
 void rnk_drag_qry (rnk_t *rnk, char *prm) {  // thread-unsafe: rnk_qry
-  float thresh = getprm (prm, "thresh=", -Inf); 
+  float thresh = getprm (prm, "thresh=", -Inf);
   uint set, m = rnk_max_set (rnk);
   for (set = 0; set <= m; ++set) {
     if (set && !rnk_count ('r',rnk,set)) continue;
-    ix_t *pos = examples_for_set (set, rnk, prm); 
-    ix_t *qry = rnk_qry (pos, prm); 
-    ix_t *ret = cols_x_vec (INVL, qry); 
+    ix_t *pos = examples_for_set (set, rnk, prm);
+    ix_t *qry = rnk_qry (pos, prm);
+    ix_t *ret = cols_x_vec (INVL, qry);
     rnk_t *r, *rEnd = rnk+len(rnk);
     for (r = rnk; r < rEnd; ++r) {
       float sim = vec_get (ret, r->doc);
       if (sim > thresh && sim > r->sim) { r->sim = sim; r->set = set; }
     }
     free_vec (pos); free_vec (qry); free_vec (ret);
-  } 
+  }
 }
 
 void rnk_drag (rnk_t *rnk, rnk_t *r, char *prm) { // thread-unsafe: rnk_drag_qry
@@ -1135,7 +1153,7 @@ float rnk_round_robin (rnk_t *rnk, uint q, char *prm) { // thread-unsafe: rnk_dr
   while (drags-- > 0) {
     for (set = m; set >= minset; --set) { // round-robin drags
       if (set && !rnk_count ('r',rnk,set)) continue; // skip empty sets
-      rnk_t *r = rnk_find_miss (rnk, set); 
+      rnk_t *r = rnk_find_miss (rnk, set);
       if (!r) break;
       rnk_drag (rnk,r,prm); // drag doc into its list
       sumF1 += rnk_eval_multi(rnk,"F1"); ++numF1;
@@ -1240,7 +1258,7 @@ void do_size (char *_C) {
   free_coll(C);
 }
 
-char *usage = 
+char *usage =
   "kvs                           - optional [parameters] are in brackets\n"
   "  -m 256                      - set mmap size to 256MB\n"
   "  -rs 1                       - set random seed to 1\n"
@@ -1251,6 +1269,7 @@ char *usage =
   //"  -merge C = A + B            - C[i] = A[i] + B[i] (concatenates records)\n"
   //"  -rekey A a = B b [addnew]   - A[j] = B[i] where key = a[j] = b[i]\n"
   //"   merge A += B [prm]         - A[j] += B[i] (concat, assume ids compatible)\n"
+  "   rekey A a += B b [addnew]  - A[j] = B[i] (replace) where key = a[j] = b[i]\n"
   "   merge A a += B b [prm]     - A[j] += B[i] (concat) where key = a[j] = b[i]\n"
   "                                prm: addnew ... add new keys if not in a\n"
   "  -stat XML HASH              - stats (cf,df) from collection XML -> stdout\n"
@@ -1280,7 +1299,7 @@ char *usage =
 
 int main (int argc, char *argv[]) {
   char *QRY, *DICT, *INVL, *DOCS, *XML, *RNDR, *RELS, *RETS, *SIMS, *OUT, *ORDER, *PAIRS, *RANKS;
-  if (argc < 3) return fprintf (stderr, "%s", usage); 
+  if (argc < 3) return fprintf (stderr, "%s", usage);
   ix_t *qry = NULL, *ret = NULL;
   vtime();
   while (++argv && --argc) {
@@ -1293,11 +1312,13 @@ int main (int argc, char *argv[]) {
     //!strcmp (a(2), "="))     merge_colls (a(1), a(3), a(5));
     //if (!strcmp (a(0), "-rekey") &&
     //!strcmp (a(3), "="))     rekey_coll (a(1), a(2), a(4), a(5), a(6));
-    if (!strcmp (a(0), "merge") && 
+    if (!strcmp (a(0), "rekey") &&
+	!strcmp (a(3), "+="))    do_rekey (a(1), a(2), a(4), a(5), a(6));
+    if (!strcmp (a(0), "merge") &&
 	!strcmp (a(3), "+="))    do_merge (a(1), a(2), a(4), a(5), a(6));
-    if (!strcmp (a(0), "merge2") && 
+    if (!strcmp (a(0), "merge2") &&
 	!strcmp (a(3), "+="))    do_merge2 (a(1), a(2), a(4), a(5), a(6));
-    //if (!strcmp (a(0), "merge") && 
+    //if (!strcmp (a(0), "merge") &&
     //!strcmp (a(2), "+="))    do_merge (a(1), NULL, a(3), NULL, a(4));
     if (!strcmp (a(0), "-dump")) dump_raw (a(1), a(2), a(3));
     if (!strcmp (a(0), "-rand")) dump_rnd (a(1), a(2));
@@ -1306,9 +1327,9 @@ int main (int argc, char *argv[]) {
     if (!strcmp (a(0), "-stat")) do_stats (a(1), a(2));
     if (!strcmp (a(0), "-qry")) qry = do_qry (QRY=a(1), DICT=a(2), a(3));
     if (!strcmp (a(0), "-ret")) ret = do_ret (qry, INVL=a(1), a(2)); // free ret
-    if (!strcmp (a(0), "-exp")) qry = do_exp (qry, ret, DOCS=a(1), a(2)); 
-    if (!strcmp (a(0), "-sort")) do_sort (ret, ORDER=a(1), a(2)); 
-    if (!strcmp (a(0), "-pair")) do_pairs (ret, RANKS=a(1), PAIRS=a(2)); 
+    if (!strcmp (a(0), "-exp")) qry = do_exp (qry, ret, DOCS=a(1), a(2));
+    if (!strcmp (a(0), "-sort")) do_sort (ret, ORDER=a(1), a(2));
+    if (!strcmp (a(0), "-pair")) do_pairs (ret, RANKS=a(1), PAIRS=a(2));
     if (!strcmp (a(0), "-out")) do_out (ret, XML=a(1), RNDR=a(2));
     if (!strcmp (a(0), "-test")) do_test (RELS=a(1), RETS=a(2), SIMS=a(3), a(4));
     if (!strcmp (a(0), "-test2")) do_test2 (RELS=a(1), RETS=a(2), SIMS=a(3), a(4));

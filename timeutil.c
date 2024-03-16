@@ -1,25 +1,26 @@
 /*
-  
+
   Copyright (c) 1997-2021 Victor Lavrenko (v.lavrenko@gmail.com)
-  
+
   This file is part of YARI.
-  
+
   YARI is free software: you can redistribute it and/or modify it
   under the terms of the GNU General Public License as published by
   the Free Software Foundation, either version 3 of the License, or
   (at your option) any later version.
-  
+
   YARI is distributed in the hope that it will be useful, but WITHOUT
   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
   License for more details.
-  
+
   You should have received a copy of the GNU General Public License
   along with YARI. If not, see <http://www.gnu.org/licenses/>.
-  
+
 */
 
 #include "timeutil.h"
+#include "hl.h"
 
 double mstime () { // time in milliseconds
   struct timespec tp;
@@ -28,7 +29,7 @@ double mstime () { // time in milliseconds
 }
 
 double ftime () { // time in seconds.micros since epoch
-  struct timeval tv; 
+  struct timeval tv;
   struct timezone tz;
   if (!gettimeofday(&tv,&tz)) return tv.tv_sec + tv.tv_usec / 1E6;
   perror("gettimeofday failed");
@@ -36,7 +37,7 @@ double ftime () { // time in seconds.micros since epoch
 }
 
 unsigned long ustime () { // time in microseconds since epoch
-  struct timeval tv; 
+  struct timeval tv;
   struct timezone tz;
   if (!gettimeofday(&tv,&tz)) return 1E6 * tv.tv_sec + tv.tv_usec;
   perror("gettimeofday failed");
@@ -49,8 +50,25 @@ double msdiff (double *t) {
   return t0 ? (*t - t0) : 0;
 }
 
+// print time elapsed since last call
+void loglag(char *tag) {
+  static double t0 = 0;
+  double t1 = mstime(), lag = t1 - t0;
+  t0 = t1;
+  if (!tag || !*tag) return;
+  char *color = (lag <   10 ? fg_GREEN :
+		 lag <   30 ? fg_CYAN :
+		 lag <  100 ? fg_YELLOW :
+		 lag <  300 ? fg_MAGENTA :
+		 lag < 1000 ? fg_RED : bg_MAGENTA);
+  fputs(color,stderr);
+  fputs(tag,stderr);
+  fputs(" "RESET,stderr);
+}
+
+
 // convert abbreviated time to number of seconds, e.g. 2h --> 7200
-int str2seconds (char *s) { 
+int str2seconds (char *s) {
   char *ptr = s;
   double sec = (int) strtod (s, &ptr);
   if      (*ptr == 'm') sec *= MINUTES;
@@ -61,11 +79,11 @@ int str2seconds (char *s) {
 }
 
 // convert string expression, e.g. 2004-02-13,18:01:39 --> unix timestamp
-time_t strf2time (char *str, char *fmt) { 
-  struct tm tm; 
+time_t strf2time (char *str, char *fmt) {
+  struct tm tm;
   memset (&tm, 0, sizeof(struct tm));
   if (!strptime(str, fmt, &tm)) return 0;
-  tm.tm_isdst = -1; // strptime does not set this!!! 
+  tm.tm_isdst = -1; // strptime does not set this!!!
   time_t time = mktime (&tm);
   return (unsigned) time;
   //printf ("%s -> %u -> %s \n", str, (unsigned) time, time2strf(time,"%F,%T"));
@@ -83,7 +101,7 @@ time_t str2time (char *str) {
 }
 
 struct tm time2tm (time_t time) {
-  struct tm tm; 
+  struct tm tm;
   localtime_r (&time, &tm);
   return tm;
 }
@@ -91,10 +109,10 @@ struct tm time2tm (time_t time) {
 char *time2strf (char *buf, char *format, time_t time) {
   struct tm tm = time2tm (time);
   strftime (buf, 199, format, &tm);
-  return buf; 
+  return buf;
 }
 
-char *time2str (char *buf, time_t time) { 
+char *time2str (char *buf, time_t time) {
   return time2strf (buf, "%F,%T", time);
 }
 

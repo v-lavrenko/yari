@@ -133,8 +133,7 @@ void seqs2kmer (char *_CODE, char *_SEQS, char *prm) { // thread-unsafe: show_pr
 
 void pos2freq (ix_t *pos) { // [ (id,pos) ] -> [ (id,freq) ]
   vec_x_num (pos, '=', 1);
-  sort_vec (pos, cmp_ix_i);
-  uniq_vec (pos);
+  sort_uniq_vec (pos);
 }
 
 ix_t *pos2loc (ix_t *P, uint N) { // [ (id,pos) ] -> [ (idpos,freq) ]
@@ -146,8 +145,7 @@ ix_t *pos2loc (ix_t *P, uint N) { // [ (id,pos) ] -> [ (idpos,freq) ]
       l->i = ROT(id,24) ^ ROT(pos,8); // shift-XOR: id + position
       ++l;
     }
-  sort_vec (loc, cmp_ix_i);
-  uniq_vec (loc);
+  sort_uniq_vec (loc);
   return loc;
 }
 

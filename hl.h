@@ -1,22 +1,22 @@
 /*
-  
+
   Copyright (c) 1997-2021 Victor Lavrenko (v.lavrenko@gmail.com)
-  
+
   This file is part of YARI.
-  
+
   YARI is free software: you can redistribute it and/or modify it
   under the terms of the GNU General Public License as published by
   the Free Software Foundation, either version 3 of the License, or
   (at your option) any later version.
-  
+
   YARI is distributed in the hope that it will be useful, but WITHOUT
   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
   License for more details.
-  
+
   You should have received a copy of the GNU General Public License
   along with YARI. If not, see <http://www.gnu.org/licenses/>.
-  
+
 */
 
 // http://ascii-table.com/ansi-escape-sequences.php
@@ -44,3 +44,6 @@
 #define bg_MAGENTA ESC"45m"
 #define bg_CYAN    ESC"46m"
 #define bg_WHITE   ESC"47m"
+
+#define fg_COLORS {fg_RED, fg_GREEN, fg_BLUE, fg_MAGENTA, fg_CYAN, fg_YELLOW, fg_WHITE, fg_BLACK}
+#define bg_COLORS {bg_YELLOW, bg_CYAN, bg_MAGENTA, bg_GREEN, bg_BLUE, bg_RED, bg_WHITE, bg_BLACK}

@@ -1,22 +1,22 @@
 /*
-  
+
   Copyright (c) 1997-2021 Victor Lavrenko (v.lavrenko@gmail.com)
-  
+
   This file is part of YARI.
-  
+
   YARI is free software: you can redistribute it and/or modify it
   under the terms of the GNU General Public License as published by
   the Free Software Foundation, either version 3 of the License, or
   (at your option) any later version.
-  
+
   YARI is distributed in the hope that it will be useful, but WITHOUT
   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
   License for more details.
-  
+
   You should have received a copy of the GNU General Public License
   along with YARI. If not, see <http://www.gnu.org/licenses/>.
-  
+
 */
 #define _GNU_SOURCE
 #include <assert.h>
@@ -27,6 +27,7 @@
 #include <math.h>
 #include "hash.h"
 #include "textutil.h"
+#include "hl.h"
 
 char *default_ws = " \t\r\n~`!@#$%^&*()_-+=[]{}|\\:;\"'<>,.?/";
 
@@ -44,6 +45,17 @@ char *strRchr (char *beg, char *end, char key) {
 
 // find 'c' in "s" and return pointer after 'c', or NULL
 char *strchr1 (char *s, char c) { s = strchr(s,c); return s ? s+1 : 0; }
+
+// find "t" in "s" and return pointer after "t", or NULL
+char *strstr1 (char *s, char *t) { s = strstr(s,t); return s ? s+strlen(t) : 0; }
+
+// pointer to last t in s or NULL
+char *strrstr (char *s, char *t) {
+  char *last = NULL;
+  uint n = strlen(t);
+  while ((s = strstr(s,t))) { last = s; s += n; }
+  return last;
+}
 
 // in str replace any occurence of chars from what[] with 'with'
 void csub (char *str, char *what, char with) {
@@ -84,7 +96,7 @@ void no_xml_refs (char *S) {
   while (*++s) {
     if (*s == '&') r = beg = s; // most recent start
     if (*s != ';') continue;
-    // beg..s is a possible &quot;    
+    // beg..s is a possible &quot;
     if (s - beg > 10) { beg = 0; continue; } // too long
     while (++r < s) // r..s must be [#a-zA-Z0-9]
       if (!(isalnum(*r) || *r == '#')) { beg = 0; continue; }
@@ -101,7 +113,7 @@ void gsub_xml_refs (char *S, hash_t *SRC, coll_t *TRG) {
 	 (end = strchr(beg,';'))) { // end -> ';'
     char tmp = end[1]; // save what was after ';'
     end[1] = '\0'; // null-terminate '&plusmn;'
-    uint id = has_key(SRC,beg); 
+    uint id = has_key(SRC,beg);
     if (id) { // we have a mapping for '&plusmn;'
       char *trg = get_chunk(TRG,id); // target '+/-'
       //printf("replacing '%s' -> '%s'\n", beg, trg);
@@ -110,32 +122,52 @@ void gsub_xml_refs (char *S, hash_t *SRC, coll_t *TRG) {
     }
     end[1] = tmp; // restore what was after ';'
   }
-  squeeze (S, "\r");
+  squeeze (S, "\r", NULL);
 }
 
 void no_xml_tags (char *S) {
-  char *s = S-1, in = 0;
+  char *s = S-1, *t = S, in = 0;
   while (*++s) {
-    if      (*s == '<') { in = 1; *s = ' '; }
-    else if (*s == '>') { in = 0; *s = ' '; }
-    else if (in) *s = ' ';
+    char escaped = (s > S) && (s[-1] == '\\'); // escaped char
+    if      (*s == '<' && !escaped) { in = 1; }
+    else if (*s == '>' && !escaped) { in = 0; }
+    else if (!in) *t++ = *s;
   }
-  spaces2space (S);
+  *t = '\0';
 }
 
-// in str replace any occurence of chars from punctuation[] with nothing
-void squeeze (char *str, char *what) {
+
+
+
+// str will have no chars from drop[], only those in keep[]
+void squeeze (char *str, char *drop, char *keep) {
   if (!str) return;
-  if (!what) what = default_ws;
-  char *s, *t; 
-  for (t=s=str; *s; ++s) if (!strchr (what, *s)) *t++ = *s;
+  if (!drop && !keep) drop = default_ws;
+  char *s, *t;
+  if (drop) { for (t=s=str; *s; ++s) if (!strchr (drop, *s)) *t++ = *s; }
+  else      { for (t=s=str; *s; ++s) if  (strchr (drop, *s)) *t++ = *s; }
   *t = 0; // new string may be shorter
+}
+
+int alphanumeric (char *str) {
+  char *s, *ok = "-";
+  for (s=str; *s; ++s)
+    if (!isalnum(*s) && !strchr(ok, *s)) return 0;
+  return 1;
+}
+
+// squeeze out any non-alphanumeric characters
+void alphanumerize (char *str) {
+  char *s, *t, *ok = "-";
+  for (t=s=str; *s; ++s)
+    if (isalnum(*s) || strchr(ok, *s)) *t++ = *s;
+  *t = 0;
 }
 
 // replace: multiple paces -> single space
 void spaces2space (char *str) {
   if (!str || !*str) return;
-  char *s, *t;  
+  char *s, *t;
   for (t=s=str+1; *s; ++s)
     if (s[0] != ' ' || s[-1] != ' ') *t++ = *s;
   *t = 0; // new string may be shorter
@@ -178,12 +210,27 @@ char **split (char *str, char sep) {
 uint split2 (char *str, char sep, char **_tok, uint ntoks) {
   char **tok = _tok, **last = _tok + ntoks - 1;
   *tok++ = str;
-  for (; *str; ++str) if (*str == sep) { 
-      *str++ = 0; 
-      *tok++ = str; 
+  for (; *str; ++str) if (*str == sep) {
+      *str++ = 0;
+      *tok++ = str;
       if (tok > last) break;
     }
   return tok - _tok;
+}
+
+// split, but with string separator
+char **strsplit (char *str, char *sep) {
+  uint n = strlen(sep);
+  char **result = new_vec (0, sizeof(char*));
+  char *beg = str, *end = NULL, *part = NULL;
+  while ((end = strstr(beg,sep))) {
+    part = strndup (beg, end-beg);
+    result = append_vec (result, &part);
+    beg = end + n;
+  }
+  part = strdup(beg);
+  result = append_vec (result, &part);
+  return result;
 }
 
 void noeol (char *str) {
@@ -199,7 +246,7 @@ void chop (char *str, char *blanks) {
   len = strlen (beg);
   memmove (str, beg, len); // slide right
   str [len] = '\0'; // null-terminate
-  for (end = str + len - 1; end >= str && strchr (blanks, *end); --end) 
+  for (end = str + len - 1; end >= str && strchr (blanks, *end); --end)
     *end = '\0'; // zero out trailing blanks
 }
 
@@ -219,7 +266,7 @@ uint atou (char *s) { // string to integer (unsigned, decimal)
   return U;
 }
 
-void reverse (char *str, uint n) { 
+void reverse (char *str, uint n) {
   char *beg = str-1, *end = str + n, tmp;
   while (++beg < --end) { tmp = *beg; *beg = *end; *end = tmp; }
 }
@@ -246,6 +293,31 @@ void erase_between (char *buf, char *A, char *B, int C) {
     memset (a, C, b + lenB - a);
     a = b + lenB;
   }
+}
+
+void stop_at_chr (char *text, char *chr) {
+  uint n = strcspn(text,chr);
+  text[n] = '\0';
+}
+
+void stop_at_str (char *text, char *str) {
+  char *end = strstr(text, str);
+  if (end) *end = '\0';
+}
+
+// 1 if S starts with T else 0
+int begins(char *S, char *T) { return !strncmp(S,T,strlen(T)); }
+
+// copy part of S before B
+char *str_before (char *S, char *B) {
+  char *p = strstr(S, B);
+  return p ? strndup(S, p-S) : NULL;
+}
+
+// copy part of S after A
+char *str_after (char *S, char *A) {
+  char *p = strstr(S, A);
+  return p ? strdup (p+strlen(A)) : NULL;
 }
 
 // extract the text between A and B
@@ -276,9 +348,9 @@ char *extract_between_nocase (char *buf, char *A, char *B){
 }
 
 char *parenthesized (char *str, char open, char close) {
-  int depth = 0; char *beg = strchr(str,open), *s; 
+  int depth = 0; char *beg = strchr(str,open), *s;
   if (!beg) return NULL; // no opening paren
-  for (s = beg; *s; ++s) 
+  for (s = beg; *s; ++s)
     if      (*s == close && --depth == 0) break;
     else if (*s == open)    ++depth;
   if (!*s) return NULL; // no closing paren
@@ -286,13 +358,13 @@ char *parenthesized (char *str, char open, char close) {
 }
 
 char closing_paren (char open) {
-  return (open == '"' ? '"' :  open == '{' ? '}' : open == '[' ? ']' : 
-	  open == '(' ? ')' :  open == '<' ? '>' : '\0'); 
+  return (open == '"' ? '"' :  open == '{' ? '}' : open == '[' ? ']' :
+	  open == '(' ? ')' :  open == '<' ? '>' : '\0');
 }
 
 uint parenspn (char *str) { // span of parenthesized string starting at *str
   char *s, open = *str, close = closing_paren (open);
-  int depth = 0; 
+  int depth = 0;
   for (s = str; *s; ++s)
     if      (*s == open)    ++depth;
     else if (*s == close && --depth == 0) {++s; break;}
@@ -324,7 +396,7 @@ double json_numval (char *json, char *_key) {
   char *neg = "no,false,negative,absent"; // unknown, not present
   char *val = json_value (json, _key);
   double num = (!val || !*val) ? 0 : strstr(neg,val) ? 0 : strstr(pos,val) ? 1 : atof(val);
-  free (val); 
+  free (val);
   return num;
 }
 
@@ -332,7 +404,7 @@ char *json_pair (char *json, char *_str) {
   if (!json || !_str) return NULL;
   char *str = strcasestr(json,_str);
   if (!str) return NULL;
-  char *beg = strRchr(json,str,'"'), *end = strchr(str,'"')+1; 
+  char *beg = strRchr(json,str,'"'), *end = strchr(str,'"')+1;
   if (beg == json || end == NULL+1) return NULL;
   char *sep = end + strcspn(end,":,]}");
   if (*sep == ':') { // "..str..": wantedValue
@@ -342,22 +414,22 @@ char *json_pair (char *json, char *_str) {
     //if (strchr("{[\"",*end)) end += parenspn(end); // {...} or [...] or "..."
   } else { // "wantedKey": "...str..."
     beg = strRchr(json,beg-1,':'); // key-value separator
-    beg = strRchr(json,beg-1,'"'); // closing of key 
+    beg = strRchr(json,beg-1,'"'); // closing of key
     beg = strRchr(json,beg-1,'"'); // opening of key
   }
   return strndup (beg, end-beg);
 }
 
-void json2text (char *json) { squeeze (json, "{}[]\""); }
+void json2text (char *json) { squeeze (json, "{}[]\"", NULL); }
 
 void purge_escaped (char *txt) { // remove \n, \\n etc
   char *s = txt + strlen(txt);
-  while (--s > txt) 
-    if (s[-1] == '\\' || *s == '\\') *s = ' ';    
+  while (--s > txt)
+    if (s[-1] == '\\' || *s == '\\') *s = ' ';
 }
 
 char *next_token (char **text, char *ws) {
-  if (!ws) ws = default_ws; 
+  if (!ws) ws = default_ws;
   char *beg = *text + strspn (*text, ws); // skip whitespace
   if (!*beg) return NULL;
   char *end = beg + strcspn (beg, ws); // end of non-white
@@ -367,13 +439,13 @@ char *next_token (char **text, char *ws) {
 }
 
 char *lowercase(char *_s) {
-  char *s = _s; 
+  char *s = _s;
   if (s) for (; *s; ++s) *s = tolower((int) *s);
   return _s;
 }
 
 char *uppercase(char *_s) {
-  char *s = _s; 
+  char *s = _s;
   if (s) for (; *s; ++s) *s = toupper((int) *s);
   return _s;
 }
@@ -402,8 +474,9 @@ hash_t *load_stoplist () {
   FILE *in = safe_fopen (fmt(path,"%s/default.stp",dir), "r");
   while (fgets (line, 1000, in)) {
     if (*line == '!' || *line == '#') continue; // skip comments
-    csub(line," \t",0); // terminate at first space / tab
+    csub(line," \t\n\r",0); // terminate at first space / tab
     key2id(H,line);
+    //fprintf(stderr, "'%s'\n", line);
     //printf ("adding '%s' from %s to hash\n", line, path);
   }
   fclose(in);
@@ -414,6 +487,7 @@ int stop_word (char *word) { // thread-unsafe: static
   static hash_t *stops = NULL;
   if (!stops) stops = load_stoplist();
   //if (has_key(stops,word)) printf ("%s is a stopword\n", word);
+  //fprintf(stderr, "%s -> %d\n", word, has_key (stops, word));
   return has_key (stops, word);
 }
 
@@ -431,7 +505,7 @@ char *toks2str (char **toks) { // ' '.join(toks)
   char *buf=0; int sz=0, i=-1, n = len(toks);
   while (++i<n) if (toks[i]) zprintf (&buf,&sz, "%s ", toks[i]);
   if (sz) buf[--sz] = '\0'; // chop trailing space
-  return buf;  
+  return buf;
 }
 
 void stem_toks (char **toks, char *type) {
@@ -447,17 +521,38 @@ void stop_toks (char **toks) { // thread-unsafe: static
   static hash_t *stops = NULL;
   if (!stops) stops = load_stoplist();
   char **v, **w, **end = toks+len(toks);
-  for (v = w = toks; w < end; ++w) 
+  for (v = w = toks; w < end; ++w)
     if (has_key (stops,*w)) free(*w);
     else *v++ = *w;
   len(toks) = v - toks;
+}
+
+// drop tokens with length outside [lo,hi]
+void keep_midsize_toks (char **toks, uint lo, uint hi) {
+  char **v, **w, **end = toks+len(toks);
+  for (v = w = toks; w < end; ++w) {
+    uint sz = strlen(*w);
+    if (sz < lo || sz > hi) free (*w);
+    else *v++ = *w;
+  }
+  len(toks) = v -toks;
+}
+
+// drop tokens that don't start with a letter
+void keep_wordlike_toks (char **toks) {
+  char **v, **w, **end = toks+len(toks);
+  for (v = w = toks; w < end; ++w) {
+    alphanumerize(*w);
+    if (isalpha(**w)) *v++ = *w;
+  }
+  len(toks) = v -toks;
 }
 
 char **vec2toks (ix_t *vec, hash_t *ids) {
   uint i, n = len(vec), sz = sizeof(char*);
   char **toks = new_vec (n, sz);
   for (i=0; i<n; ++i) toks[i] = id2str (ids, vec[i].i);
-  return toks;  
+  return toks;
 }
 
 ix_t *toks2vec (char **toks, hash_t *ids) {
@@ -493,6 +588,12 @@ void free_toks (char **toks) {
   char **t = toks-1, **end = toks+len(toks);
   while (++t < end) if (*t) free (*t);
   free_vec (toks);
+}
+
+void show_toks (char **toks, char *fmt) {
+  if (!fmt) fmt = "%s\n";
+  char **t = toks-1, **end = toks+len(toks);
+  while (++t < end) printf(fmt, *t);
 }
 
 char **readlines(char *path) {
@@ -562,10 +663,10 @@ char *get_xml_author (char *xml) {
 }
 
 // pointer after next opening <tag...>
-char *get_xml_open (char *xml, char *tag) { 
+char *get_xml_open (char *xml, char *tag) {
   char *p = xml+1; int n = strlen(tag);
   while ((p = strcasestr (p,tag))) { // look for "tag"
-    if (p[-1]=='<' && (p[n]=='>' || p[n]==' ')) // found <tag> or <tag ... ?       
+    if (p[-1]=='<' && (p[n]=='>' || p[n]==' ')) // found <tag> or <tag ... ?
       //return (p-1); // including tag
       return strchr1(p+n,'>'); // excluding tag
     else p += n;
@@ -596,7 +697,7 @@ char *get_xml_intag (char *xml, char *tag) {
 
 //char *get_xml_tag_attr (char *xml, char *tag, char *attr) {
 //  char *end = xml ? get_xml_open (xml, tag) : NULL; // find end of "<tag ...>"
-//  char *beg = end ? strRchr (xml, end, '<') : NULL; // find start  
+//  char *beg = end ? strRchr (xml, end, '<') : NULL; // find start
 //  //if (beg) beg = strchr(beg,'>'); // find end of "<tag ... >"
 //  char *end = beg ? get_xml_close (beg, tag) : NULL; // find "</tag"
 //  return end ? strndup (beg, end-beg) : NULL;
@@ -675,8 +776,8 @@ char *snippet1 (char *text, char *qry, int sz) {
 
 // list of pointers to all (non-overlapping) occurrences of qry in text
 char **strall (char *_text, char *qry) {
-  char **result = new_vec (0, sizeof(char*)); 
-  char *text = _text, *hit = 0; 
+  char **result = new_vec (0, sizeof(char*));
+  char *text = _text, *hit = 0;
   uint qlen = strlen(qry);
   while ((hit = strstr(text,qry))) {
     result = append_vec (result, &hit);
@@ -685,17 +786,18 @@ char **strall (char *_text, char *qry) {
   return result;
 }
 
-// result[i] = length of words[i] 
+// result[i] = length of words[i]
 uint *word_lengths (char **words) {
-  uint nw = len(words), i, *wlen = new_vec (nw, sizeof(uint)); 
+  uint nw = len(words), i, *wlen = new_vec (nw, sizeof(uint));
   for (i=0; i<nw; ++i) wlen[i] = strlen(words[i]);
   return wlen;
 }
 
 // return spans of all occurrences of all words in text
 // {i,j,k} i:start-offset j:end-offset k:word-identity
+// O (nWords * textLen) + O (nHits * log nHits)
 ijk_t *hits_for_all_words (char *_text, char **words) {
-  ijk_t *hits = new_vec (0, sizeof(ijk_t)); 
+  ijk_t *hits = new_vec (0, sizeof(ijk_t));
   char **w, **wEnd = words + len(words);
   for (w = words; w < wEnd; ++w) {
     uint wlen = strlen(*w);
@@ -710,6 +812,39 @@ ijk_t *hits_for_all_words (char *_text, char **words) {
   return hits;
 }
 
+// return start+end offsets for all unescaped <tags>
+// {i,j,k} i,j: start,end offsets of <tag>, k:zero
+ijk_t *hits_for_xml_tags (char *S) {
+  ijk_t *hits = new_vec (0, sizeof(ijk_t)), hit = {0,0,0};
+  char *s = S-1, in = 0;
+  while (*++s) {
+    char escaped = (s > S) && (s[-1] == '\\'); // escaped char
+    if (*s == '<' && !escaped) {
+      in = 1;
+      hit.i = s-S;
+    }
+    if (*s == '>' && !escaped && in) {
+      in = 0;
+      hit.j = s-S+1;
+      hits = append_vec (hits, &hit);
+    }
+  }
+  return hits; // sorted by construction
+}
+
+// drop hits that don't start with prefix
+ijk_t *hits_with_prefix (char *S, ijk_t *H, char *prefix) {
+  uint n = strlen(prefix);
+  ijk_t *h, *hits = new_vec(0, sizeof(ijk_t));
+  for (h = H; h < H+len(H); ++h)
+    if (!strncmp(S+h->i, prefix, n))
+      hits = append_vec (hits, h);
+  return hits;
+}
+
+
+
+
 // score for snippet that doesn't contain any hits
 //double score_empty (uint nwords, float eps) { return nwords * log(eps); }
 
@@ -718,22 +853,24 @@ ijk_t *hits_for_all_words (char *_text, char **words) {
 //  return - log (seen[w]/SZ + eps) + log ((seen[w]+=dw)/SZ + eps);
 //}
 
-float score_snippet (int *seen, uint sz, float eps) {
-  double score = 0, SZ = sz; uint i, n = len(seen);
-  for (i=0; i<n; ++i) score += log (seen[i]/SZ + eps);
+// O(nWords): score = SUM_w log P(w|snippet)
+float score_snippet (int *seen, float eps) {
+  double score = 0; uint i, n = len(seen);
+  for (i=0; i<n; ++i) score += log (seen[i] + eps);
   return (float) score;
 }
 
 // SZ-byte span with highest number of distinct hits
+// O(nHits * nWords) ... could be sped up by score_delta
 jix_t best_span (ijk_t *hits, uint nwords, uint SZ, float eps) {
-  jix_t best = {0, 0, -Infinity}; 
+  jix_t best = {0, 0, -Infinity};
   ijk_t *H = hits, *end = H+len(H), *L = H-1, *R = H, *h; uint i;
   int *seen = new_vec (nwords, sizeof(int)); // #times word[i] seen in [a..z]
   while (++L < end) { // for every left (L) border
     if (L > H) --seen [(L-1)->k]; // unsee word to left of L
     // advance R until |R-L| >= SZ seeing words R->k along the way
     for (; R<end && R->j < L->i+SZ; ++R) ++seen[R->k];
-    double score = score_snippet (seen, SZ, eps);
+    double score = score_snippet (seen, eps);
     if (score > best.x) best = (jix_t) {L->i, (R-1)->j, score};
     if (0) { // debug
       for (i=0; i<nwords; ++i) fprintf (stderr, "%d ", seen[i]);
@@ -745,6 +882,36 @@ jix_t best_span (ijk_t *hits, uint nwords, uint SZ, float eps) {
   free_vec (seen);
   return best;
 }
+
+// like best_span() but hits contain <tags> which don't eat up SZ
+jix_t best_span_xml (ijk_t *hits, uint nwords, uint SZ, float eps) {
+  jix_t best = {0, 0, -Infinity};
+  ijk_t *H = hits, *end = H+len(H), *L = H-1, *R = H-1, *h;
+  uint i, xml = 0, tag = 999999;
+  int *seen = new_vec (nwords, sizeof(int)); // #times word[i] seen in [a..z]
+  while (++L < end) { // for every left (L) border
+    // advance R until |R-L| >= SZ seeing words R->k along the way
+    while (++R < end) {
+      if (R->k == tag) xml += (R->j - R->i); // xml correction
+      if (R->j - L->i >= SZ + xml) break; // span becomes too long
+      if (R->k != tag) ++seen[R->k]; // saw a query term
+    }
+    double score = score_snippet (seen, eps);
+    if (score > best.x) best = (jix_t) {L->i, (R-1)->j, score};
+    if (0) { // debug
+      for (i=0; i<nwords; ++i) fprintf (stderr, "%d ", seen[i]);
+      fprintf (stderr, "= %.4f [%d..%d]", best.x, best.j, best.i);
+      for (h=L; h<R; ++h) fprintf (stderr, " %d:%d", h->k, h->i);
+      fprintf (stderr, "\n");
+    }
+    // unsee L for next iteration of the loop
+    if (L->k != tag) --seen [L->k]; // unsee a word
+    else xml -= L->j - L->i; // unsee an xml span
+  }
+  free_vec (seen);
+  return best;
+}
+
 
 // find whitespace closest to position in text, no farther than cap
 int nearest_ws (char *text, int position, int cap) {
@@ -767,7 +934,11 @@ jix_t broaden_span (char *text, jix_t span, int sz) {
   return (jix_t) {L, R, span.x};
 }
 
-char *snippet2 (char *text, char **words, int sz) {
+// all hits: O (nWords * textLen) + O(nH * log nH)
+// best span: O (nWords * nHits) +
+// broaden: O (textLen)
+// total: O (nWords * textLen)
+char *snippet2 (char *text, char **words, int sz, float *score) {
   if (!words || !len(words)) return strndup(text,sz); // no words => first sz bytes
   ijk_t *hits = hits_for_all_words (text, words);
   if (0) { // debug
@@ -777,13 +948,98 @@ char *snippet2 (char *text, char **words, int sz) {
     fprintf (stderr, "\nend:"); for (h=H; h<end; ++h) fprintf (stderr, "\t%d", h->j);
     fprintf (stderr, "\n");
   }
-  jix_t span = best_span (hits, len(words), sz, 0.1);
+  jix_t span = best_span (hits, len(words), sz, 0.001);
+  if (score) *score = span.x;
   span = broaden_span(text, span, sz);
   char *snip = strndup (text+span.j, span.i - span.j);
   if (0) fprintf (stderr, "%s\n", snip);
   free_vec (hits);
   return snip;
 }
+
+// snippet2 with highlighting
+char *hl_snippet (char *text, char **words, int sz, float *score) {
+  char *colors[] = fg_COLORS;
+  char *buf = 0; int bufsz = 0;
+  if (!words || !len(words)) return strndup(text,sz); // no words => first sz bytes
+  ijk_t *hits = hits_for_all_words (text, words), *h;
+  jix_t span = best_span (hits, len(words), sz, 0.001);
+  if (score) *score = span.x;
+  span = broaden_span(text, span, sz);
+  uint prev = span.j, stop = span.i;
+  //fprintf (stderr, "BEST_SPAN: [%d:%d]..%ld\n", prev, stop, strlen(text));
+  for (h = hits; h < hits+len(hits); ++h) {
+    if (h->i < prev) continue; // hit starts ouside window
+    if (h->j > stop) break; // hit ends outside window
+    char *color = colors[h->k % 6];
+    memcat (&buf, &bufsz, text + prev, h->i - prev); // text before hit
+    memcat (&buf, &bufsz, color, strlen(color));
+    memcat (&buf, &bufsz, text + h->i, h->j - h->i); // hit itself
+    memcat (&buf, &bufsz, RESET, strlen(RESET));
+    prev = h->j;
+  }
+  //memcat (&buf, &bufsz, text + prev, stop - prev); // after last hit
+  free_vec (hits);
+  return buf;
+}
+
+// snippet2 with tagging
+char *curses_snippet (char *text, char **words, int sz, float *score) {
+  char *buf = 0; int bufsz = 0;
+  if (!words || !len(words)) return strndup(text,sz); // no words => first sz bytes
+  ijk_t *hits = hits_for_all_words (text, words), *h;
+  jix_t span = best_span (hits, len(words), sz, 0.001);
+  if (score) *score = span.x;
+  span = broaden_span(text, span, sz);
+  uint prev = span.j, stop = span.i;
+  //fprintf (stderr, "BEST_SPAN: [%d:%d]..%ld\n", prev, stop, strlen(text));
+  for (h = hits; h < hits+len(hits); ++h) {
+    char color[9]; sprintf (color, "\t%c", '1' + (h->k % 6));
+    if (h->i < prev) continue; // hit starts ouside window
+    if (h->j > stop) break; // hit ends outside window
+    memcat (&buf, &bufsz, text + prev, h->i - prev); // text before hit
+    memcat (&buf, &bufsz, color, strlen(color));
+    memcat (&buf, &bufsz, text + h->i, h->j - h->i); // hit itself
+    memcat (&buf, &bufsz, "\t0", strlen("\t0"));
+    prev = h->j;
+  }
+  //memcat (&buf, &bufsz, text + prev, stop - prev); // after last hit
+  free_vec (hits);
+  return buf;
+}
+
+// snippet2 with html highlighting
+char *html_snippet (char *text, char **words, int sz, float *score) {
+  char *buf = 0; int bufsz = 0;
+  if (!words || !len(words)) return strndup(text,sz); // no words => first sz bytes
+  ijk_t *hits = hits_for_all_words (text, words), *h;
+  jix_t span = best_span (hits, len(words), sz, 0.001);
+  if (score) *score = span.x;
+  span = broaden_span(text, span, sz);
+  uint prev = span.j, stop = span.i;
+  //fprintf (stderr, "BEST_SPAN: [%d:%d]..%ld\n", prev, stop, strlen(text));
+  for (h = hits; h < hits+len(hits); ++h) {
+    char beg[9]; sprintf (beg, "<c%d>", 1 + (h->k % 6)); 
+    char end[9]; sprintf (end, "</c%d>", 1 + (h->k % 6));
+    //char *beg = "<b>", *end = "</b>";
+    if (h->i < prev) continue; // hit starts ouside window
+    if (h->j > stop) break; // hit ends outside window
+    memcat (&buf, &bufsz, text + prev, h->i - prev); // text before hit
+    memcat (&buf, &bufsz, beg, strlen(beg));
+    memcat (&buf, &bufsz, text + h->i, h->j - h->i); // hit itself
+    memcat (&buf, &bufsz, end, strlen(end));
+    prev = h->j;
+  }
+  if (h->j < stop && prev < stop)
+    memcat (&buf, &bufsz, text + prev, stop - prev); // after last hit
+  free_vec (hits);
+  return buf;
+}
+
+// slide sz-window over text, count words
+// numWords * sz * textLen much worse than snippet2
+//char *snippet3 (char *text, char **words, int sz) {
+//}
 
 //shortest span containing at least one hit for every word
 /*
@@ -796,7 +1052,7 @@ it_t range_hits (ijk_t *hits, uint nwords) {
     while (z < last && seen[need] < 1) ++seen [(++z)->k]; // ++z until see needed word
     while (a < last && seen[a->k] > 1) --seen [(a++)->k]; // ++a while no words lost
     if (a >= last || z >= last) break;
-    if (z->t - a->t + wlen[z->k] < 
+    if (z->t - a->t + wlen[z->k] <
 	Z->t - A->t + wlen[Z->k]) { A=a; Z=z; }
     --seen [need = a++->k];
   }
@@ -817,17 +1073,17 @@ it_t *range2hits (it_t *hits, it_t range, uint *wlen) {
   return subset;
 }
 
-// expand each hit to sz chars 
+// expand each hit to sz chars
 // TODO: adjust padding for JSON, XML, etc
 void widen_hits (it_t *hits, char *text, uint sz) {
-  int N = strlen(text); it_t *h; 
+  int N = strlen(text); it_t *h;
   for (h = hits; h < hits + len(hits); ++h) {
     h->i = nearest_ws (text, MAX(0,((int)h->i)-(int)(sz/2)), 100);
     h->t = nearest_ws (text, MIN(N,((int)h->t)+(int)(sz/2)), 100);
   }
 }
 
-// merge overlapping hits 
+// merge overlapping hits
 void merge_hits (it_t *hits, uint epsilon) {
   it_t *L, *R, *end = hits + len(hits);
   for (L = R = hits; R < end; ++R) {
@@ -857,13 +1113,12 @@ void fit_hits (it_t *hits, char *text, int sz) {
     A->t = Z->t; len(hits) = 1;
     return widen_hits (hits, text, sz - (A->t - A->i));
   }
-  int 
-  
+  int
+
 }
 */
 
 /*
-
 
 it_t *hits2cuts (it_t *hits) {
   it_t *cuts = new_vec (0, sizeof(it_t)), *h;
@@ -877,3 +1132,389 @@ it_t *hits2cuts (it_t *hits) {
   it_t *skip = new_vec
 }
 */
+
+// -------------------- Suffix Array --------------------
+
+/*
+char *sa_normalize (char *S, char *ws) {
+  char *s;
+  for (s = S; *s; ++s) if (strchr (ws, *s)) *s = ' ';
+  lowercase (buf);
+}
+
+// return a concatenation A|B
+char *sa_concatenate (char *A, char *B, char *sep) {
+  char *buf=NULL, *s; uint sz=0;
+  zprintf (&buf, &sz, "%s%s%s", A, sep, B);
+  return buf;
+}
+
+// return pointers to suffix starting positions (unterminated)
+char **sa_get_suffixes (char *text, char *ws) {
+  char *p = text, *end = text + strlen(text);
+  char **S = new_vec (0, sizeof(char*)), *p = text;
+  while (p < end) {
+    p += strspn(p, ws); // skip whitespace
+    if (p >= end) break;
+    S = append_vec(S, &p);
+    p += strcspn(p, ws); // skip token
+  }
+  return S;
+}
+
+// lexicographically sort a suffix array
+char *sa_sort_suffixes (char **starts) { sort_vec (starts, cmp_str); }
+*/
+
+// -------------------- n-gram match --------------------
+
+//
+// idea: for n = 5,4,3,2,1
+//           for each n-gram in QRY
+//               if n-gram in DOC: spans += {beg,end,n}
+//       merge adjacent spans
+//       snippet = max-covered size
+//       highlight spans within snippet
+
+/*
+// lowercase & replace all punctuation with space
+char *gram_prep (char *S) {
+  char *s;
+  for (s = S; *s; ++s) if (!isalnum(*s)) *s = ' ';
+  lowercase (S);
+}
+
+// all starting positions for any n-gram
+char **gram_starts (char *text) {
+  char *s=text, **S = new_vec (0, sizeof(char*));
+  while (*s) {
+    while (*s == ' ') ++s; // skip space before word
+    if (*s) beg = append_vec(beg, &s);
+    while (*s && *s != ' ') ++s; // skip word itself
+    if (1)  end = append_vec(end, &s);
+  }
+  return S;
+}
+
+char **n_grams (char *text, uint n, char *ws) {
+  char *G = new_vec (0, sizeof(char*));
+  char *beg = text, *end = text, *stop = text+strlen(text);
+  while (end < stop) {
+  }
+}
+*/
+
+/*
+float span2x (uint offs, uint size) { return offs + 1./size; }
+uint x2offs (float x) { return (uint) x; }
+uint x2size (float x) { return (uint) (1. / (x - (uint)x)); }
+
+ijk_t *sjk2ijk (sjk_t *T, hash_t *H) {
+  uint v, n = len(T);
+  ijk_t *V = new_vec (n, sizeof(ijk_t));
+  for (v=0; v<n; ++v) {
+    V[v].i = key2id (H, T[v].s);
+    V[v].j = T[v].j;
+    V[v].k = T[v].k;
+  }
+  return V;
+}
+
+ix_t *sjk2ix (sjk_t *T, hash_t *H) {
+  uint v, n = len(T);
+  ix_t *V = new_vec (n, sizeof(ix_t));
+  for (v=0; v<n; ++v) {
+    V[v].i = key2id (H, T[v].s);
+    V[v].x = span2x (T[v].j, T[v].k - T[v].j);
+  }
+  return V;
+}
+*/
+
+float pack_span (uint beg, uint end) { return beg + 1./(end-beg+1); }
+it_t unpack_span (float x) {
+  double beg = floor(x), size = round(1./(x-beg)), end = beg + size - 1;
+  return (it_t) {(uint)beg, (uint)end};
+}
+
+void show_tokens (sjk_t *T, char *tag) {
+  printf("%s%s%s [%d]", fg_RED, tag, RESET, len(T));
+  sjk_t *t = T-1, *end = T+len(T);
+  while (++t < end)
+    printf (" %s%d%s:%s%d%s %s", fg_CYAN, t->j, RESET, fg_CYAN, t->k, RESET, t->s);
+  printf("\n");
+}
+
+void show_ijk (ijk_t *T, char *tag, uint n) {
+  printf("%s%s%s [%d]:", fg_RED, tag, RESET, n);
+  ijk_t *t = T-1, *end = T+n;
+  while (++t < end)
+    printf (" %s%d%s:%s%d%s:%s%d%s", fg_CYAN, t->j, RESET, fg_CYAN, t->k, RESET, fg_RED, t->i, RESET);
+  printf("\n");
+}
+
+void free_tokens (sjk_t *T) {
+  sjk_t *t = T-1, *end = T+len(T);
+  while (++t < end) if (t->s) free(t->s);
+  free_vec (T);
+}
+
+sjk_t *go_tokens (char *text) {
+  sjk_t *T = new_vec(0,sizeof(sjk_t)), tok;
+  char *p = text, *End = text + strlen(text);
+  while (p < End) {
+    while (*p && !isalnum(*p)) ++p; // find number or letter
+    tok.j = p - text; // start of possible token
+    while (isalnum(*p) || *p == '-') ++p; // possible end
+    if (*p == '-') --p;
+    if (*p == 's') --p;
+    tok.k = p - text; // end of possible token
+    if (tok.k <= tok.j) continue;
+    tok.s = strndup (text + tok.j, tok.k - tok.j);
+    lowercase (tok.s);
+    T = append_vec (T, &tok);
+    assert (tok.j <= End-text);
+    assert (tok.k <= End-text);
+  }
+  return T;
+}
+
+void stop_tokens (sjk_t *T) {
+  sjk_t *t;
+  for (t = T; t < T+len(T); ++t) {
+    if (!stop_word(t->s)) continue;
+    free(t->s);
+    t->s = NULL; // don't squeeze out these elements
+  }
+}
+
+int skip_token(sjk_t *t) {
+  return (t->k - t->j < 3) || !(t->s) || stop_word(t->s);
+}
+
+sjk_t *go_unigrams (sjk_t *T) {
+  sjk_t *G = new_vec(0,sizeof(sjk_t)), *t;
+  for (t = T; t < T+len(T); ++t) {
+    if (skip_token(t)) continue;
+    sjk_t unigram = {strdup(t->s), t->j, t->k};
+    G = append_vec (G, &unigram);
+  }
+  return G;
+}
+
+sjk_t *go_bigrams (sjk_t *T) {
+  sjk_t *G = new_vec(0,sizeof(sjk_t)), *p, *q;
+  for (p = T; p < T+len(T)-1; ++p) {
+    q = p+1;
+    if (skip_token(p) || skip_token(q)) continue;
+    sjk_t bigram = {acat3 (p->s," ",q->s), p->j, q->k};
+    G = append_vec (G, &bigram);
+  }
+  return G;
+}
+
+// form an n-gram T[a..z] inclusive
+sjk_t make_ngram (sjk_t *T, int a, int z) {
+  char *buf=0; int sz=0, i;
+  for (i=a; i<=z; ++i)
+    if (T[i].s) zprintf (&buf, &sz, "%s ", T[i].s);
+  if (sz>0 && buf[sz-1] == ' ') buf[sz-1] = '\0';
+  return (sjk_t) {buf, T[a].j, T[z].k};
+}
+
+sjk_t *go_ngrams (sjk_t *T, uint n) {
+  sjk_t *G = new_vec(0,sizeof(sjk_t));
+  int i, N = len(T), m = n-1;
+  for (i = 0; i < N-m; ++i) {
+    if (!T[i].s || !T[i+m].s) continue;
+    //if (skip_token(T+i) || skip_token(T+i+m)) continue;
+    sjk_t ngram = make_ngram (T, i, i+m);
+    assert (ngram.k - ngram.j > 0);
+    G = append_vec (G, &ngram);
+  }
+  return G;
+}
+
+hash_t *ngrams_dict (char *qry, int n) {
+  //printf("%s%d-grams_dict%s: %s\n", fg_MAGENTA, n, RESET, qry);
+  hash_t *H = open_hash_inmem();
+  sjk_t *tokens = go_tokens (qry);
+  //show_tokens (tokens, "qry-toks");
+  do {
+    sjk_t *T = go_ngrams (tokens, n), *t;
+    //show_tokens (T, "qry-grams");
+    for (t=T; t < T+len(T); ++t) key2id (H, t->s);
+    free_tokens(T);
+  } while (--n > 0);
+  free_tokens(tokens);
+  return H;
+}
+
+ijk_t *ngram_matches (sjk_t *tokens, hash_t *H, int n) {
+  //show_tokens (tokens, "doc-toks");
+  ijk_t *matches = new_vec (0, sizeof(ijk_t));
+  do {
+    sjk_t *T = go_ngrams (tokens, n), *t;
+    //show_tokens (T, "doc-grams");
+    for (t=T; t < T+len(T); ++t) {
+      uint id = has_key(H, t->s);
+      ijk_t match = {n, t->j, t->k};
+      //assert (match.k - match.j > 0);
+      if (id) matches = append_vec (matches, &match);
+    }
+    free_tokens(T);
+  } while (--n > 0);
+  //show_ijk (matches, "matches", len(matches));
+  return matches;
+}
+
+int disjoint_matches (ijk_t a, ijk_t b) { // a starts after b ends
+  return (a.j > b.k) || (a.k < b.j);  // or a ends before b starts
+}
+
+ijk_t *merge_matches (ijk_t *M) {
+  ijk_t *result = new_vec (0, sizeof(ijk_t));
+  if (!len(M)) return result;
+  sort_vec (M, cmp_ijk_j); // ascending start-of-gram
+  ijk_t *m, this = M[0];
+  for (m = M+1; m < M+len(M); ++m) {
+    if (disjoint_matches (this, *m)) {
+      result = append_vec (result, &this); // flush
+      this = *m;
+    } else { // merge intervals
+      this.i = MAX(this.i, m->i);
+      this.j = MIN(this.j, m->j);
+      this.k = MAX(this.k, m->k);
+      assert (this.i < 10 && this.j < this.k);
+    }
+  }
+  result = append_vec (result, &this);
+  //show_ijk (result, "merged", len(result));
+  return result;
+}
+
+uint total_ijk_len (ijk_t *M) {
+  uint sz = 0; ijk_t *m=M-1, *end = M+len(M);
+  while (++m < end) sz += (m->k - m->j + 1);
+  return sz;
+}
+
+uint total_sjk_len (sjk_t *M) {
+  uint sz = 0; sjk_t *m=M-1, *end = M+len(M);
+  while (++m < end) sz += (m->k - m->j + 1);
+  return sz;
+}
+
+
+// | ToLower
+// | Fields ... split on Unicode whitespace
+// | Trim   ... chop leading & trailing ".,:?!-()[]{}/|<>"
+// | filter ... drop if any char is not [a-z] and not '-'
+// | emit W[i] if not in stoplist
+//   emit W[i-1]" "W[i] if neither is in stoplist
+
+// find [L,R] of length sz with max hit coverage
+ijk_t best_ngram_span (ijk_t *M, uint sz, uint textLen) {
+  if (!len(M)) return (ijk_t) {0, 0, MIN(sz,textLen)};
+  //return (ijk_t) {0, 0, 500};
+  ijk_t *L=M, *R, *end = M+len(M);
+  ijk_t span = {L->k - L->j, L->j, L->k}; // [L]
+  ijk_t best = span;
+  for (R=M+1; R < end; ++R) {
+    span.i += R->k - R->j; // add coverage of [R] to span coverage
+    span.k  = R->k; // span [L,R] ends where R ends
+    while ((L < R) && (R->k - L->j > sz)) { // span is too big
+      span.i -= L->k - L->j; // remove coverage of [L]
+      ++L;
+      span.j = L->j; // span [L,R] beging where L begins
+    }
+    if (span.i > best.i) best = span;
+  }
+  return best;
+}
+
+void assert_ijk (ijk_t *M, uint nM, uint maxK, uint maxI) {
+  ijk_t *m;
+  for (m = M; m < M+nM; ++m) {
+    assert (m->j <= maxK);
+    assert (m->k <= maxK);
+    assert (m->j <= m->k);
+    assert (m->i <= maxI);
+  }
+}
+
+void assert_sjk (sjk_t *M, uint maxK) {
+  sjk_t *m;
+  for (m = M; m < M+len(M); ++m) {
+    assert (m->k <= maxK);
+    assert (m->j < m->k);
+  }
+}
+
+char *ngram_snippet (char *text, hash_t *Q, int gramsz, int snipsz, float *score) {
+  uint textLen = strlen(text);
+  sjk_t *tokens = go_tokens (text); // sequence of unigrams in the doc
+  assert_sjk (tokens, textLen);
+  ijk_t *matches = ngram_matches (tokens, Q, gramsz); // 
+  assert_ijk (matches, len(matches), textLen, 9);
+  ijk_t *M = merge_matches (matches), *m;
+  assert_ijk (M, len(M), textLen, 9);
+  ijk_t best = best_ngram_span (M, snipsz, textLen);
+  assert_ijk (&best, 1, textLen, textLen);
+  //show_ijk (&best, "span", 1);
+  uint prev = best.j, stop = best.k;
+  char *buf = 0; int bufsz=0;
+  for (m = M; m < M+len(M); ++m) {
+    if (m->j < prev) continue; // hit starts outside span
+    if (m->k > stop) break;    // hit ends outside span
+    char bTag[9]; sprintf (bTag, "<g%d>", m->i);
+    char eTag[9]; sprintf (eTag, "</g%d>", m->i);
+    memcat (&buf, &bufsz, text + prev, m->j - prev); // text before match
+    memcat (&buf, &bufsz, bTag, 4);
+    memcat (&buf, &bufsz, text + m->j, m->k - m->j); // match itself
+    memcat (&buf, &bufsz, eTag, 5);
+    prev = m->k;
+  }
+  if (score) *score = (1. * best.i) / (best.k - best.j);
+  free_vec (M);
+  free_vec (matches);
+  free_tokens (tokens);
+  return buf;
+}
+
+// take text as-is and highlight it using n-grams
+char *ngram_highlight (char *text, hash_t *Q, int gramsz) {
+  uint textLen = strlen(text);
+  sjk_t *tokens = go_tokens (text);
+  assert_sjk (tokens, textLen);
+  ijk_t *matches = ngram_matches (tokens, Q, gramsz);
+  assert_ijk (matches, len(matches), textLen, gramsz);
+  ijk_t *M = merge_matches (matches), *m;
+  assert_ijk (M, len(M), textLen, gramsz);
+  uint prev = 0, stop = textLen;;
+  char *buf = 0; int bufsz=0;
+  for (m = M; m < M+len(M); ++m) {
+    if (m->j < prev) continue; // hit starts outside span
+    if (m->k > stop) break;    // hit ends outside span
+    char bTag[9]; sprintf (bTag, "<g%d>", m->i);
+    char eTag[9]; sprintf (eTag, "</g%d>", m->i);
+    memcat (&buf, &bufsz, text + prev, m->j - prev); // text before match
+    memcat (&buf, &bufsz, bTag, 4);
+    memcat (&buf, &bufsz, text + m->j, m->k - m->j); // match itself
+    memcat (&buf, &bufsz, eTag, 5);
+    prev = m->k;
+  }
+  free_vec (M);
+  free_vec (matches);
+  free_tokens (tokens);
+  return buf;
+}
+
+char *hybrid_snippet (char *text, char **words, hash_t *Q, int gramsz, int snipsz, float *score) {
+  char *snip1 = snippet2 (text, words, snipsz, score);
+  char *snip2 = ngram_highlight (snip1, Q, gramsz);
+  free (snip1);
+  return snip2;
+}
+
+char *paragraph_snippet (char *text, hash_t *Q, int gramsz, float *score) {
