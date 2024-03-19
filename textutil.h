@@ -96,6 +96,7 @@ void stem_toks (char **toks, char *type) ;
 void stop_toks (char **toks) ;
 void keep_midsize_toks (char **toks, uint lo, uint hi) ;
 void keep_wordlike_toks (char **toks) ;
+char **text_to_toks (char *text, char *prm) ;
 
 ix_t *toks2vec (char **toks, hash_t *ids) ;
 char **vec2toks (ix_t *vec, hash_t *ids) ;
@@ -149,6 +150,8 @@ uint total_sjk_len (sjk_t *M) ;
 ijk_t best_ngram_span (ijk_t *M, uint sz, uint textLen) ;
 char *ngram_snippet (char *text, hash_t *Q, int gramsz, int snipsz, float *score) ;
 char *hybrid_snippet (char *text, char **words, hash_t *Q, int gramsz, int snipsz, float *score) ;
+
+char *best_paragraph (char *text, char *qry, hash_t *_Q, int n, float *score) ;
 
 float pack_span (uint beg, uint end); // packs span into a single float (lossy)
 it_t unpack_span (float x); // unpacks span (lossy)

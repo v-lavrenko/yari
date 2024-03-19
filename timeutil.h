@@ -67,5 +67,6 @@ double mstime(); // time in milliseconds sinse epoch
 unsigned long ustime (); // time in microseconds since epoch
 double msdiff (double *T) ; // milliseconds since T, update T
 void loglag(char *tag) ; // log time elapsed since last call
+void loglag2(char *tag) ; // same, but 10x shorter intervals
 
 #endif

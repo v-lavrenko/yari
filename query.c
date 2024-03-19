@@ -83,10 +83,16 @@ char *copy_doc_text (coll_t *XML, uint id) {
   char *text = strdup(chunk);
   erase_between(text, "<DOCID>", "</DOCID>", ' ');
   //char *text = extract_between (chunk, "</DOCID>", "</DOC>");
+  erase_between(text, "<title", ">", '\r');
+  erase_between(text, "<p:",    ">", '\r');
+  erase_between(text, "<claim", ">", '\r');
+  gsub (text, "</title>", '\r');
+  gsub (text, "</p>", '\r');
+  gsub (text, "</claim>", '\r');
   no_xml_tags (text);
   chop (text, " "); // chop whitespace around docid
   //no_xml_refs (text);
-  csub (text, "\"\\\t\r\n", ' ');
+  csub (text, "\"\\\t\n", ' ');
   return text;
 }
 
@@ -112,7 +118,9 @@ void rerank_snippets (snip_t *S, char *qry, char **words, char *prm) {
   char *hilit = strstr(prm,"hilit");
   char *curses = strstr(prm,"curses");
   char *hihtml = strstr(prm,"hihtml");
+  char *paragr = strstr(prm,"paragr");
   uint ngramsz = getprm(prm,"ngramsz=",0);
+  //char **words = text_to_toks (qry, prm); // 3/18
   hash_t *Q = ngramsz ? ngrams_dict (qry, ngramsz) : NULL;
   snip_t *s;
   for (s = S; s < S + len(S); ++s) {
@@ -123,7 +131,9 @@ void rerank_snippets (snip_t *S, char *qry, char **words, char *prm) {
     //if     (ngramsz) s->snip = (len(words) > 3 ?
     //ngram_snippet (old, Q, ngramsz, snipsz, &score) :
     //html_snippet (old, words, snipsz, &score));
-    if     (ngramsz) s->snip = (qryLen > 60 ?
+    if     (ngramsz) s->snip = (paragr ?
+				best_paragraph (old, qry, Q, ngramsz, &score) : 
+				qryLen > 60 ?
 				ngram_snippet (old, Q, ngramsz, snipsz, &score) :
 				html_snippet (old, words, snipsz, &score));
     else if (curses) s->snip = curses_snippet (old, words, snipsz, &score);
@@ -136,6 +146,7 @@ void rerank_snippets (snip_t *S, char *qry, char **words, char *prm) {
   }
   sort_vec (S, cmp_snip_score);
   free_hash (Q);
+  //free_toks (words); // 3/18
 }
 
 // helper function: extracts & reranks snippets for docs
@@ -144,7 +155,9 @@ snip_t *ranked_snippets (index_t *I, jix_t *docs, char *qry, char **toks, char *
   sort_vec (docs, cmp_jix_X);
   if (len(docs) > rerank) len(docs) = rerank;
   snip_t *S = lazy_snippets (docs, I->XML, I->DOC);
+  loglag("lazy");
   rerank_snippets (S, qry, toks, prm);
+  loglag("rerank");
   return S;
 }
 
@@ -153,21 +166,6 @@ int cmp_snip_score (const void *n1, const void *n2) {
   float x1 = ((snip_t*)n1)->score;
   float x2 = ((snip_t*)n2)->score;
   return (x1 > x2) ? -1 : (x1 < x2) ? +1 : 0;
-}
-
-// ------------------------- tokenize etc -------------------------
-
-// simpler replacement for parse_vec_txt in matrix.c
-char **text_to_words (char *text, char *prm) {
-  char *stop = strstr(prm,"stop");
-  char *stem = getprmp(prm,"stem=","L");
-  char *ws = " \t\r\n~`!@#$%^&*()_-+=[]{}|\\:;\"'<>,.?/"; // default
-  char **toks = str2toks (text, ws, 50);
-  keep_wordlike_toks (toks);
-  keep_midsize_toks (toks, 3, 15);
-  if (stem) stem_toks (toks, stem);
-  if (stop) stop_toks (toks);
-  return toks;
 }
 
 // ------------------------- novel / diverse -------------------------
@@ -242,7 +240,7 @@ double do_eval_rm (coll_t *DxW, char *prm) {
 // ------------------------- BM25 keywords -------------------------
 
 ix_t *bm25_keywords (char *text, hash_t *H, stats_t *S) {
-  char **words = text_to_words (text, "stop,stem=L");
+  char **words = text_to_toks (text, "stop,stem=L");
   ix_t *vec = toks2vec (words, H);
   sort_uniq_vec (vec);
   weigh_mtx_or_vec (0, vec, "idf", S);
@@ -444,16 +442,16 @@ snip_t *run_text_qry (index_t *I, char *_qry, char *prm, char *mask) {
   coll_t *INVL = I->WORDxDOC;
   ix_t *D, *Q = parse_vec_txt (qry, 0, I->WORD, prm); // stop,stem=K,tokw,nowb,gram=2:3
   jix_t *G = NULL; // groups of docs
-  loglag("parse_vec_txt");
-  //weigh_mtx_or_vec (0, Q, prm, I->STATS); // inq,idf,top=10,thr=0,L2=1
+  loglag("parse");
+  //weigh_mtx_or_vec (0, Q, "idf,top=10", I->STATS); // inq,idf,top=10,thr=0,L2=1
   if      (strstr(prm,"band"))  D = band_qry (Q, INVL);  // Boolean AND (fast!)
   else if (strstr(prm,"timed")) D = timed_qry (Q, INVL, prm); // deadline=100ms,beam=10000
   else if (strstr(prm,"merge")) D = vec_x_rows (Q, INVL); // merge lists: few rare terms
-  else if (strstr(prm,"score")) D = cols_x_vec (INVL, Q); // update SCORE: many common terms
+  else if (strstr(prm,"score")) D = cols_x_vec (INVL, Q); // SCORE: many common terms
   else if (strstr(prm,"iseen")) D = cols_x_vec_iseen (INVL, Q);
   else if (strstr(prm,"iskip")) D = cols_x_vec_iskip (INVL, Q);
   else assert(0 && "must specify band | timed | merge | score | iseen | iskip");
-  loglag("execute");
+  loglag("exec");
   if (mask) {
     vec_x_set(D, '*', mask);
     loglag("mask");
@@ -472,7 +470,7 @@ snip_t *run_text_qry (index_t *I, char *_qry, char *prm, char *mask) {
   else G = ix2jix (1, D); // no grouping / clumping
   char **toks = vec2toks (Q, I->WORD);
   snip_t *snips = ranked_snippets (I, G, _qry, toks, prm); // rerank=50, snipsz=300
-  loglag("ranked_snippets");
+  loglag("snippets");
   free_vec(Q);
   free_vec(D);
   free_vec(G);
@@ -481,6 +479,7 @@ snip_t *run_text_qry (index_t *I, char *_qry, char *prm, char *mask) {
   return snips;
 }
 
+/* unused? (was used in do_find)
 // returns toks as used by run_text_qry()
 char **text_qry_toks (index_t *I, char *qry, char *prm) {
   qry = strdup(qry); // parse_vec destroys qry
@@ -493,6 +492,7 @@ char **text_qry_toks (index_t *I, char *qry, char *prm) {
   free(qry);
   return toks;
 }
+*/
 
 // Boolean AND of query terms (fast!)
 ix_t *band_qry (ix_t *Q, coll_t *INVL) {

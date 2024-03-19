@@ -56,16 +56,36 @@ void loglag(char *tag) {
   double t1 = mstime(), lag = t1 - t0;
   t0 = t1;
   if (!tag || !*tag) return;
-  char *color = (lag <   10 ? fg_GREEN :
-		 lag <   30 ? fg_CYAN :
-		 lag <  100 ? fg_YELLOW :
-		 lag <  300 ? fg_MAGENTA :
-		 lag < 1000 ? fg_RED : bg_MAGENTA);
+  char *color = (lag > 1000 ? bg_MAGENTA :
+		 lag >  500 ? bg_CYAN :
+		 lag >  300 ? fg_RED :
+		 lag >  100 ? fg_MAGENTA :
+		 lag >   50 ? fg_YELLOW :
+		 lag >   30 ? fg_BLUE :
+		 lag >   10 ? fg_CYAN :
+		 fg_GREEN); // under 10ms
   fputs(color,stderr);
   fputs(tag,stderr);
-  fputs(" "RESET,stderr);
+  fputs(RESET" ",stderr);
 }
 
+void loglag2(char *tag) {
+  static double t0 = 0;
+  double t1 = mstime(), lag = t1 - t0;
+  t0 = t1;
+  if (!tag || !*tag) return;
+  char *color = (lag >  0.20 ? bg_MAGENTA :
+		 lag >  0.10 ? bg_CYAN :
+		 lag >  0.07 ? fg_RED :
+		 lag >  0.05 ? fg_MAGENTA :
+		 lag >  0.03 ? fg_YELLOW :
+		 lag >  0.02 ? fg_BLUE :
+		 lag >  0.01 ? fg_CYAN :
+		 fg_GREEN); // under 10ms
+  fputs(color,stderr);
+  fputs(tag,stderr);
+  fputs(RESET" ",stderr);
+}
 
 // convert abbreviated time to number of seconds, e.g. 2h --> 7200
 int str2seconds (char *s) {

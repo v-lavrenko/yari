@@ -28,6 +28,8 @@
 #include "hash.h"
 #include "textutil.h"
 #include "hl.h"
+#include "matrix.h"
+#include "timeutil.h"
 
 char *default_ws = " \t\r\n~`!@#$%^&*()_-+=[]{}|\\:;\"'<>,.?/";
 
@@ -548,6 +550,19 @@ void keep_wordlike_toks (char **toks) {
   len(toks) = v -toks;
 }
 
+// simpler replacement for parse_vec_txt in matrix.c
+char **text_to_toks (char *text, char *prm) {
+  char *stop = strstr(prm,"stop");
+  char *stem = getprmp(prm,"stem=","L");
+  char *ws = " \t\r\n~`!@#$%^&*()_-+=[]{}|\\:;\"'<>,.?/"; // default
+  char **toks = str2toks (text, ws, 50);
+  keep_wordlike_toks (toks);
+  keep_midsize_toks (toks, 3, 15);
+  if (stem) stem_toks (toks, stem);
+  if (stop) stop_toks (toks);
+  return toks;
+}
+
 char **vec2toks (ix_t *vec, hash_t *ids) {
   uint i, n = len(vec), sz = sizeof(char*);
   char **toks = new_vec (n, sz);
@@ -854,8 +869,9 @@ ijk_t *hits_with_prefix (char *S, ijk_t *H, char *prefix) {
 //}
 
 // O(nWords): score = SUM_w log P(w|snippet)
-float score_snippet (int *seen, float eps) {
-  double score = 0; uint i, n = len(seen);
+float score_snippet (uint *seen, float eps) {
+  double score = 0;// z = sumi(seen);
+  uint i, n = len(seen);
   for (i=0; i<n; ++i) score += log (seen[i] + eps);
   return (float) score;
 }
@@ -865,7 +881,7 @@ float score_snippet (int *seen, float eps) {
 jix_t best_span (ijk_t *hits, uint nwords, uint SZ, float eps) {
   jix_t best = {0, 0, -Infinity};
   ijk_t *H = hits, *end = H+len(H), *L = H-1, *R = H, *h; uint i;
-  int *seen = new_vec (nwords, sizeof(int)); // #times word[i] seen in [a..z]
+  uint *seen = new_vec (nwords, sizeof(int)); // #times word[i] seen in [a..z]
   while (++L < end) { // for every left (L) border
     if (L > H) --seen [(L-1)->k]; // unsee word to left of L
     // advance R until |R-L| >= SZ seeing words R->k along the way
@@ -888,7 +904,7 @@ jix_t best_span_xml (ijk_t *hits, uint nwords, uint SZ, float eps) {
   jix_t best = {0, 0, -Infinity};
   ijk_t *H = hits, *end = H+len(H), *L = H-1, *R = H-1, *h;
   uint i, xml = 0, tag = 999999;
-  int *seen = new_vec (nwords, sizeof(int)); // #times word[i] seen in [a..z]
+  uint *seen = new_vec (nwords, sizeof(int)); // #times word[i] seen in [a..z]
   while (++L < end) { // for every left (L) border
     // advance R until |R-L| >= SZ seeing words R->k along the way
     while (++R < end) {
@@ -1350,6 +1366,42 @@ hash_t *ngrams_dict (char *qry, int n) {
   return H;
 }
 
+float fCE(float *Q, float *D, float eps) {
+  uint i, nQ = len(Q), nD = len(D), n = MIN(nQ,nD);
+  double SQ = sumf(Q), SD = sumf(D), CE = 0;
+  for (i=0; i<n; ++i)
+    CE += (Q[i]/SQ) * log (D[i]/SD + eps);
+  return CE;
+}
+
+float *ngrams_freq (char *text, int n, hash_t *H) {
+  float *F = new_vec (nkeys(H)+1, sizeof(float));
+  sjk_t *tokens = go_tokens (text);
+  do {
+    sjk_t *T = go_ngrams (tokens, n), *t;
+    for (t=T; t < T+len(T); ++t) ++F [has_key(H, t->s)];
+    free_tokens(T);
+  } while (--n > 0);
+  free_tokens(tokens);
+  return F;
+}
+
+// for each n-gram in H: how often we see it in tokens
+float ngram_score (sjk_t *tokens, hash_t *H, int n) {
+  uint N = nkeys(H), *seen = new_vec (N+1, sizeof(uint));
+  do {
+    sjk_t *T = go_ngrams (tokens, n), *t;
+    for (t=T; t < T+len(T); ++t) {
+      uint id = has_key(H, t->s);
+      if (id) ++seen[id];
+    }
+    free_tokens(T);
+  } while (--n > 0);
+  float score = score_snippet (seen, 0.001);
+  free (seen);
+  return score;
+}
+
 ijk_t *ngram_matches (sjk_t *tokens, hash_t *H, int n) {
   //show_tokens (tokens, "doc-toks");
   ijk_t *matches = new_vec (0, sizeof(ijk_t));
@@ -1388,7 +1440,7 @@ ijk_t *merge_matches (ijk_t *M) {
       assert (this.i < 10 && this.j < this.k);
     }
   }
-  result = append_vec (result, &this);
+  result = append_vec (result, &this); // last hit
   //show_ijk (result, "merged", len(result));
   return result;
 }
@@ -1426,7 +1478,7 @@ ijk_t best_ngram_span (ijk_t *M, uint sz, uint textLen) {
     while ((L < R) && (R->k - L->j > sz)) { // span is too big
       span.i -= L->k - L->j; // remove coverage of [L]
       ++L;
-      span.j = L->j; // span [L,R] beging where L begins
+      span.j = L->j; // span [L,R] begins where L begins
     }
     if (span.i > best.i) best = span;
   }
@@ -1453,14 +1505,14 @@ void assert_sjk (sjk_t *M, uint maxK) {
 
 char *ngram_snippet (char *text, hash_t *Q, int gramsz, int snipsz, float *score) {
   uint textLen = strlen(text);
-  sjk_t *tokens = go_tokens (text); // sequence of unigrams in the doc
-  assert_sjk (tokens, textLen);
-  ijk_t *matches = ngram_matches (tokens, Q, gramsz); // 
-  assert_ijk (matches, len(matches), textLen, 9);
-  ijk_t *M = merge_matches (matches), *m;
-  assert_ijk (M, len(M), textLen, 9);
-  ijk_t best = best_ngram_span (M, snipsz, textLen);
-  assert_ijk (&best, 1, textLen, textLen);
+  // all unigrams in text, alnum, in-order {s:strndup j:begOffs k:endOffs}
+  sjk_t *tokens = go_tokens (text);                   assert_sjk (tokens, textLen);
+  // form n-grams, look up in Q, return {i:N, j:begOffs, k:endOffs}
+  ijk_t *matches = ngram_matches (tokens, Q, gramsz); assert_ijk (matches, len(matches), textLen, 9);
+  // merge overlapping [j:k), keep highest i:N
+  ijk_t *M = merge_matches (matches), *m;             assert_ijk (M, len(M), textLen, 9);
+  // find [j:k) w max coverage = sum of matching |j:k|
+  ijk_t best = best_ngram_span (M, snipsz, textLen);  assert_ijk (&best, 1, textLen, textLen);
   //show_ijk (&best, "span", 1);
   uint prev = best.j, stop = best.k;
   char *buf = 0; int bufsz=0;
@@ -1517,4 +1569,22 @@ char *hybrid_snippet (char *text, char **words, hash_t *Q, int gramsz, int snips
   return snip2;
 }
 
-char *paragraph_snippet (char *text, hash_t *Q, int gramsz, float *score) {
+// return claim or paragraph that best covers the query
+char *best_paragraph (char *text, char *qry, hash_t *_Q, int n, float *score) {
+  char **P = split(text,'\r'); // assume CR-separated paragraphs
+  ix_t best = {0, -Infinity};
+  uint i, nP = len(P);
+  float *Q = ngrams_freq(qry, n, _Q);
+  for (i=0; i<nP; ++i) {
+    if (!P[i] || strlen(P[i]) < 10) continue; // too short
+    float *D = ngrams_freq(P[i], n, _Q);
+    float x = fCE(Q, D, 0.0001);
+    if (x > best.x) best = (ix_t) {i, x};
+    free_vec (D);
+  }
+  *score = best.x;
+  char *result = strdup(P[best.i]);
+  free_vec (P);
+  free_vec (Q);
+  return result;
+}
