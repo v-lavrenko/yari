@@ -124,29 +124,29 @@ int main (int argc, char *argv[]) {
 		   !strncmp(a(1), "-addup", 6))) return dict_uniq(a(1));
   
   if (argc < 3) return fputs (usage, stderr);
-  
+
   //if (!strcmp(argv[1], "lock")) { MAP_MODE |= MAP_LOCKED;   ++argv; --argc; }
   //if (!strcmp(argv[1], "prep")) { MAP_MODE |= MAP_POPULATE; ++argv; --argc; }
-  
+
   if (!strcmp(argv[1], "-keys")) {
     hash_t *h = open_hash (argv[2], "r");
     uint i, n = nkeys(h);
     for (i = 1; i <= n; ++i) puts (id2key(h,i));
-    free_hash (h);      
+    free_hash (h);
     return 0;
   }
-  
+
   if (!strcmp(argv[1], "-dump")) {
     hash_t *h = open_hash (argv[2], "r");
     uint i, n = nkeys(h);
     fprintf (stderr, "%s: %d keys\n", argv[2], n);
     for (i = 1; i <= n; ++i) printf ("%d\t%s\n", i, id2key(h,i));
-    free_hash (h);      
+    free_hash (h);
     return 0;
   }
-  
+
   if (!strcmp(argv[1], "-load")) {
-    time_t start = time(0); 
+    time_t start = time(0);
     vtime();
     hash_t *h = open_hash (argv[2], "w");
     ulong done = 0;
@@ -166,15 +166,15 @@ int main (int argc, char *argv[]) {
     free_hash (h);
     return 0;
   }
-  
+
   if (!strcmp(argv[1], "-vrfy")) {
     hash_t *h = open_hash (argv[2], "r");
     uint id; ulong done = 0;
     char line[100000], key[100000];
     while (fgets(line, 100000, stdin)) {
-      uint nf = sscanf (line, "%d %s", &id, key); assert (nf == 2); 
-      uint id2 = has_key (h, key); 
-      //char *k2 = id2key (h, id); 
+      uint nf = sscanf (line, "%d %s", &id, key); assert (nf == 2);
+      uint id2 = has_key (h, key);
+      //char *k2 = id2key (h, id);
       if (id2 != id) printf ("\n%s: %d <> %d\n", key, id, id2);
       if (!(++done%1000)) show_progress(done/1000,0,"K pairs");
     }
@@ -182,7 +182,7 @@ int main (int argc, char *argv[]) {
     fprintf (stderr, "[%.1fs] %lu pairs\n", vtime(), done);
     return 0;
   }
-  
+
   if (!strcmp(argv[1], "-drop")) {
     hash_t *h = coll_exists (argv[2]) ? open_hash (argv[2], "r!") : NULL;
     char key[100000], *eol;
@@ -205,7 +205,7 @@ int main (int argc, char *argv[]) {
     return 0;
   }
 
-  
+
   if (!strcmp(argv[1], "-add")) {
     hash_t *h = open_hash (argv[2], "a!");
     char key[100000]; ulong done = 0;
@@ -217,7 +217,7 @@ int main (int argc, char *argv[]) {
     free_hash (h);
     return 0;
   }
-  
+
   if (!strcmp(argv[1], "-merge") && !strcmp(argv[3],"+=")) {
     hash_t *A = open_hash (argv[2], "a!");
     hash_t *B = open_hash (argv[4], "r");
@@ -231,7 +231,7 @@ int main (int argc, char *argv[]) {
     free_hash (A); free_hash (B);
     return 0;
   }
-  
+
   if (!strcmp(argv[1], "-batch") && !strcmp(argv[3],"+=")) {
     char **keys = hash_keys (argv[4]);
     hash_t *A = open_hash (argv[2], "a");
@@ -244,7 +244,7 @@ int main (int argc, char *argv[]) {
     free_hash (A);
     return 0;
   }
-  
+
   if (!strcmp(argv[1], "-diff") && !strcmp(argv[3],"-")) {
     char *tail = strstr (argv[1], "tail");
     hash_t *A = open_hash (argv[2], "r");
@@ -271,7 +271,7 @@ int main (int argc, char *argv[]) {
     }
     return 0;
   }
-  
+
   if (!strcmp(argv[1], "-i2k")) {
     hash_t *h = open_hash (argv[2], "r");
     if (argc>3) {
@@ -287,7 +287,7 @@ int main (int argc, char *argv[]) {
     free_hash (h);
     return 0;
   }
-  
+
   if (!strcmp(argv[1], "-dbg")) {
     hash_t *h = open_hash (argv[2], "r");
     uint *I = h->indx, n = len(I), i;
@@ -303,10 +303,10 @@ int main (int argc, char *argv[]) {
 	//assert (k->code % n == i); // false for collisions
       } else printf ("%10s %10u\n", "", i);
     }
-    free_hash (h);      
+    free_hash (h);
     return 0;
   }
-  
+
   if (!strncmp(argv[1], "-inmap", 6)) {
     char x[1000], line[100000];
     hash_t *SRC = open_hash (fmt(x,"%s.src",argv[2]), "w");
@@ -319,9 +319,9 @@ int main (int argc, char *argv[]) {
 	uint id = key2id  (SRC, src);
 	uint sz = strlen(trg)+1; // include \0
 	//printf ("'%s' -> %d -> '%s' [%d]\n", src, id, trg, sz);
-	put_chunk (TRG, id, trg, sz);	
+	put_chunk (TRG, id, trg, sz);
       }
-      else printf ("skipping duplicate key: '%s' -> '%s'\n", src, trg);      
+      else printf ("skipping duplicate key: '%s' -> '%s'\n", src, trg);
     }
     printf ("%s [%d] -> %s [%d]\n", SRC->path, nkeys(SRC), TRG->path, nvecs(TRG));
     free_hash(SRC);
@@ -361,7 +361,7 @@ int main (int argc, char *argv[]) {
     uint i, n = nkeys(SRC);
     for (i=1; i<=n; ++i) {
       char *src = id2key(SRC,i);
-      char *trg = get_chunk(TRG,i); 
+      char *trg = get_chunk(TRG,i);
       printf ("%s\t%s\n", src, trg);
     }
     free_hash(SRC);
@@ -380,7 +380,7 @@ int main (int argc, char *argv[]) {
     printf(" %lu random numbers ", i);
     return 0;
   }
-  
+
   if (!strcmp(argv[1], "-load-ints")) {
     hash_t *H = open_hash (argv[2], "r");
     uint *V = open_vec (argv[3], "w", sizeof(uint)), noval = 0, nokey = 0, done = 0;
@@ -425,7 +425,7 @@ int main (int argc, char *argv[]) {
   fprintf (stderr, "ERROR: incorrect %s", usage);
   return 0;
 
-  ulong lines = 0; 
+  ulong lines = 0;
   char *path = argv[1], phrase[10000];
   FILE *in = safe_fopen (argv[2], "r");
   vtime();
@@ -438,7 +438,7 @@ int main (int argc, char *argv[]) {
 	      vtime(), lines/1E6, nkeys(h), ilog2(COLLISIONS), ilog2(MMAP_MOVES));
   }
   free_hash (h);
-  
+
   /*
   lines = 0;
   rewind(in);
@@ -451,7 +451,7 @@ int main (int argc, char *argv[]) {
   printf ("\nchecked %s: %ld lines -> %d keys\n", path, lines, nkeys(h));
   free_hash (h);
   */
-  
+
   return (0);
 }
 
