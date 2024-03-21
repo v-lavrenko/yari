@@ -68,8 +68,9 @@ void   *copy_vec (void *d) ;
 void *resize_vec (void *d, uint n) ;
 void *new_or_resize_vec (void *d, uint n, uint esz);
 void *append_vec (void *d, void *el) ;
-void *append_many (void *vec, void *els, uint k) ;
-void *insert_vec (void *vec, uint i, void *el) ; // insert el into position i, shift old [i..n]
+void *append_many (void *vec, void *els, uint k) ; // append k els at the end of vec
+void *prepend_vec (void *vec, void *els, uint k) ; // prepend k els at the beginning
+
 void reverse_vec (void *V) ; // reverse elements in-place
 void    sort_vec (void *d, int (*cmp) (const void *, const void *)) ;
 
@@ -80,7 +81,8 @@ void *vec_el (void **vec, uint n) ;
 
 void *set_vec_el (void *vec, uint i, void *el) ;
 void *ref_vec_el (void **vec, uint i) ;
-
+void *ins_vec_el (void *vec, uint i, void *el) ; // insert el into [i], shift old [i..n]
+void del_vec_el (void *vec, uint i) ;
 void **pointers_to_vec (void *V) ; // vector of n pointers 
 
 int cmp_jix (const void *n1, const void *n2) ; // by increasing j then i

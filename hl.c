@@ -52,10 +52,30 @@ char *hl_color (char c) {
   return "";
 }
 
+//  "                  R:red G:green B:blue C:cyan M:magenta Y:yellow W:white K:black\n"
+//  "                  lowercase:foreground, *:bold _:underline ~:inverse #:blink\n"
 char *usage =
-  "hl 'Y:string' ... highlight in red any line of stdin that contains 'string'\n"
-  "                  R:red G:green B:blue C:cyan M:magenta Y:yellow W:white K:black\n"
-  "                  lowercase:foreground, *:bold _:underline ~:inverse #:blink\n"
+  "hl 'Y:string' ... highlight in red any line of stdin that contains 'string'\n\t\t"
+  " r:"fg_RED"red"RESET
+  " g:"fg_GREEN"green"RESET
+  " b:"fg_BLUE"blue"RESET
+  " c:"fg_CYAN"cyan"RESET
+  " m:"fg_MAGENTA"magenta"RESET
+  " y:"fg_YELLOW"yellow"RESET
+  " k:"fg_BLACK"black"RESET
+  " w:"fg_WHITE"white"RESET"\n\t\t"
+  " R:"bg_RED"red"RESET
+  " G:"bg_GREEN"green"RESET
+  " B:"bg_BLUE"blue"RESET
+  " C:"bg_CYAN"cyan"RESET
+  " M:"bg_MAGENTA"magenta"RESET
+  " Y:"bg_YELLOW"yellow"RESET
+  " K:"bg_BLACK"black"RESET
+  " W:"bg_WHITE"white"RESET"\n\t\t"
+  " *:"BOLD"bold"RESET
+  " _:"UNDER"underline"RESET
+  " #:"BLINK"blink"RESET
+  " ~:"INVERSE"inverse"RESET"\n"
   ;
 
 static void hl_line(char *line, char **hl, int n) {

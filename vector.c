@@ -1,22 +1,22 @@
 /*
-  
+
   Copyright (c) 1997-2021 Victor Lavrenko (v.lavrenko@gmail.com)
-  
+
   This file is part of YARI.
-  
+
   YARI is free software: you can redistribute it and/or modify it
   under the terms of the GNU General Public License as published by
   the Free Software Foundation, either version 3 of the License, or
   (at your option) any later version.
-  
+
   YARI is distributed in the hope that it will be useful, but WITHOUT
   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
   License for more details.
-  
+
   You should have received a copy of the GNU General Public License
   along with YARI. If not, see <http://www.gnu.org/licenses/>.
-  
+
 */
 
 #include <math.h>
@@ -39,7 +39,7 @@ void *open_vec (char *path, char *access, uint esize) {
   off_t old = safe_lseek (fd, 0, SEEK_END); // zero if new file
   off_t size = old ? old : safe_truncate (fd, sizeof(vec_t));
   vec_t *v = safe_mmap (fd, 0, size, access);
-  if (v->file > 1) fprintf (stderr, "ERROR: %s is CORRUPTED, delete it\n", path); 
+  if (v->file > 1) fprintf (stderr, "ERROR: %s is CORRUPTED, delete it\n", path);
   if (!old) init_vec_t (v, 0, esize, fd); // new vector => init all elements
   else if (*access == 'r') close(fd); // release fd and still keep the mmap
   else v->file = fd; // replace stored descriptor with the real one
@@ -91,7 +91,7 @@ void *resize_vec (void *d, uint n) {
   v->count = n;
   //v->limit = n ? ilog2(n-1)+1 : 0; // new allocation (log-scale)
   v->limit = ilog2(n-1)+1; // new allocation (log-scale)
-  off_t new_size = vsizeof (v);  
+  off_t new_size = vsizeof (v);
   if (fd == 0) v = safe_realloc (v, new_size); // in memory
   else v = safe_remap (fd, v, old_size, new_size); // in a file
   //uint a = vlimit(v), esz = v->esize, c = v->count;
@@ -123,6 +123,15 @@ void *append_many (void *vec, void *els, uint k) {
   return vec;
 }
 
+void *prepend_many (void *vec, void *els, uint k) {
+  if (!els || !vec) return vec;
+  uint n = len(vec), sz = vesize(vec);
+  vec = resize_vec (vec, n+k);
+  memmove (vec + k*sz, vec, n*sz); // shift k slots >>
+  memcpy (vec, els, k*sz); // fill slots [0:k] with els
+  return vec;
+}
+
 void *set_vec_el (void *vec, uint i, void *el) {
   if (i >= len(vec)) vec = resize_vec (vec, i+1);
   uint sz = vesize(vec);
@@ -136,15 +145,24 @@ void *ref_vec_el (void **vec, uint i) {
 }
 
 // insert el into position i, shift positions i..n
-void *insert_vec (void *vec, uint i, void *el) {
+void *ins_vec_el (void *vec, uint i, void *el) {
   if (!vec || !el) return vec;
   uint n = len(vec), sz = vesize(vec);
   assert (i <= n);
   vec = resize_vec (vec, n+1);
   memmove(vec+(i+1)*sz, vec+i*sz, (n-i)*sz); // [i..n] -> [(i+1)..(n+1)]
   memcpy (vec+i*sz, el, sz);
-  return vec;  
+  return vec;
 }
+
+// return vec[:i] + vec[i+1:]
+void del_vec_el (void *vec, uint i) {
+  if (!vec || (i >= len(vec))) return;
+  uint n = len(vec), sz = vesize(vec), j = i+1;
+  if (j<n) memmove(vec+i*sz, vec+j*sz, (n-j)*sz); // [i..n] <- [i+1..n]
+  --len(vec);
+}
+
 
 /*
 void *grow_vec (void *d, uint n, void **next) {
@@ -170,7 +188,7 @@ void trials {
   element = append_element (&array, 1);
   element->x = x;
   element->y = y;
-  // ------------------------------ method 3  
+  // ------------------------------ method 3
   array = grow_list (array, 1, &element);
   element->x = x;
   element->y = y;
@@ -274,12 +292,12 @@ void *bsearch_vec (void *vec, uint id) { // assume id is 1st field in each eleme
 ///////////////////////////// sorting for common vector types
 
 int cmp_jix (const void *n1, const void *n2) { // by increasing j then i
-  jix_t *r1 = (jix_t*) n1, *r2 = (jix_t*) n2; 
+  jix_t *r1 = (jix_t*) n1, *r2 = (jix_t*) n2;
   int di = r1->i - r2->i, dj = r1->j - r2->j;
   return dj ? dj : di; }
 
 int cmp_jix_i (const void *n1, const void *n2) { // by increasing i then j
-  jix_t *r1 = (jix_t*) n1, *r2 = (jix_t*) n2; 
+  jix_t *r1 = (jix_t*) n1, *r2 = (jix_t*) n2;
   int di = r1->i - r2->i, dj = r1->j - r2->j;
   return di ? di : dj; }
 
@@ -293,28 +311,28 @@ int cmp_jix_jX (const void *n1, const void *n2) { // increasing j then decreasin
   return dj ? dj : (r2->x - r1->x); }
 
 int cmp_it_i (const void *n1, const void *n2) { // by increasing i
-  uint i1 = ((it_t*)n1)->i, i2 = ((it_t*)n2)->i; 
+  uint i1 = ((it_t*)n1)->i, i2 = ((it_t*)n2)->i;
   return i1 - i2; }
 
 int cmp_it_t (const void *n1, const void *n2) { // by increasing t
-  uint t1 = ((it_t*)n1)->t, t2 = ((it_t*)n2)->t; 
+  uint t1 = ((it_t*)n1)->t, t2 = ((it_t*)n2)->t;
   return t1 - t2; }
 
 int cmp_ijk_i (const void *n1, const void *n2) { // by increasing i
-  uint i1 = ((ijk_t*)n1)->i, i2 = ((ijk_t*)n2)->i; 
+  uint i1 = ((ijk_t*)n1)->i, i2 = ((ijk_t*)n2)->i;
   return (i1 > i2) ? +1 : (i1 < i2) ? -1 : 0; }
 
 int cmp_ijk_j (const void *n1, const void *n2) { // by increasing j
-  uint j1 = ((ijk_t*)n1)->j, j2 = ((ijk_t*)n2)->j; 
+  uint j1 = ((ijk_t*)n1)->j, j2 = ((ijk_t*)n2)->j;
   return (j1 > j2) ? +1 : (j1 < j2) ? -1 : 0; }
 
 int cmp_ijk_k (const void *n1, const void *n2) { // by increasing k
-  uint k1 = ((ijk_t*)n1)->k, k2 = ((ijk_t*)n2)->k; 
+  uint k1 = ((ijk_t*)n1)->k, k2 = ((ijk_t*)n2)->k;
   return (k1 > k2) ? +1 : (k1 < k2) ? -1 : 0; }
 
 int cmp_ix_I (const void *n1, const void *n2) { return -cmp_ix_i (n1,n2); }
 int cmp_ix_i (const void *n1, const void *n2) { // by increasing id
-  uint i1 = ((ix_t*)n1)->i, i2 = ((ix_t*)n2)->i; 
+  uint i1 = ((ix_t*)n1)->i, i2 = ((ix_t*)n2)->i;
   return i1 - i2; }
 
 
@@ -328,7 +346,7 @@ int cmp_ix_X (const void *n1, const void *n2) { // by decreasing value
   return (x1 > x2) ? -1 : (x1 < x2) ? +1 : 0; }
 
 int cmp_ixy_i (const void *n1, const void *n2) { // by increasing id
-  uint i1 = ((ixy_t*)n1)->i, i2 = ((ixy_t*)n2)->i; 
+  uint i1 = ((ixy_t*)n1)->i, i2 = ((ixy_t*)n2)->i;
   return i1 - i2; }
 
 int cmp_ixy_x (const void *n1, const void *n2) { return -cmp_ixy_X (n1,n2); }
@@ -385,7 +403,7 @@ void free_2D (void **X) {
   free_vec (X);
 }
 
-///////////////////////////// simple 3D 
+///////////////////////////// simple 3D
 
 void ***new_3D (uint deep, uint rows, uint cols, uint esize) {
   void ***X = new_vec (deep, sizeof (void*)), ***x = X-1;
@@ -418,17 +436,17 @@ inline uint trilen (uint o) {
 void vzero (void *d) { // zero out unused portion of the vector
   vstruct_t *v = vstruct(d); // between count and alloc
   unsigned c = v->count, a = vtotal(v), e = v->esize;
-  if (c < a) memset (v->data + c*e, 0, (a-c)*e); 
+  if (c < a) memset (v->data + c*e, 0, (a-c)*e);
 }
 */
 
 //////////////////////////////////////////////////
 /// 07.13.99 EXPERIMENTAL...
-/// Generic merge is like merge_wnodes (coll.c), 
+/// Generic merge is like merge_wnodes (coll.c),
 /// but operates on vectors of arbitrary data types
 /*
-void *vmerge (unsigned result_esize, 
-	      void *vector1, void *vector2, 
+void *vmerge (unsigned result_esize,
+	      void *vector1, void *vector2,
 	      void *parameter,
 	      int (*compare) (void*, void*),
 	      void (*join) (void*,void*,void*,void*)){
@@ -438,7 +456,7 @@ void *vmerge (unsigned result_esize,
   void *result = new_vec (len(v1) + len(v2),
 		       result_esize, 0);
   while (v1 < v1end && v1 < v2end) {
-    int cmp = compare (v1, v2); 
+    int cmp = compare (v1, v2);
     if (cmp == 0) { // elements have the same id
       join (result, v1, v2, parameter);
       v1 += vesize (v1);
@@ -453,13 +471,13 @@ void *vmerge (unsigned result_esize,
       v2 += vesize (v2);
     }
   }
-  
+
   for (; v1 < v1end; v1 += vesize (v1))
     join (result, v1, NULL, parameter);
-  
+
   for (; v1 < v1end; v1 += vesize (v1))
     join (result, NULL, v2, parameter);
-  
+
   return result;
 }
 
@@ -470,11 +488,11 @@ void *vmerge (unsigned result_esize,
 //   int file_permissions = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH; //  rw-r--r--
 //   switch (access) {
 //   case 'r': // open existing map for reading only
-//     map->file_access = O_RDONLY; 
-//     map->mmap_access = PROT_READ; 
+//     map->file_access = O_RDONLY;
+//     map->mmap_access = PROT_READ;
 //     break;
 //   case 'w': // open existing map for reading and writing
-//     map->file_access = O_RDWR; 
+//     map->file_access = O_RDWR;
 //     map->mmap_access = PROT_READ | PROT_WRITE;
 //     break;
 //   case 'n': // create a new map for reading and writing
@@ -483,7 +501,7 @@ void *vmerge (unsigned result_esize,
 //     break;
 //   default: assert (0);
 //   }
-//   map->file = safe_open (path, map->file_access, file_permissions); 
+//   map->file = safe_open (path, map->file_access, file_permissions);
 //   if (map->file == -1) {
 //     fprintf (stderr, "[new_map] could not open %s for '%c' access\n", path, access);
 //     perror ("[new_map]"); fflush (stderr); assert (0);
@@ -491,7 +509,7 @@ void *vmerge (unsigned result_esize,
 //   map->alloc = safe_lseek (map->file, 0, SEEK_END);
 //   assert ((access == 'n' && map->alloc == 0) || (access!='n' && map->alloc > 0));
 //   if (map->alloc == 0) return map;
-//   map->data = (char *) safe_mmap 
+//   map->data = (char *) safe_mmap
 //     (0, map->alloc, map->mmap_access, MAP_SHARED, map->file, 0);
 //   if (map->data == (char *) -1) {
 //     fprintf (stderr, "[new_map] could not map %d bytes in %s\n", map->alloc, path);
@@ -504,13 +522,13 @@ void *vmerge (unsigned result_esize,
 // unsigned alloc_in_map (mmap_t *map, unsigned need) {
 //   if (map->alloc <= map->used + need) {
 //     if (map->data) munmap (map->data, map->alloc);
-//     map->alloc = 2 * (map->alloc + need); 
+//     map->alloc = 2 * (map->alloc + need);
 //     lseek (map->file, map->alloc, SEEK_SET);
 //     if (1 != write (map->file, "\0", 1)) {
 //       fprintf (stderr, "[alloc_in_map] could not extend file to %d bytes\n", map->alloc);
 //       perror ("[alloc_in_map]"); fflush (stderr); assert (0);
 //     }
-//     map->data = (char *) safe_mmap 
+//     map->data = (char *) safe_mmap
 //       (0, map->alloc, map->mmap_access, MAP_SHARED, map->file, 0);
 //     if (map->data == (char *) -1) {
 //       fprintf (stderr, "[alloc_in_map] could not remap %d bytes\n", map->alloc);
@@ -535,7 +553,7 @@ void *vmerge (unsigned result_esize,
 //   if (path) { // vector will be in a memory-mapped file
 //     int fd = safe_open (path, ext, O_RDWR);
 //     int size = safe_lseek (fd, 0, SEEK_END);
-//     if (num_els) safe_truncate (fd, size = sizeof (vector_t)); 
+//     if (num_els) safe_truncate (fd, size = sizeof (vector_t));
 //     v = safe_mmap (fd, 0, size, PROT_READ | PROT_WRITE, MAP_SHARED);
 //     v->file = fd;
 //   }
@@ -544,13 +562,13 @@ void *vmerge (unsigned result_esize,
 //   if (num_els) { // new vector
 //     v->alloc = 0;
 //     v->count = 0;
-//     v->esize = el_size; 
-//     result = vresize (v->data, num_els); 
-//     memset (result, 0, num_els * el_size); 
+//     v->esize = el_size;
+//     result = vresize (v->data, num_els);
+//     memset (result, 0, num_els * el_size);
 //   } else result = v->data;
 //   return result;
 // }
-  
+
 // void *vnew (unsigned num_els, unsigned el_size) {
 //   void *result;
 //   vector_t *v = calloc (1, sizeof (vector_t));
@@ -576,8 +594,8 @@ void *vmerge (unsigned result_esize,
 //   if (size == 0) size = sizeof (vector_t) + nume_els * el_size;
 //   safe_truncate (fd, size);
 //   v = safe_mmap (fd, 0, size, PROT_READ | PROT_WRITE, MAP_SHARED);
-  
-  
+
+
 // }
 
 //  int main (int argc, char *argv[]) {
@@ -610,7 +628,7 @@ void *vmerge (unsigned result_esize,
 //    else if (n > 0) {
 //      fd = safe_open ("try", ".vec", O_RDONLY);
 //      a = vread (fd);
-//      for (i = 0; i < vcount(a); i += 100) 
+//      for (i = 0; i < vcount(a); i += 100)
 //        assert (a [i] == i);
 //      vfree (a);
 //      close (fd);
@@ -622,7 +640,7 @@ void *vmerge (unsigned result_esize,
 //      buf = safe_mmap (fd, 0, safe_lseek (fd, 0, SEEK_END), PROT_READ, MAP_SHARED);
 //      safe_lseek (fd, 0, SEEK_SET);
 //      a = vmmap (fd, buf);
-//      for (i = 0; i < vcount(a); i += 100) 
+//      for (i = 0; i < vcount(a); i += 100)
 //        assert (a [i] == i);
 //      munmap (buf, safe_lseek (fd, 0, SEEK_END));
 //      close (fd);
@@ -675,7 +693,7 @@ void *slice_vec (void *d, int beg, int end) {
 void append_vec (void **v1, void *v2) {
   assert (vesize (*v1) == vesize (v2));
   *v1 = vcheck (*v1, len(*v1) + len(v2));
-  memcpy (*v1 + len(*v1) * vesize (*v1), 
+  memcpy (*v1 + len(*v1) * vesize (*v1),
 	  v2, len(v2) * vesize (v2));
   len(*v1) += len(v2);
 }
@@ -697,14 +715,14 @@ unsigned vwriteF (void *d, int fd) {
   vstruct_t *v = vstruct (d);
   unsigned start = align_file_offset (fd);
   if (v->file != 1) { // need to reset for read_only mmaps
-    int file = v->file; // save real descriptor 
+    int file = v->file; // save real descriptor
     v->file = 1; // proper value for subsequent read_only mmaps
     write (fd, v, sizeof (vstruct_t)); // save vector_t struct
     v->file = file; // restore real descriptor
   }
   else write (fd, v, sizeof (vstruct_t));
   write (fd, d, vesize (d) * vtotal (d));
-  assert ((unsigned) safe_lseek (fd, 0, SEEK_CUR) 
+  assert ((unsigned) safe_lseek (fd, 0, SEEK_CUR)
 	  == start + vsizeof (d));
   return start + sizeof (vstruct_t);
 }
@@ -728,7 +746,7 @@ void *vreadF (int fd) {
 
 /*
 void *new_vec (unsigned num, unsigned esize, char *path) {
-  vstruct_t *v = 0; int fd = 0;   
+  vstruct_t *v = 0; int fd = 0;
   off_t size = sizeof(vstruct_t) + num * esize;
   if (path) {
     fd = safe_open (path, 'w');
@@ -742,7 +760,7 @@ void *new_vec (unsigned num, unsigned esize, char *path) {
   v->file = fd;
   memset (v->data, 0, n * s);
   return v->data;
-} 
+}
 void *open_vec (char *path, char access) {
   assert (access != 'w');
   int fd = safe_open (path, access);
