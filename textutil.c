@@ -92,6 +92,17 @@ void gsub (char *haystack, char *needle, char with) {
   }
 }
 
+// in text replace a prefix of each "src" with "trg"
+void psub (char *text, char *src, char *trg) {
+  char *p = text; uint ns = strlen(src), nt = strlen(trg);
+  if (nt > ns) assert (0 && "in ssub trg cannot be longer than src");
+  while ((p = strstr(p,src))) {
+    memcpy (p, trg, nt);
+    p += ns;
+  }
+}
+
+
 // wipe out HTML: &quot; &amp; &#x10f; -> ' '
 void no_xml_refs (char *S) {
   char *s = S-1, *beg = 0, *r;
@@ -127,7 +138,7 @@ void gsub_xml_refs (char *S, hash_t *SRC, coll_t *TRG) {
   squeeze (S, "\r", NULL);
 }
 
-void no_xml_tags (char *S) {
+void no_xml_tags0 (char *S) {
   char *s = S-1, *t = S, in = 0;
   while (*++s) {
     char escaped = (s > S) && (s[-1] == '\\'); // escaped char
@@ -138,8 +149,22 @@ void no_xml_tags (char *S) {
   *t = '\0';
 }
 
+int inside_tag (char t) {
+  return isalnum(t) || (ispunct(t) && (t != '>'));
+}
 
-
+void no_xml_tags (char *S) {
+  csub(S,"\r",' '); // we'll use CR as a special marker
+  char *s = S, *t;
+  while ((t = s = strchr(s,'<'))) { // maybe start of a tag
+    if (s > S && s[-1] == '\\') {++s; continue; } // skip escaped \>
+    while (inside_tag(*t)) ++t;
+    if (*t == '>') // [s..t] is a <tag>
+      while (s <= t) *s++ = '\r';
+    else ++s;
+  }
+  squeeze (S, "\r", NULL);
+}
 
 // str will have no chars from drop[], only those in keep[]
 void squeeze (char *str, char *drop, char *keep) {
@@ -147,7 +172,7 @@ void squeeze (char *str, char *drop, char *keep) {
   if (!drop && !keep) drop = default_ws;
   char *s, *t;
   if (drop) { for (t=s=str; *s; ++s) if (!strchr (drop, *s)) *t++ = *s; }
-  else      { for (t=s=str; *s; ++s) if  (strchr (drop, *s)) *t++ = *s; }
+  else      { for (t=s=str; *s; ++s) if  (strchr (keep, *s)) *t++ = *s; }
   *t = 0; // new string may be shorter
 }
 

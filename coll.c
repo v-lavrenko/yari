@@ -198,7 +198,7 @@ static inline void mov_chunk (coll_t *c, uint id, off_t sz) { // NEVER call dire
     c->next[tail] = id;                  // tail -> id
   }
   c->offs[id] = c->offs[0];              // old end of heap => our offset
-  c->offs[0] += align8(sz);              // new end of heap 
+  c->offs[0] += align8(sz);              // new end of heap
   grow_mmap_file (c->vecs, c->offs[0]);  // make sure file is big enough
 }
 
@@ -208,7 +208,7 @@ void *get_chunk (coll_t *c, uint id) {
   if (!has_vec(c,id)) return NULL;
   uint next = c->next ? c->next[id] : (id+1) % len(c->offs);
   off_t size = c->offs[next] - c->offs[id];
-  return move_mmap (c->vecs, c->offs[id], size); 
+  return move_mmap (c->vecs, c->offs[id], size);
 }
 
 // return a copy of chunk linked by id, or NULL => must be freed
@@ -219,7 +219,7 @@ void *get_chunk_pread (coll_t *c, uint id) {
   off_t offs = c->offs[id], size = c->offs[next] - offs;
   char *trg = safe_malloc (size);
   mmap_t *M = c->vecs;
-  if (offs >= M->offs && (offs+size) <= (M->offs + M->size)) { 
+  if (offs >= M->offs && (offs+size) <= (M->offs + M->size)) {
     char *src = M->data + (offs - M->offs); // inside mmap
     memcpy (trg, src, size);
   } else safe_pread (M->file, trg, size, offs); // outside

@@ -71,6 +71,9 @@ uint len_vec (coll_t *M, uint id) ;
 
 void defrag_coll (char *SRC, char *TRG) ;
 
+void *get_chunk_pread (coll_t *c, uint id) ; // malloc + pread
+
+
 /*
 
 typedef struct {

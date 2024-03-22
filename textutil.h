@@ -28,6 +28,8 @@ void csub (char *str, char *what, char with) ;
 void cqsub (char *str, char what, char with, char quot) ;
 // in haystack replace every instance of "needle" with 'with'
 void gsub (char *haystack, char *needle, char with) ;
+// in text replace a prefix of each "src" with "trg"
+void psub (char *text, char *src, char *trg) ;
 
 void noeol (char *str); // remove trailing newline
 void chop (char *str, char *blanks) ; // remove head/tail blanks
