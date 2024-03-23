@@ -22,6 +22,7 @@
 #ifndef TEXTUTIL
 #define TEXTUTIL
 
+uint cntchr (char *s, char c) ; // count c in s
 char *endchr (char *s, char c, uint n) ; // faster strrchr
 // in str replace any occurence of chars from what[] with 'with'
 void csub (char *str, char *what, char with) ; 
@@ -121,7 +122,6 @@ void append_sgml (char **trg, size_t *sz, char *src) ; // <TRG>,<SRC> -> <TRG SR
 
 char *lowercase(char *s); // in-place
 char *uppercase(char *s); // in-place
-int cntchr (char *s, char c);
 
 char *strRchr (char *beg, char *end, char key) ;
 void purge_escaped (char *txt) ;

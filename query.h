@@ -58,6 +58,7 @@ int num_snippets(snip_t *S);
 // de-allocates a vector of snippets.
 void free_snippets (snip_t *S) ;
 // returns full text as a snippet for each each doc in D.
+snip_t *bare_snippets (ix_t *D, hash_t *IDs) ; // just id and score
 snip_t *lazy_snippets (jix_t *D, coll_t *XML, hash_t *IDs) ;
 // shrink snippet to size, rerank by how many words it covers.
 void rerank_snippets (snip_t *S, char *qry, char **words, char *prm) ;

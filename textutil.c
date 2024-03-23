@@ -59,6 +59,9 @@ char *strrstr (char *s, char *t) {
   return last;
 }
 
+// return count of character 'c' in "s"
+uint cntchr (char *s, char c) { uint n=0; while (*s) if (*s++ == c) ++n; return n; }
+
 // in str replace any occurence of chars from what[] with 'with'
 void csub (char *str, char *what, char with) {
   if (!what) what = default_ws;
@@ -150,20 +153,20 @@ void no_xml_tags0 (char *S) {
 }
 
 int inside_tag (char t) {
-  return isalnum(t) || (ispunct(t) && (t != '>'));
+  return (t==' ') || isalnum(t) || (ispunct(t) && (t != '>'));
 }
 
 void no_xml_tags (char *S) {
-  csub(S,"\r",' '); // we'll use CR as a special marker
+  csub(S,"\b",' '); // use Backspace (\b) as a special marker
   char *s = S, *t;
   while ((t = s = strchr(s,'<'))) { // maybe start of a tag
     if (s > S && s[-1] == '\\') {++s; continue; } // skip escaped \>
     while (inside_tag(*t)) ++t;
     if (*t == '>') // [s..t] is a <tag>
-      while (s <= t) *s++ = '\r';
+      while (s <= t) *s++ = '\b';
     else ++s;
   }
-  squeeze (S, "\r", NULL);
+  squeeze (S, "\b", NULL);
 }
 
 // str will have no chars from drop[], only those in keep[]
@@ -476,8 +479,6 @@ char *uppercase(char *_s) {
   if (s) for (; *s; ++s) *s = toupper((int) *s);
   return _s;
 }
-
-int cntchr (char *s, char c) { int n; for (n=0; *s; ++s) n += (*s == c); return n; }
 
 void lowercase_stemmer (char *word, char *stem) {
   char *s;
@@ -1596,7 +1597,10 @@ char *hybrid_snippet (char *text, char **words, hash_t *Q, int gramsz, int snips
 
 // return claim or paragraph that best covers the query
 char *best_paragraph (char *text, char *qry, hash_t *_Q, int n, float *score) {
-  char **P = split(text,'\r'); // assume CR-separated paragraphs
+  //fprintf(stderr,"best_paragraph: text[%ld] qry[%ld] hash[%d] n:%d CR:%d\n",
+  //strlen(text), strlen(qry), nkeys(_Q), n, cntchr(text,'\r'));
+  char **P = split(text,'\t'); // assume Tab-separated paragraphs
+  //fprintf(stderr,"%d paras\n", len(P));
   ix_t best = {0, -Infinity};
   uint i, nP = len(P);
   float *Q = ngrams_freq(qry, n, _Q);

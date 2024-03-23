@@ -83,17 +83,29 @@ char *copy_doc_text (coll_t *XML, uint id) {
   char *text = strdup(chunk);
   erase_between(text, "<DOCID>", "</DOCID>", ' ');
   //char *text = extract_between (chunk, "</DOCID>", "</DOC>");
-  erase_between(text, "<title", ">", '\r');
-  erase_between(text, "<p:",    ">", '\r');
-  erase_between(text, "<claim", ">", '\r');
-  gsub (text, "</title>", '\r');
-  gsub (text, "</p>", '\r');
-  gsub (text, "</claim>", '\r');
+  erase_between(text, "<title", ">", '\t');
+  erase_between(text, "<p:",    ">", '\t');
+  erase_between(text, "<claim", ">", '\t');
+  gsub (text, "</title>", '\t');
+  gsub (text, "</claim>", '\t');
+  gsub (text, "</p>",     '\t');
   no_xml_tags (text);
   chop (text, " "); // chop whitespace around docid
   //no_xml_refs (text);
-  csub (text, "\"\\\t\n", ' ');
+  csub (text, "\"\\\r\n", ' ');
+  //fprintf(stderr,"copy_doc_text: %d -> len:%ld CR:%d\n", id, strlen(text), cntchr(text,'\r'));
   return text;
+}
+
+// returns just id and score for each doc in D.
+snip_t *bare_snippets (ix_t *D, hash_t *IDs) {
+  uint i, n = len(D);
+  snip_t *S = new_vec(n, sizeof(snip_t));
+  for (i = 0; i < n; ++i) {
+    S[i].score = D[i].x;
+    S[i].id = id2str (IDs, D[i].i);
+  }
+  return S;
 }
 
 // returns full text as a snippet for each each doc in D.
