@@ -31,7 +31,8 @@ void show_sims (float **sim) ;
 
 // ------------------------- TDT-like -------------------------
 
-void one_per_clump(jix_t *C) ;
+void group_jix_j (jix_t *D) ;
+void one_per_clump(jix_t *D) ;
 jix_t *clump_docs (ix_t *D, coll_t *DOCS, char *prm) ;
 
 // ------------------------- MST -------------------------

@@ -121,8 +121,10 @@ snip_t *lazy_snippets (jix_t *D, coll_t *XML, hash_t *IDs) {
   return S;
 }
 
+char *best_paragraph (index_t *I, char *text, char *qry, hash_t *_Q, int n, float *score) ;
+
 // shrink snippet to size, rerank by how many words it covers.
-void rerank_snippets (snip_t *S, char *qry, char **words, char *prm) {
+void rerank_snippets (index_t *I, snip_t *S, char *qry, char **words, char *prm) {
   //printf ("%squery%s: %s %s\n", fg_RED, RESET, qry, prm);
   uint qryLen = strlen(qry);
   uint snipsz = getprm(prm,"snipsz=",0);
@@ -144,7 +146,7 @@ void rerank_snippets (snip_t *S, char *qry, char **words, char *prm) {
     //ngram_snippet (old, Q, ngramsz, snipsz, &score) :
     //html_snippet (old, words, snipsz, &score));
     if     (ngramsz) s->snip = (paragr ?
-				best_paragraph (old, qry, Q, ngramsz, &score) : 
+				best_paragraph (I, old, qry, Q, ngramsz, &score) : 
 				qryLen > 60 ?
 				ngram_snippet (old, Q, ngramsz, snipsz, &score) :
 				html_snippet (old, words, snipsz, &score));
@@ -168,7 +170,7 @@ snip_t *ranked_snippets (index_t *I, jix_t *docs, char *qry, char **toks, char *
   if (len(docs) > rerank) len(docs) = rerank;
   snip_t *S = lazy_snippets (docs, I->XML, I->DOC);
   loglag("lazy");
-  rerank_snippets (S, qry, toks, prm);
+  rerank_snippets (I, S, qry, toks, prm);
   loglag("rerank");
   return S;
 }
@@ -476,6 +478,7 @@ snip_t *run_text_qry (index_t *I, char *_qry, char *prm, char *mask) {
     G = clump_docs (D, I->DOCxWORD, prm);
     //show_jix (G, "clumps", 'i');
     one_per_clump (G);
+    //group_jix_j(G);
     //show_jix (G, "1/group", '*');
     loglag("clump");
   }
@@ -525,15 +528,34 @@ ixy_t *qry_costs (ix_t *Q, coll_t *INVL) {
   return C;
 }
 
+void show_qry_costs (ixy_t *Q) {
+  uint i, n = len(Q);
+  double sz = 0;
+  printf("\n");
+  for (i=0; i<n; ++i) {
+    sz += Q[i].y;
+    if (i==10 || i==20 || i==50 || i==100 || i==200 || i==500 || i==1000)
+      printf("i:%d %.2fK %.2fM\n", i+1, Q[i].y/1E3, sz/1E6);
+  }
+  fflush(stdout);
+}
+
 // match as many query terms as possible before deadline
 // use DOT product, assume weighting pre-applied
 ix_t *timed_qry (ix_t *_Q, coll_t *INVL, char *prm) {
   double deadline = mstime() + getprm (prm,"timed=",100);
+  uint max_bytes = getprm (prm, "qbytes=", 0);
+  uint max_terms = getprm (prm, "qterms=", 0);
   uint beam = getprm (prm, "beam=", 10000);
   ixy_t *Q = qry_costs (_Q, INVL), *q=Q, *end = Q + len(Q);
-  if (q->y > 1e8) { free_vec(Q); return const_vec(0,0); }
+  uint used_bytes = q->y;
+  //loglag("costs");
+  //show_qry_costs (Q);
+  if (used_bytes > 1e8) { free_vec(Q); return const_vec(0,0); }
   ix_t *R = get_vec (INVL, q->i);
   while (++q < end && mstime() < deadline) {
+    if (max_bytes && max_bytes < (used_bytes += q->y)) break;
+    if (max_terms && max_terms < q-Q) break;
     ix_t *D = get_vec_ro (INVL, q->i), *tmp;
     R = vec_add_vec (1, tmp=R, q->x, D);
     free_vec(tmp);
@@ -543,6 +565,7 @@ ix_t *timed_qry (ix_t *_Q, coll_t *INVL, char *prm) {
     //assert (vec_is_sorted(R));
     sort_vec (R, cmp_ix_i);
   }
+  printf("\ntimed_qry: %ld/%d terms %dMB", q-Q, len(Q), used_bytes>>20);
   free_vec(Q);
   return R;
 }

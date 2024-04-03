@@ -61,7 +61,7 @@ void free_snippets (snip_t *S) ;
 snip_t *bare_snippets (ix_t *D, hash_t *IDs) ; // just id and score
 snip_t *lazy_snippets (jix_t *D, coll_t *XML, hash_t *IDs) ;
 // shrink snippet to size, rerank by how many words it covers.
-void rerank_snippets (snip_t *S, char *qry, char **words, char *prm) ;
+void rerank_snippets (index_t *I, snip_t *S, char *qry, char **words, char *prm) ;
 // trim docs -> lazy_snippets -> rerank_snippets (helper for run_*_qry)
 snip_t *ranked_snippets (index_t *I, jix_t *docs, char *qry, char **toks, char *prm) ;
 // compares two snippets by decreasing score.

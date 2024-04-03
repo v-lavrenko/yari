@@ -152,8 +152,7 @@ uint total_sjk_len (sjk_t *M) ;
 ijk_t best_ngram_span (ijk_t *M, uint sz, uint textLen) ;
 char *ngram_snippet (char *text, hash_t *Q, int gramsz, int snipsz, float *score) ;
 char *hybrid_snippet (char *text, char **words, hash_t *Q, int gramsz, int snipsz, float *score) ;
-
-char *best_paragraph (char *text, char *qry, hash_t *_Q, int n, float *score) ;
+char *ngram_highlight (char *text, hash_t *Q, int gramsz) ;
 
 float pack_span (uint beg, uint end); // packs span into a single float (lossy)
 it_t unpack_span (float x); // unpacks span (lossy)

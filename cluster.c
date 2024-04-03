@@ -324,6 +324,24 @@ void one_per_clump(jix_t *C) {
   free_vec(seen);
 }
 
+// re-order so all els in a group appear consecutively
+// original order inside group & 1st el of each group
+void group_jix_j (jix_t *src) {
+  jix_t *out = new_vec (0, sizeof(jix_t));
+  jix_t *s, *t, *end = src+len(src);
+  for (s = src; s < end; ++s) {
+    if (!s->j) continue; // this element already used
+    for (t = s; t < end; ++t) {
+      if (t->j != s->j) continue;
+      out = append_vec(out, t);
+      t->j = 0; // mark this element as used
+    }
+  }
+  assert (len(out) == len(src));
+  for (s=src, t=out; s < end; ++t, ++s) *s = *t;
+  free_vec(out);
+}
+
 // {j:group, i:doc, x:sim} greedy TDT-like thresholding
 jix_t *clump_docs (ix_t *D, coll_t *DOCS, char *prm) {
   sort_vec(D, cmp_ix_X);

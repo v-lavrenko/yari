@@ -30,6 +30,7 @@
 #include "hl.h"
 #include "matrix.h"
 #include "timeutil.h"
+#include "query.h"
 
 char *default_ws = " \t\r\n~`!@#$%^&*()_-+=[]{}|\\:;\"'<>,.?/";
 
@@ -1400,6 +1401,14 @@ float fCE(float *Q, float *D, float eps) {
   return CE;
 }
 
+float fCE2(float *Q, float *D, float *BG) {
+  uint i, nQ = len(Q), nD = len(D), n = MIN(nQ,nD);
+  double SQ = sumf(Q), SD = sumf(D), CE = 0;
+  for (i=0; i<n; ++i)
+    CE += (Q[i]/SQ) * log (D[i]/SD + BG[i]);
+  return CE;
+}
+
 float *ngrams_freq (char *text, int n, hash_t *H) {
   float *F = new_vec (nkeys(H)+1, sizeof(float));
   sjk_t *tokens = go_tokens (text);
@@ -1410,6 +1419,29 @@ float *ngrams_freq (char *text, int n, hash_t *H) {
   } while (--n > 0);
   free_tokens(tokens);
   return F;
+}
+
+double fake_bg (char *gram, hash_t *W, stats_t *S) {
+  double P = 1, *CF = S->cf, NP = S->nposts; char *w;
+  if (!gram || !*gram) return 1;
+  while ((w = next_token (&gram, " "))) {
+    if (stop_word(w)) continue; // P *= 1/1
+    uint id = has_key(W,w);
+    if (!id || id >= len(CF)) continue;
+    P *= (CF[id] / NP);
+  }
+  return P;
+}
+
+// fake idf: P(w1,w2,w2) ~ P(w1) * P(w2) * P(w3)
+float *ngrams_bg (hash_t *H, hash_t *W, stats_t *S) {
+  uint id, n = nkeys(H);
+  float *BG = new_vec (n+1, sizeof(float));
+  for (id=1; id<=n; ++id) {
+    char *gram = id2key(H,id);
+    BG[id] = fake_bg(gram, W, S);
+  }
+  return BG;
 }
 
 // for each n-gram in H: how often we see it in tokens
@@ -1596,7 +1628,7 @@ char *hybrid_snippet (char *text, char **words, hash_t *Q, int gramsz, int snips
 }
 
 // return claim or paragraph that best covers the query
-char *best_paragraph (char *text, char *qry, hash_t *_Q, int n, float *score) {
+char *best_paragraph (index_t *I, char *text, char *qry, hash_t *_Q, int n, float *score) {
   //fprintf(stderr,"best_paragraph: text[%ld] qry[%ld] hash[%d] n:%d CR:%d\n",
   //strlen(text), strlen(qry), nkeys(_Q), n, cntchr(text,'\r'));
   char **P = split(text,'\t'); // assume Tab-separated paragraphs
@@ -1604,6 +1636,7 @@ char *best_paragraph (char *text, char *qry, hash_t *_Q, int n, float *score) {
   ix_t best = {0, -Infinity};
   uint i, nP = len(P);
   float *Q = ngrams_freq(qry, n, _Q);
+  //float *BG = ngrams_bg (_Q, I->WORD, I->STATS);
   for (i=0; i<nP; ++i) {
     if (!P[i] || strlen(P[i]) < 10) continue; // too short
     float *D = ngrams_freq(P[i], n, _Q);
@@ -1615,5 +1648,7 @@ char *best_paragraph (char *text, char *qry, hash_t *_Q, int n, float *score) {
   char *result = strdup(P[best.i]);
   free_vec (P);
   free_vec (Q);
+  //free_vec(BG);
+  (void) I;
   return result;
 }
