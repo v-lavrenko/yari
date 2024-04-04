@@ -1249,7 +1249,7 @@ void update_stats_from_file (stats_t *s, hash_t *dict, char *file) {
   FILE *in = safe_fopen (file, "r");
   while (fgets (line, 999, in)) {
     if (*line == '#') continue; // skip comments
-    if (3 != sscanf (line, "%s %d %f", word, &df, &cf)) continue; // can't parse
+    if (3 != sscanf (line, "%d %f %s", &df, &cf, word)) continue; // can't parse
     id = key2id (dict, word);
     if (id) {
       grow_stats (s, id);
@@ -1262,13 +1262,19 @@ void update_stats_from_file (stats_t *s, hash_t *dict, char *file) {
   fclose(in);
 }
 
-void dump_stats (stats_t *s, hash_t *dict) {
+void dump_stats (stats_t *s, hash_t *dict, char *prm) {
+  ulong  minDF = getprm(prm,"df>",0), maxDF = getprm(prm,"df<",0);
+  double minCF = getprm(prm,"cf>",0), maxCF = getprm(prm,"cf<",0);
   uint w = 0, nw = s->nwords;
   //FILE *out = safe_fopen (file, "w");
-  printf ("# %ld %ld %.0f docs/words/posts\n", s->ndocs, s->nwords, s->nposts);
+  fprintf (stderr, "#\t%ld\t%ld\t%.0f\tdocs/words/posts\n", s->ndocs, s->nwords, s->nposts);
   while (++w <= nw) {
+    ulong df = s->df[w]; double cf = s->cf[w];
+    if ((df <= minDF) || (maxDF && df >= maxDF)) continue;
+    if ((cf <= minCF) || (maxCF && cf >= maxCF)) continue;
     char *key = id2str(dict,w);
-    printf ("%15s %5ld %10.2f\n", key, s->df[w], s->cf[w]);
+    //printf ("%15s %5ld %10.2f\n", key, s->df[w], s->cf[w]);
+    printf ("%ld\t%.2f\t%s\n", s->df[w], s->cf[w], key);
     free (key);
   }
   //fclose (out);

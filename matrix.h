@@ -136,7 +136,7 @@ stats_t *coll_stats (coll_t *c) ;
 void update_stats_from_vec (stats_t *s, ix_t *vec) ;
 void update_stats_from_file (stats_t *s, hash_t *dict, char *file) ;
 void free_stats (stats_t *s) ;
-void dump_stats (stats_t *s, hash_t *dict) ;
+void dump_stats (stats_t *s, hash_t *dict, char *prm) ;
 stats_t *open_stats (char *path) ;
 stats_t *open_stats_if_exists (char *path) ;
 void save_stats (stats_t *s, char *path) ;

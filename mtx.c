@@ -94,7 +94,7 @@ void mtx_stats (char *_S, char *_M, char *prm) {
   if (strstr(prm,"dump")) {
     hash_t *H = open_hash (_M,"r");
     stats_t *S = open_stats (_S);
-    dump_stats (S, H);
+    dump_stats (S, H, prm);
     free_hash(H);
     free_stats(S);
   } else if (strstr(prm,"load")) {

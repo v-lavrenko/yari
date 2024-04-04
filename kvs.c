@@ -1241,6 +1241,7 @@ void do_rnk (char *_RELS, char *_RETS, char *_DOCS, char *_INVL, char *_SIMS, ch
 
 //////////////////////////////////////////////////////////////// end test 3
 
+/*
 void do_stats (char *_M, char *_H) {
   coll_t *M = open_coll (_M, "r+");
   hash_t *H = open_hash (_H, "r");
@@ -1250,6 +1251,7 @@ void do_stats (char *_M, char *_H) {
   free_hash (H);
   free_coll (M);
 }
+*/
 
 void do_size (char *_C) {
   coll_t *C = open_coll (_C, "r+");
@@ -1272,7 +1274,7 @@ char *usage =
   "   rekey A a += B b [addnew]  - A[j] = B[i] (replace) where key = a[j] = b[i]\n"
   "   merge A a += B b [prm]     - A[j] += B[i] (concat) where key = a[j] = b[i]\n"
   "                                prm: addnew ... add new keys if not in a\n"
-  "  -stat XML HASH              - stats (cf,df) from collection XML -> stdout\n"
+  //"  -stat XML HASH              - stats (cf,df) from collection XML -> stdout\n"
   "  -dmap XML HASH [prm]        - stdin: qryid docid, stdout: qryid XML[docid]\n"
   "  -qry 'query' DICT stem=L    - parse query\n"
   "  -ret  INVL [prm]            - retrieved set, prm ignored\n"
@@ -1324,7 +1326,7 @@ int main (int argc, char *argv[]) {
     if (!strcmp (a(0), "-rand")) dump_rnd (a(1), a(2));
     if (!strcmp (a(0), "-dmap")) dump_raw_ret (a(1), a(2), a(3));
     if (!strcmp (a(0), "size")) do_size (a(1));
-    if (!strcmp (a(0), "-stat")) do_stats (a(1), a(2));
+    //if (!strcmp (a(0), "-stat")) do_stats (a(1), a(2));
     if (!strcmp (a(0), "-qry")) qry = do_qry (QRY=a(1), DICT=a(2), a(3));
     if (!strcmp (a(0), "-ret")) ret = do_ret (qry, INVL=a(1), a(2)); // free ret
     if (!strcmp (a(0), "-exp")) qry = do_exp (qry, ret, DOCS=a(1), a(2));
