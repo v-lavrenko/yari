@@ -55,6 +55,7 @@ char *hl_color (char c) {
 //  "                  R:red G:green B:blue C:cyan M:magenta Y:yellow W:white K:black\n"
 //  "                  lowercase:foreground, *:bold _:underline ~:inverse #:blink\n"
 char *usage =
+  "hl xml        ... highlight SGML tags\n"
   "hl 'Y:string' ... highlight in red any line of stdin that contains 'string'\n\t\t"
   " r:"fg_RED"red"RESET
   " g:"fg_GREEN"green"RESET
