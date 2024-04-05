@@ -104,9 +104,40 @@ void hl_subs(char *line, char *h) {
   fputc('\n',stdout);
 }
 
+int hl_xml() {
+  char *TAG = fg_RED, *STR = fg_CYAN;
+  int c, prev = 0, intag = 0, instr = 0;
+  while ((c = getchar()) != EOF) {
+    if (c == '<' && prev != '\\' && !intag) { // opening <
+      fputs(TAG, stdout);
+      intag = 1;
+      putchar(c);
+    }
+    else if (c == '"' && intag && !instr) { // opening " in <tag>
+      fputs(STR, stdout);
+      instr = 1;
+      putchar(c);
+    }
+    else if (c == '"' && instr) { // closing "
+      putchar(c);
+      fputs(intag ? TAG : RESET, stdout);
+      instr = 0;
+    }
+    else if (c == '>' && intag && !instr) { // closing >
+      putchar(c);
+      fputs(RESET,stdout);
+      intag = 0;
+    }
+    else putchar(c);
+    prev = c;
+  }
+  return 0;
+}
+
 int main (int argc, char *argv[]) {
   char line[1000000];
   if (argc < 2) return fprintf (stderr, "\n%s\n", usage);
+  if (!strcmp(argv[1],"xml")) return hl_xml();
   while (fgets (line, 999999, stdin)) {
     char *eol = index (line,'\n');
     if (eol) *eol = 0;
