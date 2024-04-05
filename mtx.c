@@ -92,7 +92,7 @@ void mtx_trace (char *_M, char *prm) {
 
 void mtx_stats (char *_S, char *_M, char *prm) {
   if (strstr(prm,"dump")) {
-    hash_t *H = open_hash (_M,"r");
+    hash_t *H = _M ? open_hash (_M,"r") : NULL;
     stats_t *S = open_stats (_S);
     dump_stats (S, H, prm);
     free_hash(H);
