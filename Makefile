@@ -29,7 +29,7 @@ CC=gcc -m64 $(opt) $(warn) -I . -o $@ $(f64)
 
 exe = testmmap testvec testcoll dict mtx stem kvs hl bio pdb \
 shard pval ts ptail xcut xtime spell query nutil xsum xsv \
-bpe
+bpe re
 
 all: libyari.a $(exe)
 	etags *.c *.h
@@ -43,7 +43,7 @@ publish:
 %.o: %.c
 	$(CC) -c $<
 
-libyari.a: mmap.o vector.o coll.o hash.o matrix.o netutil.o timeutil.o stemmer_krovetz.o textutil.o synq.o svm.o spell.o query.o dense.o bpe.o cluster.o
+libyari.a: mmap.o vector.o coll.o hash.o matrix.o netutil.o timeutil.o stemmer_krovetz.o textutil.o synq.o svm.o spell.o query.o dense.o bpe.o cluster.o regexp.o
 	ar -r libyari.a $^
 
 %::
@@ -106,3 +106,6 @@ bpe: bpe.c libyari.a
 xsum: xsum.c libyari.a
 
 xsv: xsv.c libyari.a
+
+re: regexp.c libyari.a
+	$(CC) -DMAIN $^ $(LIB)
