@@ -26,8 +26,10 @@ regex_t re_compile(char *pattern, char *prm) {
 it_t *regmatch_to_it_and_free (regmatch_t *els) {
   uint i, nels = len(els);
   it_t *R = new_vec (nels, sizeof(it_t));
-  for (i=0; i<nels; ++i)
-    R[i] = (it_t) {els[i].rm_so, els[i].rm_eo};
+  for (i=0; i<nels; ++i) {
+    R[i].i = MAX(0, els[i].rm_so);
+    R[i].t = MAX(0, els[i].rm_eo);
+  }
   free_vec (els);
   return R;
 }
@@ -76,7 +78,7 @@ int do_scan(char *pattern, int all, char *prm) {
 		 :     re_find_els(RE, buf)), *e;
     for (e = els; e < els + len(els); ++e) {
       char *s = strndup (buf + e->i, (e->t - e->i));
-      puts(s);
+      printf("[%d:%d] '%s'\n", e->i, e->t, s);
       free(s);
     }
     free_vec (els);
