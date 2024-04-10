@@ -1,22 +1,22 @@
 /*
-  
-  Copyright (c) 1997-2021 Victor Lavrenko (v.lavrenko@gmail.com)
-  
+
+  Copyright (c) 1997-2024 Victor Lavrenko (v.lavrenko@gmail.com)
+
   This file is part of YARI.
-  
+
   YARI is free software: you can redistribute it and/or modify it
   under the terms of the GNU General Public License as published by
   the Free Software Foundation, either version 3 of the License, or
   (at your option) any later version.
-  
+
   YARI is distributed in the hope that it will be useful, but WITHOUT
   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
   License for more details.
-  
+
   You should have received a copy of the GNU General Public License
   along with YARI. If not, see <http://www.gnu.org/licenses/>.
-  
+
 */
 
 #include "vector.h"
@@ -24,17 +24,17 @@
 #ifndef COLL
 #define COLL
 
-#define COLL_VERSION 20130808 
+#define COLL_VERSION 20130808
 
 // TODO: replace vecs with int fd + bump VERSION
 typedef struct {
   off_t  *offs; // offs[id] = offset of id'th vector in vecs (or pointer)
   uint   *prev; // prev[id] = vec that precedes id in vecs, 0 if id is 1st
   uint   *next; // next[id] = vec that follows id in vecs, 0 if id is last
-  mmap_t *vecs; // window containing vectors 
+  mmap_t *vecs; // window containing vectors
   char   *path; // path where the matrix exists on disk
   char *access; // r,w,a
-  uint version; 
+  uint version;
   uint    rdim; // number of rows
   uint    cdim; // number of columns
 } coll_t;
@@ -94,7 +94,7 @@ typedef struct {
 matrix_t *m_new (char *path, unsigned nvecs) ; // create a new matrix
 matrix_t *m_new2 (char *path, unsigned nvecs, off_t mmap_size) ; // create a new matrix
 matrix_t *m_open (char *path, access_t access) ; // mmap existing one
-matrix_t *m_open2 (char *path, access_t access, off_t map_size) ; 
+matrix_t *m_open2 (char *path, access_t access, off_t map_size) ;
 void m_free (matrix_t *m) ; // deallocate matrix, flush to disk
 void m_defrag (char *source, char *target) ; // defragment matrix
 void m_visualize (matrix_t *M) ; // print summary of vectors in matrix
@@ -106,7 +106,7 @@ void *m_new_vec (matrix_t *m, unsigned id, unsigned n, unsigned esize) ;
 // make sure vector 'id' has at least 'n' slots
 void *m_resize_vec (matrix_t *m, unsigned id, unsigned n) ;
 // remove vector 'id'
-void m_del_vec (matrix_t *m, unsigned id) ; 
+void m_del_vec (matrix_t *m, unsigned id) ;
 // get vector 'id', making sure it has at least 'n' slots
 void *m_get_vec(matrix_t *m, unsigned id, unsigned n, unsigned s) ;
 // make sure 'v' (stored as 'id') has at least 'n' slots

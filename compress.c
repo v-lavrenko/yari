@@ -1,22 +1,43 @@
+/*
+
+  Copyright (c) 1997-2024 Victor Lavrenko (v.lavrenko@gmail.com)
+
+  This file is part of YARI.
+
+  YARI is free software: you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  YARI is distributed in the hope that it will be useful, but WITHOUT
+  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+  or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+  License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with YARI. If not, see <http://www.gnu.org/licenses/>.
+
+*/
+
 #include "hash.h"
 #include "bitvec.h"
 #include "timeutil.h"
 
-/* -------------------- ideas -------------------- 
-   
+/* -------------------- ideas --------------------
+
    general:
    (a) separate components: [{i1,x2} ... {iN,xN}] -> [i1..iN] [x1..xN]
-   (b) [i1..iN]: delta + v-byte compression 
+   (b) [i1..iN]: delta + v-byte compression
    (c) [x1..xN]: sort | uniq -c | sort -rn -> [j1..jN] + MAP:j->x
-   (d) [j1..jN]: v-byte or Huffman 
+   (d) [j1..jN]: v-byte or Huffman
    (e) MAP[0] = default (zero) value?
    (f) MAP based on entire matrix or one vec?
-   
+
    (g) if N > NC/2 -> store full vec [x1..xNC]
    (h) if x = const -> store [i1..iN] + const
-   
+
    (i) allow MAP:j->offset into STRINGS[]
-   
+
    ----------------------------------------------- */
 
 
@@ -44,10 +65,10 @@ uint *mtf_decode (uint *U) { (void)U;
 
 // ---------------------------------------- v-byte / varint encoding
 
-//#define last_byte(char b) b & 
+//#define last_byte(char b) b &
 
-// in-place reverse byte array [beg..end) 
-void reverse (char *beg, char *end) { 
+// in-place reverse byte array [beg..end)
+void reverse (char *beg, char *end) {
   for (--end; beg < end; ++beg, --end) {
     char tmp = *beg; *beg = *end; *end = tmp;
   }
@@ -104,7 +125,7 @@ uchar *push_msint (uint U, uchar *B) {
   if (U <= 0xff)     { *B = 252; *u = U & 0xff; return B+2; }
   if (U <= 0xffff)   { *B = 253; *u = U & 0xffff; return B+3; }
   if (U <= 0xffffff) { *B = 254; *u = U & 0xffffff; return B+4; }
-  {                    *B = 255; *u = U;              return B+5; }  
+  {                    *B = 255; *u = U;              return B+5; }
 }
 
 uchar *pop_msint (uint *U, uchar *B) {
@@ -142,7 +163,7 @@ void show_bufaz (uchar *B, uint a, uint z) ;
 
 // Little Endian: 0xAaBbCcDd -> {Dd,Cc,Bb,Aa} in memory
 
-//   1..8 -> 0xxx 
+//   1..8 -> 0xxx
 //   9..? -> 1nnn 1-8 nibbles follow
 
 uint get_B_nibble (uchar *B, off_t n) {
@@ -182,7 +203,7 @@ off_t pop_nibble (uint *_U, uchar *B, off_t b, uint eob) { (void) eob;
   if (u<8) { *_U = u; return b+1; } // 0nnn
   uint U = 0, i=0, nibs = 1+(u&7);
   while (++i <= nibs) { u = get_B_nibble (B, ++b); U = (U<<4) | u; }
-  *_U = U;  
+  *_U = U;
   return b+1;
 }
 
@@ -197,7 +218,7 @@ char *nibbl_encode (uint *U) {
 
 uint *nibbl_decode (char *_B) {
   uchar *B = (uchar*)_B;
-  off_t b = 0, end = len(B)*2;  
+  off_t b = 0, end = len(B)*2;
   uint *U = new_vec (0, sizeof(uint)), u=0;
   while (b < end) {
     b = pop_nibble (&u, B, b, end);
@@ -230,10 +251,10 @@ off_t pop_nibble_maybe_fast (uint *U, uchar *B, off_t beg, off_t eob) {
 off_t push_nibble_maybe_fast (uint U, uchar *B, off_t beg, off_t eob) {
   uint mask[9] = {0, 0xF0, 0xFF, 0xFFF0, 0xFFFF, 0xFFFFF0, 0xFFFFFF, 0xFFFFFFF0, 0xFFFFFFFF};
   uint byte = beg>>1, right = beg&1, left = !right, shift = left<<2;
-  
-  
+
+
   if (U<8) { B[byte] |= (U<<shift); return beg+1; }
-  if (right)  { B[byte] |= (U & 0xF); U >>= 4; } // RHS of current byte = bits 
+  if (right)  { B[byte] |= (U & 0xF); U >>= 4; } // RHS of current byte = bits
 }
 */
 
@@ -267,13 +288,13 @@ off_t push_gamma (uint U, uchar *B, off_t beg) { // assume B[beg..] is zeroed ou
   }
   return beg+nb;
 }
-  
+
 off_t pop_gamma (uint *_U, uchar *B, off_t beg, off_t eob) {
   uint U = 0;
-  off_t j, i = beg;  
+  off_t j, i = beg;
   while ((i < eob) && !bit_is_1(B,i)) ++i;
   //printf ("popgamma %lu:%lu from ", beg, eob);
-  //show_buf0((char*)B); 
+  //show_buf0((char*)B);
   if (i >= eob) { /* printf(" i=%lu hit EOB, stop\n", i); */ return i; }
   uint nb = i - beg + 1; // how many bits I need
   //printf (" expect %u bits in %lu:%lu\n", nb, i, i+nb);
@@ -353,7 +374,7 @@ char *zstd_encode (uint *U) {
   size_t sz = ZSTD_compress(B, Bsz, U, Usz, 5);
   zstd_assert (sz, "encode");
   len(B) = sz;
-  return B;  
+  return B;
 }
 
 uint *zstd_decode (char *B) {
@@ -363,7 +384,7 @@ uint *zstd_decode (char *B) {
   zstd_assert (sz, "decode");
   len(U) = sz/esz;
   return U;
-} 
+}
 
 // ---------------------------------------- pFORdelta
 
@@ -376,7 +397,7 @@ char *pford_encode (uint *U) {
   void *B = new_vec (SZ, 1);
   int sz = pfor_compress(U, (uint*)B, SZ);
   len(B) = sz;
-  return B;  
+  return B;
 }
 
 uint *pford_decode (char *B) {
@@ -385,7 +406,7 @@ uint *pford_decode (char *B) {
   int SZ = pfor_decompress((uint*)B, U, EZ);
   len(U) = SZ/esz;
   return U;
-} 
+}
 */
 
 // ---------------------------------------- counting values
@@ -425,11 +446,11 @@ ix_t *count_values (float *X) {
 
 #ifdef MAIN
 
-uint *ix2i (ix_t *V, char x) {  
+uint *ix2i (ix_t *V, char x) {
   uint i, n = len(V), *U = new_vec (n, sizeof(uint));
   if (x) for (i=0; i<n; ++i) U[i] = 1+(uint)V[i].x;
   else   for (i=0; i<n; ++i) U[i] = V[i].i;
-  return U;  
+  return U;
 }
 
 uint *argv2vec (char *A[], int n) {
@@ -446,7 +467,7 @@ void show_vec (uint *V, char *pre) {
 }
 
 #define _getbit(B,i) (B & (1 << (i & 31)))
- 
+
 void show_binary (char c) {
   int i;
   for (i=7; i>=0; --i) fputc( ((c & (1<<i)) ? '1' : '0'), stdout);
@@ -456,12 +477,12 @@ void show_binary (char c) {
 
 void show_bufaz (uchar *B, uint a, uint z) {
   uchar *b = B+a-1, *end = B+z;
-  while (++b < end) show_binary ((char)*b);  
+  while (++b < end) show_binary ((char)*b);
 }
 
 void show_buf0 (char *B) {
   char *b = B-1, *end = B+len(B);
-  while (++b < end) show_binary (*b);  
+  while (++b < end) show_binary (*b);
 }
 
 void show_buf (char *B, char *pre) {
@@ -477,7 +498,7 @@ int do_delta (int n, char *A[]) {
   show_vec (V, "encoded:");
   delta_decode (V);
   show_vec (V, "decoded:");
-  free_vec(V); 
+  free_vec(V);
   return 0;
 }
 
@@ -600,15 +621,15 @@ int do_mtx (char *_M, char *alg) {
     if (len(U) != len(BU)) {
       show_vec (U,  "orignal:");
       show_buf (B,  "encoded:");
-      show_vec (BU, "decoded:");      
+      show_vec (BU, "decoded:");
       assert (len(U) == len(BU));
     }
-    for (j=0; j<len(U); ++j) 
+    for (j=0; j<len(U); ++j)
       if (U[j] != BU[j]) return do_mtx_debug (i, U, BU, B, "B");
     if (i == next_pow2(i) || i == n)
       printf ("%d\t%d\t%s: %2.0f%% | %2.0f%% %.0f M/s\n",
 	      i, len(U), alg, crB, CRB, MpS); fflush(stdout);
-    free_vec (U); free_vec(V); free_vec (B); free_vec (BU); 
+    free_vec (U); free_vec(V); free_vec (B); free_vec (BU);
   }
   free_coll (M);
   return 0;
@@ -630,7 +651,7 @@ char *usage =
 
 int main (int argc, char *argv[]) {
   if (argc < 2) return fprintf (stderr, "%s", usage);
-  if (!strcmp (a(1),"-delta")) return do_delta(argc-2,argv+2);  
+  if (!strcmp (a(1),"-delta")) return do_delta(argc-2,argv+2);
   if (!strcmp (a(1),"-vbyte")) return do_vbyte(argc-2,argv+2);
   if (!strcmp (a(1),"-msint")) return do_msint(argc-2,argv+2);
   if (!strcmp (a(1),"-nibbl")) return do_nibbl(argc-2,argv+2);

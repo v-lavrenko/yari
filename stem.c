@@ -1,22 +1,22 @@
 /*
-  
-  Copyright (c) 1997-2021 Victor Lavrenko (v.lavrenko@gmail.com)
-  
+
+  Copyright (c) 1997-2024 Victor Lavrenko (v.lavrenko@gmail.com)
+
   This file is part of YARI.
-  
+
   YARI is free software: you can redistribute it and/or modify it
   under the terms of the GNU General Public License as published by
   the Free Software Foundation, either version 3 of the License, or
   (at your option) any later version.
-  
+
   YARI is distributed in the hope that it will be useful, but WITHOUT
   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
   License for more details.
-  
+
   You should have received a copy of the GNU General Public License
   along with YARI. If not, see <http://www.gnu.org/licenses/>.
-  
+
 */
 
 #include <time.h>
@@ -43,13 +43,13 @@ void kstem_stemmer (char *word, char *stem) ;
 void lowercase_stemmer (char *string, char *result) {
   char *s;
   strncpy (result, string, 999);
-  for (s = result; *s; ++s) 
+  for (s = result; *s; ++s)
     *s = tolower ((int) *s);
 }
 
 void stem_rcv (char *prm) {
   char *r = strstr(prm,"row"), *c = strstr(prm,"col");
-  void (*stem) (char*,char*) = NULL; 
+  void (*stem) (char*,char*) = NULL;
   if (strstr (prm, "lower" )) stem = lowercase_stemmer;
   else                        stem = kstem_stemmer;
   float value;
@@ -61,7 +61,7 @@ void stem_rcv (char *prm) {
     if (r) stem (row, rstem);
     if (c) stem (col, cstem);
     printf ("%15s %15s %10.4f\n", (r?rstem:row), (c?cstem:col), value);
-  }    
+  }
 }
 
 char *usage = "stem [krovetz,lower],[row] < rcv > stemmed\nstem -test f1 f2 f3 ...\n";
@@ -77,11 +77,11 @@ void *test_kstem_thread (void *_in) { // thread-safe
   while (fgets (line,999,IN)) {
     if ((nl = strchr(line,'\n'))) *nl = '\0'; // strip newline
     kstem_stemmer (line, stem);
-    fputs (stem, OUT); 
+    fputs (stem, OUT);
     fputc ('\n', OUT);
     ++lines;
   }
-  fclose(IN); fclose(OUT); 
+  fclose(IN); fclose(OUT);
   fprintf (stderr,"thread %d: %d lines done\n", this, lines);
   return NULL;
 }
@@ -95,14 +95,14 @@ int main (int argc, char *argv[]) {
     fprintf (stderr, "*** $STEM_DIR environment variable must be set\n");
     return 1;
   }
-  
+
   if (argc > 2 && !strcmp(argv[1],"-test")) {
     while (--argc > 2) detach (test_kstem_thread, argv[argc]);
     test_kstem_thread (argv[2]);
     sleep(10);
     return 0;
   }
-  
+
   stem_rcv (argc > 1 ? argv[1] : "");
   return 0;
 }

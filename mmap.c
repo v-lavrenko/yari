@@ -1,22 +1,22 @@
 /*
-  
-  Copyright (c) 1997-2021 Victor Lavrenko (v.lavrenko@gmail.com)
-  
+
+  Copyright (c) 1997-2024 Victor Lavrenko (v.lavrenko@gmail.com)
+
   This file is part of YARI.
-  
+
   YARI is free software: you can redistribute it and/or modify it
   under the terms of the GNU General Public License as published by
   the Free Software Foundation, either version 3 of the License, or
   (at your option) any later version.
-  
+
   YARI is distributed in the hope that it will be useful, but WITHOUT
   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
   License for more details.
-  
+
   You should have received a copy of the GNU General Public License
   along with YARI. If not, see <http://www.gnu.org/licenses/>.
-  
+
 */
 
 #define _GNU_SOURCE // necessary for safe_mremap
@@ -57,7 +57,7 @@ void expect_random_access (mmap_t *M, off_t size) {
 
 void free_mmap (mmap_t *M) {
   if (!M) return;
-  if (M->data) munmap (M->data, M->size); 
+  if (M->data) munmap (M->data, M->size);
   if (M->next) free_mmap (M->next);
   else if (M->file) close (M->file); // close only once
   memset (M, 0, sizeof (mmap_t));
@@ -162,7 +162,7 @@ void grow_mmap (mmap_t *map, off_t size) {
 // This is specific for Win32 platforms. Win32 platforms have an annoying
 // habit of converting \n into \r\n on any write, and \r\n to \n on a read.
 // This screws up any attempts to align the contents of the file for mmaps.
-// The solution is either to use setmode (fd, O_BINARY), or OR the access 
+// The solution is either to use setmode (fd, O_BINARY), or OR the access
 // flags with O_BINARY. If O_BINARY is not defined, we're on Unix, where
 // there are only binary files.
 #ifndef O_BINARY
@@ -178,7 +178,7 @@ inline uint next_pow2 (uint x) {
   x |= x >>  1; //   1100 0001
   x |= x >>  2; //   1111 0001
   x |= x >>  4; //   1111 1111
-  x |= x >>  8; 
+  x |= x >>  8;
   x |= x >> 16;
   return x + 1; // 1 0000 0000 (256)
 }
@@ -190,9 +190,9 @@ inline ulong next_pow2 (ulong x) {
   x |= x >>  1; //   1100 0001
   x |= x >>  2; //   1111 0001
   x |= x >>  4; //   1111 1111
-  x |= x >>  8; 
+  x |= x >>  8;
   x |= x >> 16;
-  x |= x >> 32; 
+  x |= x >> 32;
   return x + 1; // 1 0000 0000 (256)
 }
 
@@ -210,7 +210,7 @@ inline uint ilog2 (uint x) {
 */
 
 // fast base-2 logarithm of a 64-bit integer (beats bit-arithmetic)
-inline uint ilog2 (ulong x) { 
+inline uint ilog2 (ulong x) {
   register uint l=0;
   if(x >= 1l<<32) { x>>=32; l|=32; }
   if(x >= 1<<16) { x>>=16; l|=16; }
@@ -223,7 +223,7 @@ inline uint ilog2 (ulong x) {
 
 // returns page-aligned ceiling of a number
 inline off_t page_align (off_t offs, char side) { // should be thread-safe
-  static off_t psize = 0; 
+  static off_t psize = 0;
   if (!psize) psize = sysconf (_SC_PAGESIZE);
   off_t floor = psize * (uint) (offs / psize);
   off_t ceil = (floor < offs) ? floor + psize : floor;
@@ -234,7 +234,7 @@ void *safe_malloc (size_t size) {
   void *buf = malloc (size);
   if (!buf) {
     fprintf (stderr, "[malloc] failed on %lu bytes: [%d] ", (ulong)size, errno);
-    perror (""); assert (0); 
+    perror (""); assert (0);
   }
   return buf;
 }
@@ -243,7 +243,7 @@ void *safe_calloc (size_t size) {
   void *buf = calloc (1, size);
   if (!buf) {
     fprintf (stderr, "[calloc] failed on %lu bytes: [%d] ", (ulong)size, errno);
-    perror (""); assert (0); 
+    perror (""); assert (0);
   }
   return buf;
 }
@@ -252,7 +252,7 @@ void *safe_realloc (void *buf, size_t size) {
   buf = realloc (buf, size);
   if (!buf) {
     fprintf (stderr, "[realloc] failed on %lu bytes: [%d] ", (ulong)size, errno);
-    perror (""); assert (0); 
+    perror (""); assert (0);
   }
   return buf;
 }
@@ -263,15 +263,15 @@ void *lazy_realloc (void *buf, size_t *old, size_t new) {
   buf = realloc (buf, new);
   if (!buf) {
     fprintf (stderr, "[realloc] failed on %lu bytes: [%d] ", (ulong)new, errno);
-    perror (""); assert (0); 
+    perror (""); assert (0);
   }
-  *old = new;  
+  *old = new;
   return buf;
 }
 
 int safe_open (char *path, char *access) {
   int permissions = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
-  int flags = 
+  int flags =
     (*access == 'r') ? (O_BINARY | O_RDONLY) :
     (*access == 'a') ? (O_BINARY | O_RDWR | O_CREAT) :
     (*access == 'w') ? (O_BINARY | O_RDWR | O_CREAT | O_TRUNC) : 0;
@@ -306,37 +306,37 @@ FILE *safe_popen (char *access, char *fmt, ...) { // unsafe: popen()
   if (!p) {
     fprintf (stderr, "[popen] failed to open '%s' for '%s': [%d] ", cmd, access, errno);
     perror (""); assert (0); }
-  return p; 
+  return p;
 }
 
 int popen2 (const char *command, pid_t *_pid) { // unsafe: popen()
-  int fd[2]; // read fd[0] <-- fd[1] write 
-  
+  int fd[2]; // read fd[0] <-- fd[1] write
+
   if (pipe(fd)) { perror ("pipe failed"); return 0; }
-  
+
   pid_t pid = fork();
-  
+
   if (pid == 0) { // we are the child
-    
-    setpgid(0,0); // make our pid the process group leader 
-    
+
+    setpgid(0,0); // make our pid the process group leader
+
     close(fd[0]); // will not be reading from pipe
     dup2(fd[1],1); // replace stdout with fd[1]
     // close(fd[1]); // needed?
-    
+
     execl("/bin/sh", "sh", "-c", command, NULL);
     perror("execl");
     exit(1);
   }
-  
+
   if (pid < 0) { perror ("fork failed"); return 0; }
-  
+
   if (_pid) *_pid = pid; // save child's PID for killing
-  
+
   close(fd[1]); // will not be writing to pipe
-  
+
   return fd[0];
-  
+
   //FILE *in = fdopen (fd[0], "r"); // will read from the "read" end
   //if (!in) perror ("fdopen failed");
   //return in;
@@ -362,7 +362,7 @@ void *safe_mmap (int fd, off_t offset, off_t size, char *access) {
   void *buf = mmap64 (NULL, size, mprot, mflag, fd, offset);
   if ((buf == (void *) -1) || (buf == NULL)) {
     fprintf (stderr, "[mmap] failed on %lu bytes: [%d] ", (ulong)size, errno);
-    perror (""); assert (0); 
+    perror (""); assert (0);
   }
   return buf;
 }
@@ -372,12 +372,12 @@ void *safe_remap (int fd, void *buf, off_t osize, off_t nsize) {
 #ifdef MREMAP_MAYMOVE
   buf = mremap (buf, osize, nsize, MREMAP_MAYMOVE);
 #else
-  munmap(buf, osize); 
+  munmap(buf, osize);
   buf = safe_mmap (fd, 0, nsize, "w"); // specifying "w" here is BAAD, used in resize_vec()
 #endif
   if ((buf == (void*) -1) || (buf == NULL)) {
     fprintf (stderr, "[mremap] failed on %lu bytes: [%d] ", (ulong)nsize, errno);
-    perror (""); assert (0); 
+    perror (""); assert (0);
   }
   return buf;
 }
@@ -385,7 +385,7 @@ void *safe_remap (int fd, void *buf, off_t osize, off_t nsize) {
 off_t safe_truncate (int fd, off_t size) {
   if (ftruncate64 (fd, size)) {
     fprintf (stderr, "[ftruncate] failed on size %lu [%d]", (ulong) size, errno);
-    perror (""); assert (0); 
+    perror (""); assert (0);
   }
   return size;
 }
@@ -394,7 +394,7 @@ off_t safe_lseek (int fd, off_t offs, int whence) {
   off_t result = lseek64 (fd, offs, whence);
   if (result == -1) {
     fprintf (stderr, "[lseek] failed on offset %lu [%d]", (ulong) offs, errno);
-    perror (""); assert (0); 
+    perror (""); assert (0);
   }
   return result;
 }
@@ -402,9 +402,9 @@ off_t safe_lseek (int fd, off_t offs, int whence) {
 off_t safe_read (int fd, void *buf, off_t size) {
   ssize_t result = read (fd, buf, size);
   if (result == -1) {
-    fprintf (stderr, "[read] returned %lu on %lu bytes: [%d]", 
+    fprintf (stderr, "[read] returned %lu on %lu bytes: [%d]",
 	     result, (ulong) size, errno);
-    perror (""); assert (0); 
+    perror (""); assert (0);
   }
   return (off_t) result;
 }
@@ -412,9 +412,9 @@ off_t safe_read (int fd, void *buf, off_t size) {
 off_t safe_write (int fd, void *buf, off_t size) {
   ssize_t result = write (fd, buf, size);
   if (result == -1) {// || ((off_t) result != size)) {
-    fprintf (stderr, "[write] returned %lu on %lu bytes: [%d] ", 
+    fprintf (stderr, "[write] returned %lu on %lu bytes: [%d] ",
 	     result, (ulong) size, errno);
-    perror (""); assert (0); 
+    perror (""); assert (0);
   }
   return (off_t) result;
 }
@@ -422,9 +422,9 @@ off_t safe_write (int fd, void *buf, off_t size) {
 off_t safe_pread (int fd, void *buf, off_t size, off_t offset) {
   ssize_t result = pread (fd, buf, size, offset);
   if (result != size) {
-    fprintf (stderr, "[pread] returned %lu on %lu bytes: [%d]", 
+    fprintf (stderr, "[pread] returned %lu on %lu bytes: [%d]",
 	     result, (ulong) size, errno);
-    perror (""); assert (0); 
+    perror (""); assert (0);
   }
   return (off_t) result;
 }
@@ -432,9 +432,9 @@ off_t safe_pread (int fd, void *buf, off_t size, off_t offset) {
 off_t safe_pwrite (int fd, void *buf, off_t size, off_t offset) {
   ssize_t result = pwrite (fd, buf, size, offset);
   if (result == -1) {// || ((off_t) result != size)) {
-    fprintf (stderr, "[pwrite] returned %lu on %lu bytes: [%d] ", 
+    fprintf (stderr, "[pwrite] returned %lu on %lu bytes: [%d] ",
 	     result, (ulong) size, errno);
-    perror (""); assert (0); 
+    perror (""); assert (0);
   }
   return (off_t) result;
 }
@@ -683,7 +683,7 @@ void mv_dir (char *src, char *trg) { // delete target, rename source
   rm_dir (trg); // unsafe: system()
   if (rename (src, trg)) {
     fprintf (stderr, "ERROR: mv %s %s [%d] ", src, trg, errno);
-    perror (""); assert (0); 
+    perror (""); assert (0);
   }
 }
 
@@ -716,12 +716,12 @@ inline void show_progress (ulong done, ulong total, char *msg) { // thread-unsaf
   static time_t last = 0, begt = 0;
   time_t this = time(0);
   //printf ("%d %d %d\n", this, last, CLOCKS_PER_SEC);
-  //if (this - last < CLOCKS_PER_SEC) return; 
+  //if (this - last < CLOCKS_PER_SEC) return;
   if (this == last) return;
   last = this;
   fprintf (stderr, ".");
   if (!begt) begt = this;
-  if (done < prev) prev = done; 
+  if (done < prev) prev = done;
   if (++dots < line) return;
   double todo = total-done, di = done-prev, ds = this-begt, rpm = 60*di/ds, ETA = todo/rpm;
   //double ETA = ((double)(N-n)) / ((n-m) * 60 / line); // minutes

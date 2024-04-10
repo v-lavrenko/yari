@@ -1,22 +1,22 @@
 /*
-  
-  Copyright (c) 1997-2021 Victor Lavrenko (v.lavrenko@gmail.com)
-  
+
+  Copyright (c) 1997-2024 Victor Lavrenko (v.lavrenko@gmail.com)
+
   This file is part of YARI.
-  
+
   YARI is free software: you can redistribute it and/or modify it
   under the terms of the GNU General Public License as published by
   the Free Software Foundation, either version 3 of the License, or
   (at your option) any later version.
-  
+
   YARI is distributed in the hope that it will be useful, but WITHOUT
   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
   License for more details.
-  
+
   You should have received a copy of the GNU General Public License
   along with YARI. If not, see <http://www.gnu.org/licenses/>.
-  
+
 */
 
 #include "hash.h"
@@ -28,19 +28,19 @@ void dump_levenstein_cost (uint **C, char *A, char *B) {
   uint nA = strlen(A), nB = strlen(B), a, b;
   printf("  ");
   for (b = 0; b <= nB; ++b) printf("  %c", b?B[b-1]:'.');
-  printf("\n"); 
+  printf("\n");
   for (a = 0; a <= nA; ++a) {
     printf (" %c",a?A[a-1]:'.');
     for (b = 0; b <= nB; ++b) printf ("%3d", C[a][b]);
     printf("\n");
-  }  
+  }
 }
 
 void dump_levenstein_path (char **D, char *A, char *B) {
   uint nA = strlen(A), nB = strlen(B), a, b;
   printf("  ");
   for (b = 0; b <= nB; ++b) printf("  %c", b?B[b-1]:'.');
-  printf("\n"); 
+  printf("\n");
   for (a = 1; a <= nA; ++a) {
     printf (" %c ",a?A[a-1]:'.');
     for (b = 0; b <= nB; ++b) printf ("  %c", D[a][b]);
@@ -77,8 +77,8 @@ uint levenstein_distance (char *A, char *B, char *explain) {
       C[a][b] = best;
       D[a][b] = (ins == best) ? '<' : (del == best) ? '^' : (txp == best) ? 'T' : fit ? '=' : 'S';
     }
-  }  
-  uint result = C[nA][nB];  
+  }
+  uint result = C[nA][nB];
   dump_levenstein_cost (C, A, B);
   dump_levenstein_path (D, A, B);
   if (explain) explain_levenstein (D, A, B, explain);
@@ -90,7 +90,7 @@ uint levenstein_distance (char *A, char *B, char *explain) {
 // best sequence of ops to convert A -> B
 ix_t *levenstein_extract_ops (char **D, ix_t *A, ix_t *B) {
   ix_t *ops = new_vec(0,sizeof(ix_t)), op = {0,0};
-  int nA = len(A), nB = len(B), a=nA, b=nB;  
+  int nA = len(A), nB = len(B), a=nA, b=nB;
   while (a>0 && b>0) {
     if      (D[a][b] == '=') {--a; --b; op.x = 0; op.i = A[a].i; } // keep A[a]
     else if (D[a][b] == '^') {--a;      op.x =-1; op.i = A[a].i; } // del A[a]
@@ -100,7 +100,7 @@ ix_t *levenstein_extract_ops (char **D, ix_t *A, ix_t *B) {
   while (a>0) {--a; op.x =-1; op.i = A[a].i; ops = append_vec (ops, &op); }
   while (b>0) {--b; op.x =+1; op.i = B[b].i; ops = append_vec (ops, &op); }
   reverse_vec(ops);
-  return ops; 
+  return ops;
 }
 
 // Levenstein distance between sequences A & B (uint)
@@ -149,8 +149,8 @@ uint levenstein_edits (ix_t *ops) { return count (ops,'!',0); }
 // delete/transpose/insert/substitute 'a' into string at X[0..n) at position i
 int do_edit (char *X, int n, int i, char op, char a) {
   int ok = 0;
-  if (op == '=' && i < n) {ok=1; X[i] = a; } // substitute 
-  if (op == '-' && i < n)   {ok=1; while (++i <= n) X[i-1] = X[i]; } // delete 
+  if (op == '=' && i < n) {ok=1; X[i] = a; } // substitute
+  if (op == '-' && i < n)   {ok=1; while (++i <= n) X[i-1] = X[i]; } // delete
   if (op == '^' && i < n-1) {ok=1; char tmp=X[i]; X[i]=X[i+1]; X[i+1]=tmp; } // transpose
   if (op == '+' && i < n+1) {ok=1; do X[n+1] = X[n]; while (--n >= i); X[i] = a; } // insert
   return ok;
@@ -206,7 +206,7 @@ int known_edits (char *word, uint nedits, hash_t *known, float *score, ix_t **re
 	if (nedits > 1) known_edits (edit, nedits-1, known, score, result); // more edits
 	else {
 	  new.i = has_key (known, edit); // is this edit a known word?
-	  new.x = new.i ? score[new.i] : 0; // 
+	  new.x = new.i ? score[new.i] : 0; //
 	  if (new.i) *result = append_vec (*result, &new);
 	}
       }
@@ -280,39 +280,39 @@ uint pubmed_spell (char *word, hash_t *H, float *F, char *prm, uint W, uint *id2
   uint x30 = getprm(prm,"x30=",1000);  //  1k ~ 10 ~ 100
   uint x31 = getprm(prm,"x31=",100);   //  1k ~ 10 ~ 100
   uint x32 = getprm(prm,"x32=",10);    //  1k ~ 100 ~ 1 ~ 10
-  
+
   uint w0 = has_key (H, word), w1=0, w2=0, wL=0, wR=0, w11=0, w21=0, w3=0;
   uint l0 = strlen (word), id = 0, ok = 0; (void) id2; (void) w11;
-  //if (V) printf ("%s\n", word);  
+  //if (V) printf ("%s\n", word);
   ok = (F[w0] >= F0);
   if (V) printf ("%d %d\tas-is: %s:%.0f\n", w0==W, ok, word, F[w0]);
   if (ok) { id=id?id:w0; if (!V) return id; }
-  
+
   if ((l0 >= L1) || !w0) { // if word long enough, or zero matches: try 1-edit
-    
+
     best_edit (word, 1, H, F, &w1); // w1 = 1-edit(w0)
     ok = (F[w1] > x1*F[w0] && F[w1] >= F1);
     if (V) printf ("%d %d\t1edit: %s:%.0f -> %s:%.0f\n", w1==W, ok, word, F[w0], id2key(H,w1), F[w1]);
     if (ok) { id=id?id:w1; if (!V) return id; }
-    
+
     if (w1) best_edit (id2key(H,w1), 1, H, F, &w11);
     ok = (F[w11] > x11*F[w1] && F[w11] > x10*F[w0] && F[w11] > F11);
     if (V) printf ("%d %d\t1-1ed: %s:%.0f -> %s:%.0f\n", w11==W, ok, word, F[w0], id2key(H,w11), F[w11]);
     if (ok) { id=id?id:w11; if (!V) return id; }
   }
-  
+
   if ((l0 >= L1 && l0 >= L2 && l0 <= 20) || (!id && !w0 && l0 <= 20)) {
-    
+
     best_edit (word, 2, H, F, &w2); // w2 = 2-edit(w0)
     ok = (F[w2] > x21*F[w1] && F[w2] > x20*F[w0] && F[w2] > F2);
     if (V) printf ("%d %d\t2edit: %s:%.0f -> %s:%.0f\n", w2==W, ok, word, F[w0], id2key(H,w2), F[w2]);
     if (ok) { id=id?id:w2; if (!V) return id; }
-    
+
     if (w2) best_edit (id2key(H,w2), 1, H, F, &w21);
     ok = (F[w21] > x32*F[w2] && F[w21] > x31*F[w1] && F[w21] > x30*F[w0] && F[w21] > F3);
     if (V) printf ("%d %d\t2-1ed: %s:%.0f -> %s:%.0f\n", w21==W, ok, word, F[w0], id2key(H,w21), F[w21]);
     if (ok) { id=id?id:w21; if (!V) return id; }
-    
+
     try_runon (word, H, F, &wL, &wR); // wL,R = split(w0)
     ok = (MIN(F[wL],F[wR]) > 500 || !w2);
     if (V) printf ("- %d\trunon: %s:%.0f -> %s:%.0f", ok, word, F[w0], id2key(H,wL), F[wL]);
@@ -325,9 +325,9 @@ uint pubmed_spell (char *word, hash_t *H, float *F, char *prm, uint W, uint *id2
   //    best_edit (word, 3, H, F, &w3); // w3 = 3-edit(w0)
   //    ok = (F[w3] > 0);
   //    if (V) printf ("%d %d\t3edit: %s:%.0f -> %s:%.0f\n", w3==W, ok, word, F[w0], id2key(H,w3), F[w3]);
-  //    if (ok) { id=id?id:w3; if (!V) return id; }    
+  //    if (ok) { id=id?id:w3; if (!V) return id; }
   //  }
-  
+
   return id ? id : w0;
 }
 
@@ -335,7 +335,7 @@ uint pickmax_spell (char *word, hash_t *H, float *F, char *_, uint W) {
   char V = !strstr(_,"quiet") && !strstr(_,"silent") ? 1 : 0; // verbose?
   float x1  = getprm(_,"x1=",1), x11 = getprm(_,"x11=",1);
   float x2  = getprm(_,"x2=",1), x21 = getprm(_,"x21=",1);
-  
+
   uint w0 = has_key (H, word), w1=0, w2=0, w11=0, w21=0, id = w0;
   best_edit (word, 1, H, F, &w1);                   // w1  = 1-edit(w0)
   if (w1) best_edit (id2key(H,w1), 1, H, F, &w11);  // w11 = 1-edit(w1)
@@ -346,13 +346,13 @@ uint pickmax_spell (char *word, hash_t *H, float *F, char *_, uint W) {
   if (f2 > best)  { best = f2; id = w2; }
   if (f11 > best) { best = f11; id = w11; }
   if (f21 > best) { best = f21; id = w21; }
-  
+
   if (V) printf ("%d %d w0\t%.0f\t%.0f\t%s\t%s\n", w0==W, f0==best,  f0,  F[w0],  word, id2key(H,W));
   if (V) printf ("%d %d w1\t%.0f\t%.0f\t%s\n",     w1==W, f1==best,  f1,  F[w1],  id2key(H,w1));
   if (V) printf ("%d %d w11\t%.0f\t%.0f\t%s\n",   w11==W, f11==best, f11, F[w11], id2key(H,w11));
   if (V) printf ("%d %d w2\t%.0f\t%.0f\t%s\n",     w2==W, f2==best,  f2,  F[w2],  id2key(H,w2));
   if (V) printf ("%d %d w21\t%.0f\t%.0f\t%s\n",   w21==W, f21==best, f21, F[w21], id2key(H,w21));
-  
+
   return id;
 }
 
@@ -410,7 +410,7 @@ int do_edits (char *word, uint n, char *_H, char *_F) {
   float *F = mtx_full_row (_F, 1);
   do_edits_3 (word, n, H, F); printf("----------\n");
   do_edits_2 (word, n, H, F); printf("----------\n");
-  do_edits_1 (word, n, H, F); printf("----------\n");  
+  do_edits_1 (word, n, H, F); printf("----------\n");
   free_vec(F);
   free_hash(H);
   return 0;
@@ -431,7 +431,7 @@ int do_fuse (char *w1, char *w2, char *_H, char *_F) {
 
 int do_split (char *word, char *_H, char *_F) {
   hash_t *H = open_hash (_H,"r");
-  float *F = mtx_full_row (_F, 1);  
+  float *F = mtx_full_row (_F, 1);
   uint i1=0, i2=0;
   try_runon (word, H, F, &i1, &i2);
   char *w1 = i1 ? id2key(H,i1) : "N/A";
@@ -495,7 +495,7 @@ ix_t *str2vec (char *str, hash_t *h) {
   lowercase(str);
   char **toks = split (str,' ');
   ix_t *vec = toks2vec (toks,h);
-  free_vec(toks); 
+  free_vec(toks);
   return vec;
 }
 
@@ -586,7 +586,7 @@ int main (int argc, char *A[]) {
     double t1 = 1E3 * ftime();
     uint n = nkeys(H);
     printf ("%.0fms: %d keys\n", t1-t0, n);
-    //for (i = 1; i <= n; ++i) printf ("%d\t%s\n", i, id2key(H,i));  
+    //for (i = 1; i <= n; ++i) printf ("%d\t%s\n", i, id2key(H,i));
     free_hash (H);
     return 0;
   }

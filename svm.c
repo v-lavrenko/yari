@@ -1,22 +1,22 @@
 /*
-  
-  Copyright (c) 1997-2021 Victor Lavrenko (v.lavrenko@gmail.com)
-  
+
+  Copyright (c) 1997-2024 Victor Lavrenko (v.lavrenko@gmail.com)
+
   This file is part of YARI.
-  
+
   YARI is free software: you can redistribute it and/or modify it
   under the terms of the GNU General Public License as published by
   the Free Software Foundation, either version 3 of the License, or
   (at your option) any later version.
-  
+
   YARI is distributed in the hope that it will be useful, but WITHOUT
   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
   License for more details.
-  
+
   You should have received a copy of the GNU General Public License
   along with YARI. If not, see <http://www.gnu.org/licenses/>.
-  
+
 */
 
 #include <math.h>
@@ -39,7 +39,7 @@ static inline void L1 (ix_t *X) { vec_x_num (X,'/',sum(X)); }
 // result ... positive / negative weights for training instances
 ix_t *svm_weights (ix_t *target, coll_t *K) {
   float rate = 1.0, D = Infinity;
-  uint i, n = num_rows(K), iterations = 10; 
+  uint i, n = num_rows(K), iterations = 10;
   ix_t *R = const_vec(n,0), *oldP=0, *oldN=0;
   ix_t *N = copy_vec(target); vec_x_num (N,'<',0); L1(N);
   ix_t *P = copy_vec(target); vec_x_num (P,'>',0); L1(P);
@@ -49,7 +49,7 @@ ix_t *svm_weights (ix_t *target, coll_t *K) {
     float PP = dot(P,sP), NN = dot(N,sN), NP = dot(N,sP), PN = dot(P,sN);
     if (PP+NN-NP-PN < D) { // distance decreased
       rate = rate * 1.1; // increase learning rate
-      D = PP+NN-NP-PN; 
+      D = PP+NN-NP-PN;
       free_vec(oldP); oldP=0;
       free_vec(oldN); oldN=0;
     } else { // distance increased => roll back
@@ -78,21 +78,21 @@ void svm_train_1v1 (coll_t *W, coll_t *C, coll_t *K) { // all-pairs
       ix_t *Cj = get_vec(C,j);
       vec_x_num (Cj,'=',1);
       ix_t *Tij = vec_x_vec (Ci,'-',Cj);     free_vec (Cj);
-      ix_t *Wij = svm_weights (Tij, K);      free_vec (Tij); 
-      put_vec (W, triang(i,j), Wij);         free_vec (Wij); 
+      ix_t *Wij = svm_weights (Tij, K);      free_vec (Tij);
+      put_vec (W, triang(i,j), Wij);         free_vec (Wij);
     }
     free_vec (Ci);
   }
 }
 
 void svm_train_1vR (coll_t *W, coll_t *C, coll_t *K) {
-  float *CR = sum_cols(C,1); 
+  float *CR = sum_cols(C,1);
   ix_t *Cr = full2vec(CR);
   vec_x_num (Cr,'=',1);
   uint i, nC = num_rows(C);
   for (i = 1; i <= nC; ++i) {
     fprintf (stderr, "[%.2f] class %d vs rest\n", vtime(), i);
-    ix_t *Ci = get_vec(C,i); 
+    ix_t *Ci = get_vec(C,i);
     vec_x_num (Ci,'=',2);
     ix_t *Tir = vec_x_vec (Ci,'-',Cr);       free_vec (Ci);
     ix_t *Wir = svm_weights (Tir, K);        free_vec (Tir);
@@ -119,7 +119,7 @@ ix_t *svm_1v1 (ix_t *Y) {
   ix_t *C = const_vec (n,0);
   //for (i=0; i<len(Y); ++i) Y[i].x = (Y[i].x > 0) ? +1 : -1;
   for (i=1; i<=n; ++i) {
-    for (j=1; j<i; ++j) C[i-1].x += Y[triang(i,j)-1].x; // i=+, j=- 
+    for (j=1; j<i; ++j) C[i-1].x += Y[triang(i,j)-1].x; // i=+, j=-
     for (j=n; j>i; --j) C[i-1].x -= Y[triang(j,i)-1].x; // i=-, j=+
   }
   return C;
@@ -128,14 +128,14 @@ ix_t *svm_1v1 (ix_t *Y) {
 void svm_classify (char *_Y, char *_W, char *_K) {
   coll_t *K = open_coll (_K, "r+"); // K[i,j] ... kernel of testing i to training j
   coll_t *W = open_coll (_W, "r+"); // W ... weights learned by svm_train
-  coll_t *Y = open_coll (_Y, "w+");  
+  coll_t *Y = open_coll (_Y, "w+");
   uint n, N = num_rows(K);
   for (n = 1; n <= N; ++n) {
     ix_t *k = get_vec (K,n), *tmp=0;
     ix_t *y = rows_x_vec (W, k);             free_vec(k);
     if (0) {y = svm_1v1(tmp=y);}             free_vec(tmp);
     put_vec (Y,n,y);                         free_vec(y);
-  }  
+  }
   free_coll(K);
   free_coll(W);
   free_coll(Y);
@@ -147,14 +147,14 @@ ix_t *rocchio (ix_t *_Y, coll_t *X) {
   ix_t *Y = vec_x_vec (P, '-', N);
   ix_t *W = cols_x_vec (X, Y);
   free_vec (Y); free_vec (P); free_vec (N);
-  return W;  
+  return W;
 }
 
 //  want: y (w'x + wi*xi) > 1 ... for all x
 // pivot: wi = (y - w'x) / xi ... since |y| = 1
 // error if (y*xi > 0) & (wi < pivot) ... regardless of sgn(wi)
-//          (y*xi < 0) & (wi > pivot) 
-// 
+//          (y*xi < 0) & (wi > pivot)
+//
 ix_t *cdescent (ix_t *_Y, coll_t *XT, ix_t *W, char *prm) {
   float c = getprm(prm,"c=",1); // cost of regularisation
   float p = getprm(prm,"p=",1); // type of regularisation
@@ -163,12 +163,12 @@ ix_t *cdescent (ix_t *_Y, coll_t *XT, ix_t *W, char *prm) {
   uint N = num_cols (XT), V = num_rows (XT);
   if (!W) W = const_vec (V, 0);
   ix_t *_P = cols_x_vec (XT, W); // initial predictions
-  float *P = vec2full (_P, N, 0); // predictions 
+  float *P = vec2full (_P, N, 0); // predictions
   float *Y = vec2full (_Y, N, 0); // truth
   float *X = new_vec (N+1, sizeof(float)); // inv list
   float *L = new_vec (N+1, sizeof(float)); // left cumulative loss
   float *R = new_vec (N+1, sizeof(float)); // right cumulative loss
-  
+
   while (iterations-- > 0) {
     for (w = W; w < W+len(W); ++w) { // for each word w
       ix_t *D = get_vec (XT, w->i), *last = D+len(D)-1; // pivot weights
@@ -177,15 +177,15 @@ ix_t *cdescent (ix_t *_Y, coll_t *XT, ix_t *W, char *prm) {
 	P[i]-= w->x * X[i]; // prediction without word w
 	d->x = (Y[i] - P[i]) / X[i]; // pivot weight at which Y[i] = P[i]
       }
-      D = append_vec (D, &zero); 
+      D = append_vec (D, &zero);
       last = D + len(D)-1; // allows us to zero out w
       sort_vec (D, cmp_ix_x); // sort pivots: d1 < d2 < d3 ...
       double L1=0, L2=0, R1=0, R2=0;
-      for (d = D; d <= last; ++d) { uint i = d->i; 
+      for (d = D; d <= last; ++d) { uint i = d->i;
 	if (Y[i] * X[i] < 0) { // hinge loss
 	  L1 += Y[i] * X[i] * d->x;
 	  L2 += Y[i] * X[i];
-	} 
+	}
 	L[i] = L1 - L2 * d->x;
       }
       for (d = last; d >= D; --d) { uint i = d->i;
@@ -195,22 +195,22 @@ ix_t *cdescent (ix_t *_Y, coll_t *XT, ix_t *W, char *prm) {
 	}
 	R[i] = R1 - R2 * d->x;
       }
-      double best = 0, bestLoss = Infinity; 
-      for (d = D; d <= last; ++d) { uint i = d->i; 
+      double best = 0, bestLoss = Infinity;
+      for (d = D; d <= last; ++d) { uint i = d->i;
 	double Loss = L[i] + R[i] + c * powa (w->x + d->x, p);
 	if (Loss < bestLoss) { bestLoss = Loss; best = d->x; }
       }
       if (0) {
-	printf ("%3s %2s %6s %6s %6s %6s %1s %6s %1s\n", 
+	printf ("%3s %2s %6s %6s %6s %6s %1s %6s %1s\n",
 		"id", "Yi", "W'Xi", "Xi", "v", "^", "?", "pivot", "best");
 	for (d = D; d <= last; ++d) { uint i = d->i, b = (d->x==best), l = (X[i]*Y[i]<0), r = (X[i]*Y[i]>0);
-	  printf ("%3d %+1.0f %+6.2f %+6.2f %+6.2f %+6.2f %1s %+6.2f %1s\n", 
+	  printf ("%3d %+1.0f %+6.2f %+6.2f %+6.2f %+6.2f %1s %+6.2f %1s\n",
 		  i, Y[i], P[i], X[i], L[i], R[i], (l?"v":r?"^":"-"), d->x, (b?"<-":" "));
 	}
       }
       //if (w->x != best) printf ("%1d: %+6.2f -> %+6.2f\n", w->i, w->x, best);
       w->x = best;
-      for (d = D; d <= last; ++d) P[d->i] += best * X[d->i]; 
+      for (d = D; d <= last; ++d) P[d->i] += best * X[d->i];
       free_vec (D);
     }
     printf ("-------------------------------- %d iterations left\n", iterations);
@@ -224,13 +224,13 @@ void cd_train_1vR (char *_W, char *_C, char *_T, char *prm) {
   coll_t *T = open_coll (_T, "r+"); // T[w] ... inverted lists
   coll_t *C = open_coll (_C, "r+"); // C[c] ... class examples
   coll_t *W = open_coll (_W, "w+"); // ... weights
-  float *CR = sum_cols(C,1); 
+  float *CR = sum_cols(C,1);
   ix_t *Cr = full2vec(CR);
   vec_x_num (Cr,'=',1);
   uint i, nC = num_rows(C);
   for (i = 1; i <= nC; ++i) {
     fprintf (stderr, "[%.2f] class %d vs rest\n", vtime(), i);
-    ix_t *Ci = get_vec(C,i); 
+    ix_t *Ci = get_vec(C,i);
     vec_x_num (Ci,'=',2);
     ix_t *Tir = vec_x_vec (Ci,'-',Cr);       free_vec (Ci);
     ix_t *Wir = cdescent (Tir, T, 0, prm);   free_vec (Tir);

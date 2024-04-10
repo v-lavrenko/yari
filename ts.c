@@ -1,22 +1,22 @@
 /*
-  
-  Copyright (c) 1997-2021 Victor Lavrenko (v.lavrenko@gmail.com)
-  
+
+  Copyright (c) 1997-2024 Victor Lavrenko (v.lavrenko@gmail.com)
+
   This file is part of YARI.
-  
+
   YARI is free software: you can redistribute it and/or modify it
   under the terms of the GNU General Public License as published by
   the Free Software Foundation, either version 3 of the License, or
   (at your option) any later version.
-  
+
   YARI is distributed in the hope that it will be useful, but WITHOUT
   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
   License for more details.
-  
+
   You should have received a copy of the GNU General Public License
   along with YARI. If not, see <http://www.gnu.org/licenses/>.
-  
+
 */
 
 #include <math.h>
@@ -52,13 +52,13 @@ ix_t *next_close(ix_t *p, ix_t *P) {
   return MIN(p,last);
 }
 
-// -------------------- TARGETS: hi,lo,trail,wait  -------------------- 
+// -------------------- TARGETS: hi,lo,trail,wait  --------------------
 
 // exit point q for a position entered at p
 ix_t *find_exit (ix_t *p, ix_t *P, float _gain, float _loss, char trail, uint wait) {
   float gain = bp2gain(_gain), loss = bp2gain(_loss);
   float hi = gain * p->x, lo = loss * p->x;
-  uint T = p->i + wait; // 
+  uint T = p->i + wait; //
   ix_t *q = p-1, *last = P+len(P)-1;
   while (++q < last) {
     //if (day && end_of_day(q,last)) break;     // market-on-close
@@ -71,14 +71,14 @@ ix_t *find_exit (ix_t *p, ix_t *P, float _gain, float _loss, char trail, uint wa
     if (trail == '^') lo = MAX(lo,loss*q->x); // raise floor if price moved up
     if (trail == 'v') hi = MIN(hi,gain*q->x); // lower ceiling if price dropped
   }
-  //printf("exit: %.2f in %.2f..%.2f\n", q->x, lo, hi);  
+  //printf("exit: %.2f in %.2f..%.2f\n", q->x, lo, hi);
   return q;
 }
 
 // while (!end_of_day(q,last) && (q->x < hi) && (q->x > lo)) ++q;
 
 int ts_targets (char *TRG, char *PRC, char *prm) {
-  // char *side  = getprmp(prm,"side=","-"); 
+  // char *side  = getprmp(prm,"side=","-");
   char *trail = getprmp(prm,"trail=","-");
   char *exits = strstr(prm,"exits"); //, *day = strstr(prm,"day");
   char *binary = strstr(prm,"binary"); // binarize to +/- 1
@@ -105,7 +105,7 @@ int ts_targets (char *TRG, char *PRC, char *prm) {
   return 0;
 }
 
-// -------------------- PRICE patterns: +---+-+  -------------------- 
+// -------------------- PRICE patterns: +---+-+  --------------------
 
 char *price2signs (ix_t *P) {
   char *S = calloc(len(P)+1,1);
@@ -138,7 +138,7 @@ ix_t *price2codes (ix_t *P, uint nbits, char *intraday) {
   while (++p <= last) {
     uint bit = (p->x) > ((p-1)->x) ? 1 : 0;
     code = (code<<1) | bit; // shift + OR
-    if (intraday && beg_of_day(p,P)) start = p+nbits;    
+    if (intraday && beg_of_day(p,P)) start = p+nbits;
     if (p < start) C[p-P].x = 0; // not enough for pattern
     else C[p-P].x = 1 + (code & mask); // last nbits of code
     //printf ("%ld %s %.2f %.2f %d %u %.0f\n", p-P, time2str(buf,p->i), p->x, (p-1)->x, bit, (code&mask), C[p-P].x);
@@ -156,7 +156,7 @@ int ts_codes (char *COD, char *PRC, char *prm) {
     ix_t *c = price2codes (V, nbits, intraday);
     put_vec (C,id,c);
     free_vec (V); free_vec (c);
-    if (!(id%10)) show_progress (id, n, "rows");    
+    if (!(id%10)) show_progress (id, n, "rows");
   }
   free_coll (P); free_coll (C);
   return 0;
@@ -193,8 +193,8 @@ static double window_CC (ix_t *q, ix_t *p) {
   double N = MAX(1,p-q), SX = 0, SY = 0, SXY = 0, SX2 = 0, SY2 = 0;
   double X0 = p->i, Y0 = p->x, X, Y;
   while (++q <= p) {
-    X = q->i - X0; SX += X; SX2 += X*X; 
-    Y = q->x - Y0; SY += Y; SY2 += Y*Y; SXY += X*Y; 
+    X = q->i - X0; SX += X; SX2 += X*X;
+    Y = q->x - Y0; SY += Y; SY2 += Y*Y; SXY += X*Y;
   }
   double EX = SX/N, VX = SX2/N - EX*EX;
   double EY = SY/N, VY = SY2/N - EY*EY;
@@ -218,11 +218,11 @@ void f_window (ix_t *P, uint window, char aggregator) { // avg / min / max in wi
 }
 
 // x = P[t] at last anchor point t: open | close | day-min | day-Max
-void f_anchor (ix_t *P, char anchor) { 
+void f_anchor (ix_t *P, char anchor) {
   ix_t *p = P-1, *last = P+len(P)-1; float A = P->x, prev = P->x;
   while (++p <= last) {
-    if (anchor != 'c' && beg_of_day(p,P)) A = p->x; // 
-    prev = A; 
+    if (anchor != 'c' && beg_of_day(p,P)) A = p->x; //
+    prev = A;
     switch(anchor) {
     case 'c': if (end_of_day(p,last)) A = p->x; break; // yesterday's close
     case 'M': if (p->x > A) A = p->x; break; // day max
@@ -233,7 +233,7 @@ void f_anchor (ix_t *P, char anchor) {
 }
 
 // x = tick-to-tick deltas: P[t] / P[t-1] in BP or LogGain or Cents
-void f_deltas (ix_t *P, char unit, char *intraday) { 
+void f_deltas (ix_t *P, char unit, char *intraday) {
   ix_t *p=P-1, *last = P+len(P)-1;
   float in = P->x;
   while (++p <= last) {
@@ -246,7 +246,7 @@ void f_deltas (ix_t *P, char unit, char *intraday) {
 }
 
 // x = how many hours left from now till end-of-day (last quote)
-void f_tt_EOD (ix_t *P) { 
+void f_tt_EOD (ix_t *P) {
   ix_t *last = P+len(P)-1, *p = last+1, *eod = last;
   while (--p >= P) {
     if (end_of_day(p,last)) eod = p;
@@ -291,7 +291,7 @@ int ts_signals (char *SIG, char *PRC, char *prm) {
 }
 
 int ts_mpaste (char *TIC, char **_M, uint nM) {
-  uint m; hash_t *H = open_hash (TIC, "r"); 
+  uint m; hash_t *H = open_hash (TIC, "r");
   ix_t **V = new_vec (nM, sizeof(ix_t*));
   coll_t **M = new_vec (nM, sizeof(coll_t*));
   printf ("TICK\tTimestamp");
@@ -328,7 +328,7 @@ int ts_csv (char *_M, char *_H, char *prm) {
   for (id = 1; id <= n; ++id) {
     char *tick = id2key(H,id), buf[99];
     ix_t *V = get_vec_ro(M,id), *last = V+len(V)-1, *v;
-    if (id == 1) { 
+    if (id == 1) {
       printf("Tick,Day");
       assert (V < last);
       for (v = V; v <= last; ++v) {
@@ -535,7 +535,7 @@ int ts_oplay2 (char *_MKT, char *_TICK, char *prm) {
       if (t_open) {
 	if (t == T) close[s] = P[s]; // special case
 	min[s] = max[s] = open[s] = P[s];
-	in[s] = out[s] = hi[s] = lo[s] = 0; 
+	in[s] = out[s] = hi[s] = lo[s] = 0;
 	buy[s]  =  LONG && (BP(close[s],open[s]) < -JUMP); // low open: go long
 	sell[s] = !LONG && (BP(close[s],open[s]) > +JUMP); // hi open: go short
       }
@@ -571,12 +571,12 @@ int ts_merge (char *_TRG, char *_SRC, char *_TIC, char *prm) {
   coll_t *TRG = open_coll(_TRG,"a+");
   coll_t *SRC = open_coll(_SRC,"r+");
   hash_t *TIC = open_hash(_TIC,"r");
-  int i, nT = num_rows(TRG), nS = num_rows(SRC); 
+  int i, nT = num_rows(TRG), nS = num_rows(SRC);
   for (i = 1; i <= nS; ++i) {
     if (!has_vec(TRG,i)) ; // WAT DO?
     if (!has_vec(SRC,i)) ; // WAT DO?
-    ix_t *X = get_vec_ro(TRG,i); 
-    ix_t *Y = get_vec_ro(SRC,i); 
+    ix_t *X = get_vec_ro(TRG,i);
+    ix_t *Y = get_vec_ro(SRC,i);
     ixy_t *S = join(X,Y,0), *s;
     for (s = S; s < S+len(S); ++s) {
       if (s->x && s->y && ABS(s->x - s->y) > 0.01) {
@@ -646,7 +646,7 @@ int main (int argc, char *argv[]) {
 ix_t *ts_close2open(ix_t *P) {
   ix_t *out = new_vec(0,sizeof(ix_t)), new = {0,0}, *p;
   for (p = P; p < P+len(P); ++p) {
-    
+
   }
   while (++p < endP) {
     if (p->i - q->i > 28800) {
@@ -679,21 +679,21 @@ uint *inverse_map(uint *A) { // in: mapping A:b->a
   for (b=0; b <= nB; ++b) if (A[b] > nA) nA = A[b];
   uint *B = new_vec (nA+1,sizeof(uint));
   for (b=0; b <= nB; ++b) B[A[b]] = b; // if A[b]=a then B[a]=b
-  return B; 
+  return B;
 }
 
 int ts_flatten (char *FLAT, char *SRC) {
   coll_t *F = open_coll(FLAT,"w+"), *S = open_coll(SRC,"r+");
   uint *col = renumber_cols (C), i, j, n = num_rows(S);
   for (i = 1; i<=n; ++i) {
-    
+
   }
   free_vec (col); free_coll(F); free_coll(S);
   return 0;
 }
 \* ---------------------------------------- */
 
-/* 
+/*
 typedef struct {
   float gain; // limit on gain
   float loss; // limit on loss
@@ -707,7 +707,7 @@ typedef struct {
 SUPERSEDED: in favor of: price2signs + strstr(pattern)
 
 uint x_pattern (ix_t *p, ix_t *last, char *s) {
-  for (; *s && p < last; ++s, ++p) 
+  for (; *s && p < last; ++s, ++p)
     if      (*s == '+' && (p->x >= (p+1)->x)) return 0;
     else if (*s == '-' && (p->x <= (p+1)->x)) return 0;
   return !*s;
@@ -717,7 +717,7 @@ void f_pattern (ix_t *P, char *pattern) {
   uint n = strlen(pattern);
   ix_t *p = P-1, *last = P+len(P)-1, *eod = P, *q = P;
   while (++p <= last) {
-    if (end_of_day(p,last)) eod = p; 
+    if (end_of_day(p,last)) eod = p;
     p->x = x_pattern(p-n,
   }
 }
@@ -728,7 +728,7 @@ void f_pattern (ix_t *P, char *pattern) {
 POSTPONED
 
   double A = strchr("aMm",aggregator) ? p->x : 0;
-  ix_t *q = strchr("+-",aggregator) ? p-1 : p; // 
+  ix_t *q = strchr("+-",aggregator) ? p-1 : p; //
   case '^': while (--q >= P && q->i > T) A += (floor(q->x) < floor(q[1].x)); break; // $-crossing ^
   case 'v': while (--q >= P && q->i > T) A += (floor(q->x) > floor(q[1].x)); break; // $-crossing v
   case '+': while (--q >= P && q->i > T) A += (q->x < q[1].x && q[1].x < q[2].x); break; // double +

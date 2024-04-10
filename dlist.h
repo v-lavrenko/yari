@@ -1,22 +1,22 @@
 /*
-  
-  Copyright (c) 1997-2021 Victor Lavrenko (v.lavrenko@gmail.com)
-  
+
+  Copyright (c) 1997-2024 Victor Lavrenko (v.lavrenko@gmail.com)
+
   This file is part of YARI.
-  
+
   YARI is free software: you can redistribute it and/or modify it
   under the terms of the GNU General Public License as published by
   the Free Software Foundation, either version 3 of the License, or
   (at your option) any later version.
-  
+
   YARI is distributed in the hope that it will be useful, but WITHOUT
   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
   License for more details.
-  
+
   You should have received a copy of the GNU General Public License
   along with YARI. If not, see <http://www.gnu.org/licenses/>.
-  
+
 */
 
 #include "vector.h"
@@ -25,7 +25,7 @@
 #define ORDERING
 
 //typedef struct {
-//  uint prev; // 
+//  uint prev; //
 //  uint next; //
 //} ord_t; // doubly-linked list
 
@@ -58,10 +58,10 @@ inline uint ord_next (ord_t *L, uint id) {
 // instantiate a new sequential linked list
 ord_t *ord_init (ord_t *L, uint n) {
   uint i;
-  L = resize_vec (L, n+1); 
+  L = resize_vec (L, n+1);
   for (i = 1; i < n; ++i) { L[i].next = i+1; L[i].prev = i-1; }
   L[0].next = 1; L[0].prev = n;
-  L[n].next = 0; L[n].prev = n-1; 
+  L[n].next = 0; L[n].prev = n-1;
   return L;
 }
 

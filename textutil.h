@@ -25,7 +25,7 @@
 uint cntchr (char *s, char c) ; // count c in s
 char *endchr (char *s, char c, uint n) ; // faster strrchr
 // in str replace any occurence of chars from what[] with 'with'
-void csub (char *str, char *what, char with) ; 
+void csub (char *str, char *what, char with) ;
 void cqsub (char *str, char what, char with, char quot) ;
 // in haystack replace every instance of "needle" with 'with'
 void gsub (char *haystack, char *needle, char with) ;
@@ -54,7 +54,7 @@ void spaces2space (char *str) ; // multiple spaces -> single space
 void cgrams (char *str, uint lo, uint hi, uint step, char *buf, uint eob) ; // character n-grams
 
 // in S find+replace "&plusmn;" -> SRC -> id -> TRG -> "+/-"
-void gsub_xml_refs (char *S, hash_t *SRC, coll_t *TRG) ; 
+void gsub_xml_refs (char *S, hash_t *SRC, coll_t *TRG) ;
 void no_xml_refs (char *S) ; // erase &quot; &amp; &#x10f; etc
 void no_xml_tags (char *S) ; // erase <...>
 

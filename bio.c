@@ -1,22 +1,22 @@
 /*
-  
-  Copyright (c) 1997-2016 Victor Lavrenko (v.lavrenko@gmail.com)
-  
+
+  Copyright (c) 1997-2024 Victor Lavrenko (v.lavrenko@gmail.com)
+
   This file is part of YARI.
-  
+
   YARI is free software: you can redistribute it and/or modify it
   under the terms of the GNU General Public License as published by
   the Free Software Foundation, either version 3 of the License, or
   (at your option) any later version.
-  
+
   YARI is distributed in the hope that it will be useful, but WITHOUT
   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
   License for more details.
-  
+
   You should have received a copy of the GNU General Public License
   along with YARI. If not, see <http://www.gnu.org/licenses/>.
-  
+
 */
 
 #include <math.h>
@@ -62,7 +62,7 @@ void load_fasta (char *SEQS) { // thread-unsafe: show_progress
 
 char bits2c (uint b) { return (b==0) ? 'A' : (b==1) ? 'C' : (b==2) ? 'G' : 'T'; }
 uint c2bits (char c) { return (c=='A') ? 0 : (c=='C') ? 1 : (c=='G') ? 2 : 3; }
-uint c2rand (char c) { return ((c=='A') ? 0xc73ee513 : (c=='C') ? 0x3a5e13de : 
+uint c2rand (char c) { return ((c=='A') ? 0xc73ee513 : (c=='C') ? 0x3a5e13de :
 				      (c=='G') ? 0xf67cc174 :            0x01ca1a35); }
 
 uint tucode (uint i, uint j) { return ROT(i,16) ^ j; }
@@ -94,7 +94,7 @@ ix_t *seq2pos (char *seq, uint k) {
   ix_t *pos = new_vec (n, sizeof(ix_t)), *p = pos;
   for (i = 0; i < n; ++i) {
     //code = update_buzz (code, k, seq[i], /* FIX >>> */ seq[i-k]); // <<< FIX
-    code = update_kmer (code, k, seq[i]); 
+    code = update_kmer (code, k, seq[i]);
     if (i >= k-1) *p++ = (ix_t) {code+1, i-k+2}; // +1 to avoid zero
   }
   len(pos) = p-pos;
@@ -139,7 +139,7 @@ void pos2freq (ix_t *pos) { // [ (id,pos) ] -> [ (id,freq) ]
 ix_t *pos2loc (ix_t *P, uint N) { // [ (id,pos) ] -> [ (idpos,freq) ]
   uint r, R = sqrt(N); // default replication
   ix_t *loc = const_vec (N*R, 1), *l = loc, *p;
-  for (p = P; p < P+N; ++p) 
+  for (p = P; p < P+N; ++p)
     for (r = 0; r < R; ++r) { // replicate (blur) position R times
       uint id = p->i, pos = p->x - P->x + r;
       l->i = ROT(id,24) ^ ROT(pos,8); // shift-XOR: id + position
@@ -184,7 +184,7 @@ void mtx2mtx (char *_TRG, char *_SRC, char *prm) { // thread-unsafe: show_progre
     free_vec (S); free_vec (T);
     if (0==i%1000) show_progress (i, n, "vecs");
   }
-  free_coll (SRC); free_coll (TRG); 
+  free_coll (SRC); free_coll (TRG);
 }
 
 
@@ -194,8 +194,8 @@ void deltas (char *_DELTA, char *_CODES, char *_INVLS, char *prm) {
   coll_t *CODES = open_coll (_CODES, "r+");   // chunk -> [ code:offset ]
   coll_t *INVLS = open_coll (_INVLS, "r+");   // code -> [ chunk:offset ]
   uint i, nc = num_rows (CODES);
-  
-  for (i=1; i<=nc; ++i) { // for each chunk 
+
+  for (i=1; i<=nc; ++i) { // for each chunk
     ix_t *D = new_vec (0, sizeof(ix_t));
     ix_t *C = get_vec (CODES, i), *c;
     for (c = C; c < C+len(C); ++c) { // for each code in chunk
@@ -217,9 +217,9 @@ void graph_shift (char *_NEW, char *_POS, char *_DELTA, char *prm) {
   (void) prm;
   coll_t *N = open_coll (_NEW, "w+");    // result: new distribution
   coll_t *P = open_coll (_POS, "r+");    // distribution of positions per chunk
-  coll_t *D = open_coll (_DELTA, "r+");  // deltas between pairs of chunks 
+  coll_t *D = open_coll (_DELTA, "r+");  // deltas between pairs of chunks
   uint j, n = num_rows (D);
-  
+
   for (j = 1; j <= n; ++j) {
     ix_t *Nj = get_vec (P,j), *tmp=0;      // P[j] -> [ pos1:conf, pos2:conf ]
     ix_t *Dj = get_vec (D,j), *d;          // D[j] -> [ i1:d(j,i1), i2:d(j,i2) ]
@@ -258,7 +258,7 @@ void mtx_distance (char *_A, char *_B, char *prm) {
     }
     printf ("%d %.6f\n", i, d);
   }
-  free_coll(AA); free_coll(BB); 
+  free_coll(AA); free_coll(BB);
 }
 
 //---------------------------------------------------------------------- printing
@@ -273,12 +273,12 @@ void dump_vecs (char *VECS, char *_rows) {
     for (v = V; v < V+len(V); ++v) {
     }
   }
-  free_coll (C); 
+  free_coll (C);
 }
 */
 
 void dump_fasta (char *SEQS, char *_rows, char *_cols) {
-  coll_t *C = open_coll (SEQS, "r+");   // id -> ATCGCGTC 
+  coll_t *C = open_coll (SEQS, "r+");   // id -> ATCGCGTC
   it_t rows = parse_slice (_rows, 1, num_rows(C));
   it_t cols = parse_slice (_cols, 1, 1<<30);
   fprintf (stderr, "%s [%d:%d] [%d:%d]\n", SEQS, rows.i, rows.t, cols.i, cols.t);
@@ -288,7 +288,7 @@ void dump_fasta (char *SEQS, char *_rows, char *_cols) {
     it_t cols = parse_slice (_cols, 1, strlen(seq));
     printf ("%.*s\n", (cols.t-cols.i+1), seq + cols.i - 1);
   }
-  free_coll (C); 
+  free_coll (C);
 }
 
 
@@ -352,13 +352,13 @@ uint edits (char *A, char *B) {
     }
     for (a = 0; a <= nA; ++a) E[a] = F[a];
   }
-  free (E); free (F); 
+  free (E); free (F);
   return ed;
 }
 
 //---------------------------------------------------------------------- MAIN
 
-char *usage = 
+char *usage =
   "bio S = load           - read FASTA sequences from stdin\n"
   "bio C = kmer:[prm] S   - convert seqs to positional k-mers\n"
   "                         prm: k=10 - default k-mer size\n"
@@ -386,8 +386,8 @@ int main (int argc, char *argv[]) {
     sprintf (tmp, "%s.%d", a(1), getpid()); // temporary target
     if      (!strncmp (a(3), "load", 4)) load_fasta (tmp);
     else if (!strncmp (a(3), "kmer", 4)) seqs2kmer (tmp, a(4), a(3));
-    else if (!strncmp (a(3), "freq", 4) || 
-	     !strncmp (a(3), "locs", 4) || 
+    else if (!strncmp (a(3), "freq", 4) ||
+	     !strncmp (a(3), "locs", 4) ||
 	     !strncmp (a(3), "plsh", 4)) mtx2mtx (tmp, a(4), a(3));
     else if (!strncmp (a(4), "shift",5)) graph_shift (tmp, a(3), a(5), a(4));
     else if (!strncmp (a(4), "delta",5)) deltas (tmp, a(3), a(5), a(4));

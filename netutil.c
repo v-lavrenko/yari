@@ -1,22 +1,22 @@
 /*
-  
-  Copyright (c) 1997-2021 Victor Lavrenko (v.lavrenko@gmail.com)
-  
+
+  Copyright (c) 1997-2024 Victor Lavrenko (v.lavrenko@gmail.com)
+
   This file is part of YARI.
-  
+
   YARI is free software: you can redistribute it and/or modify it
   under the terms of the GNU General Public License as published by
   the Free Software Foundation, either version 3 of the License, or
   (at your option) any later version.
-  
+
   YARI is distributed in the hope that it will be useful, but WITHOUT
   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
   License for more details.
-  
+
   You should have received a copy of the GNU General Public License
   along with YARI. If not, see <http://www.gnu.org/licenses/>.
-  
+
 */
 
 #include "netutil.h"
@@ -25,7 +25,7 @@
 int server_sockid = 0;
 void server_killed (int n) { // will be called on INT or TERM signal
   fprintf (stderr, "Caught signal %d, exitting...\n", n);
-  close (server_sockid); exit (0); 
+  close (server_sockid); exit (0);
 }
 
 // redirect bad signals to the user-supplied handler function
@@ -37,7 +37,7 @@ void trap_signals (void (*handle)(int)) {
   signal (SIGBUS,  handle);
   signal (SIGSEGV, handle);
   signal (SIGPIPE, handle);
-#ifdef SIGPWR 
+#ifdef SIGPWR
   signal (SIGPWR,  handle); // not defined on a Mac
 #endif
   signal (SIGFPE,  handle);
@@ -48,9 +48,9 @@ void trap_signals (void (*handle)(int)) {
 int safe (char *comment, int result) {
   if (result == -1) {
     fprintf (stderr, "--------------------------------------------------\n");
-    fprintf (stderr, "[%s] failed: [%d] ", comment, errno);  perror (""); 
+    fprintf (stderr, "[%s] failed: [%d] ", comment, errno);  perror ("");
     fprintf (stderr, "--------------------------------------------------\n");
-    // assert (0); 
+    // assert (0);
   }
   return result;
 }
@@ -73,7 +73,7 @@ saddr_t *mkaddr (char *host, int port) {
   saddr_t *addr = calloc (1, sizeof (saddr_t));
   addr->sin_family = AF_INET;
   addr->sin_port = htons (port);
-  addr->sin_addr.s_addr = host2ip (host); 
+  addr->sin_addr.s_addr = host2ip (host);
   return addr;
 }
 
@@ -84,26 +84,26 @@ int server_socket (int port, int nonblock) {
   struct linger linger = {1, 0}; // linger:true, time:0sec
   int flag = 1;
   saddr_t *server = mkaddr (NULL, port);
-  int sockid = safe ("socket", socket (AF_INET, SOCK_STREAM, 0)); 
+  int sockid = safe ("socket", socket (AF_INET, SOCK_STREAM, 0));
   if (nonblock) safe ("fcntl", fcntl (sockid, F_SETFL, O_NONBLOCK));
   safe ("setsockopt", setsockopt (sockid, SOL_SOCKET, SO_LINGER, &linger, sizeof(linger)));
   safe ("setsockopt", setsockopt (sockid, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(int)));
   //safe("setsockopt",setsockopt (sockid, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(int)));
-  safe ("bind", bind (sockid, (paddr_t) server, sizeof (saddr_t))); 
+  safe ("bind", bind (sockid, (paddr_t) server, sizeof (saddr_t)));
   safe ("listen", listen (sockid, 100)); // queue up to 100 connects
   return sockid;
 }
 
 // create a socket, connect to host ("www.cnn.com:80"), return sockid
-int client_socket (char *host) { 
+int client_socket (char *host) {
   char *port = index (host, ':');
   *port++ = '\0'; // null-terminate host, point to port
   saddr_t *server = mkaddr (host, atoi(port));
-  int sock = safe ("socket", socket (AF_INET, SOCK_STREAM, 0)); 
+  int sock = safe ("socket", socket (AF_INET, SOCK_STREAM, 0));
   int err = connect (sock, (paddr_t) server, sizeof (saddr_t));
   if (err == -1) {
     fprintf (stderr, "[connect] %s:%s failed: [%d] ", host, port, errno);
-    perror (""); 
+    perror ("");
     close (sock);
     return -1;
   }
@@ -143,10 +143,10 @@ int accept_and_send (int sockid, void *data, int size) {
   return sent;
 }
 
-// same as above but connection is kept open for subsequent calls 
+// same as above but connection is kept open for subsequent calls
 // -- useful for 'pushing' a data to the client (e.g. newsfeed)
 int accept_send_hold (int sockid, char *message, int size) { // thread-unsafe: static
-  static int client = -1; 
+  static int client = -1;
   if (sockid == -1) return -1;
   if (client == -1) client = accept (sockid, NULL, NULL);
   if (client == -1) return -1;
@@ -183,7 +183,7 @@ int agetline (int fd, char *buf, char **b, int sz) {
       return 1; }
     //if (n != 1) return 0; // try again or error or end-of-file
   }
-  warnx("agetline -> NOMEM"); 
+  warnx("agetline -> NOMEM");
   return 0;
 }
 
@@ -203,11 +203,11 @@ int send_message (int sockid, char *message, int size) {
   int sent, flags = MSG_NOSIGNAL | MSG_DONTWAIT, wait=1;
   while (size > 0) {
     sent = send (sockid, message, size, flags);
-    if (sent == -1) { 
-      if (errno == EAGAIN) usleep (wait*=2); 
-      else perror ("send_message: "); 
+    if (sent == -1) {
+      if (errno == EAGAIN) usleep (wait*=2);
+      else perror ("send_message: ");
       continue;
-    } 
+    }
     if (sent < size) fprintf (stderr, "[send_message] sent %d < %d bytes, retrying\n", sent, size);
     message += sent; size -= sent;
   }
@@ -219,7 +219,7 @@ char *extract_message (char *buf, char *eom, int *used) {
   if (!end) return NULL;               // did not get a complete message
   uint mlen = (end-buf) + strlen(eom); // full message length
   char *msg = malloc (mlen+1);         // strndup (buf, mlen) (absent in OSX)
-  memcpy (msg, buf, mlen);             
+  memcpy (msg, buf, mlen);
   msg[mlen]=0;
   *used -= mlen;                       // buf will now have mlen fewer bytes
   memmove (buf, buf+mlen, *used);      // new buf = end ... buf+used
@@ -233,7 +233,7 @@ char *recv_message (int sockid, char *eom) { // thread-unsafe: static
   if (!buf) buf = malloc (N);
   while(1) { // receive as much data as we can get without blocking
     if (used+get > N) buf = realloc (buf, N *= 2); // buf big enough?
-    got = recv (sockid, buf+used, get, flags); // try to get a chunk 
+    got = recv (sockid, buf+used, get, flags); // try to get a chunk
     if (got <= 0) break; // stop if no more data at the moment
     else used += got;
   }
@@ -263,7 +263,7 @@ char *sgets (char *buf, int size, int sock) {
   return (i>0) ? buf : NULL;
 }
 
-char *asgets (char *buf, int size, int sock, char **end) { // non-blocking 
+char *asgets (char *buf, int size, int sock, char **end) { // non-blocking
   int flags = MSG_NOSIGNAL | MSG_DONTWAIT;
   for (; *end < buf+size-1; ++*end) {
     int got = recv (sock, *end, 1, flags);
@@ -328,7 +328,7 @@ int readall (int fd, char *buf, int sz, int ttl) {
     else if (got == 0) break;
     else if (ttl-- > 0) usleep(1000);
     else break;
-    //else if (got < 0 && ttl-- > 0) 
+    //else if (got < 0 && ttl-- > 0)
     //else if (errno == EAGAIN && ttl-- > 0) usleep(1000);
     //else warn ("[%d] read ERROR %d", fd, errno);
   }
@@ -374,7 +374,7 @@ int do_client (char *host) {
     send_message (fd, buf, strlen(buf));
     char *msg = receive_message (fd, '\n');
     printf ("%s\n", msg);
-    free (msg);    
+    free (msg);
   }
   close_socket (fd);
   return 0;

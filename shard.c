@@ -1,12 +1,33 @@
+/*
+
+  Copyright (c) 1997-2024 Victor Lavrenko (v.lavrenko@gmail.com)
+
+  This file is part of YARI.
+
+  YARI is free software: you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  YARI is distributed in the hope that it will be useful, but WITHOUT
+  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+  or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+  License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with YARI. If not, see <http://www.gnu.org/licenses/>.
+
+*/
+
 #include "hash.h"
 #include "textutil.h"
 
 FILE **fopen_files (uint n, char *pfx, char *mode) {
-  uint i; char path[9999]; 
+  uint i; char path[9999];
   mkdir_parent (pfx);
   char *_fmt = n>9999 ? "%s%05d" : n>999 ? "%s%04d" : n>99 ? "%s%03d" : n>9 ? "%s%02d" : "%s%d";
   FILE **file = new_vec (n, sizeof(FILE*));
-  for (i = 0; i < n; ++i) 
+  for (i = 0; i < n; ++i)
     file[i] = safe_fopen (fmt (path,_fmt,pfx,i+1), mode);
   return file;
 }
@@ -76,13 +97,13 @@ void do_merge (FILE **ins, char *key) {
     fputs (json, out[bin]);
   }
   if (json) free (json);
-    
-    
+
+
   }
 }
 */
 
-char *usage = 
+char *usage =
   "shard [prm] < LINES ... read stdin line-by-line, write to many files\n"
   "       prm: col=1   ... bin on value in column 1 (tab-separated)\n"
   "            key=id  ... bin on JSON key \"id\"\n"
@@ -94,7 +115,7 @@ char *usage =
   ;
 
 int main (int argc, char *argv[]) {
-  if (argc < 2) return fprintf (stderr, "%s", usage); 
+  if (argc < 2) return fprintf (stderr, "%s", usage);
   char *prm = argv[1];
   uint num = getprm(prm,"num=",100);
   char *pfx = getprms(prm,"pfx=","bin.",",");

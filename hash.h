@@ -1,22 +1,22 @@
 /*
-  
-  Copyright (c) 1997-2021 Victor Lavrenko (v.lavrenko@gmail.com)
-  
+
+  Copyright (c) 1997-2024 Victor Lavrenko (v.lavrenko@gmail.com)
+
   This file is part of YARI.
-  
+
   YARI is free software: you can redistribute it and/or modify it
   under the terms of the GNU General Public License as published by
   the Free Software Foundation, either version 3 of the License, or
   (at your option) any later version.
-  
+
   YARI is distributed in the hope that it will be useful, but WITHOUT
   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
   License for more details.
-  
+
   You should have received a copy of the GNU General Public License
   along with YARI. If not, see <http://www.gnu.org/licenses/>.
-  
+
 */
 
 #include "coll.h"
@@ -24,17 +24,17 @@
 #ifndef HASHTABLE
 #define HASHTABLE
 
-// note: putting offs_t into indx won't save any space: 
+// note: putting offs_t into indx won't save any space:
 // indx is half-full: 2N * offs_t == N * offs_t + 2N * uint
-typedef struct { 
+typedef struct {
   char *access;
   char   *path;
   uint   *indx; // indx[code] -> id
   uint   *code; // code[id] = hashcode
-  coll_t *keys; // keys[id] = string 
+  coll_t *keys; // keys[id] = string
   char mlock;
   //char   *data;
-} hash_t; 
+} hash_t;
 
 #define nkeys(h) (len((h)->keys->offs)-1)
 #define hrange(n) (((ulong)n) * (1.+EXP))
@@ -49,12 +49,12 @@ hash_t *open_hash_inmem () ;
 
 char *id2str (hash_t *h, uint id) ; // strdup (key2id | itoa(id))
 char *id2key (hash_t *h, uint i) ;
-uint  key2id (hash_t *h, char *key) ; 
+uint  key2id (hash_t *h, char *key) ;
 uint has_key (hash_t *h, char *key) ;
 uint id2id (hash_t *src, uint id, hash_t *trg) ;
 uint *keys2ids (hash_t *h, char **keys) ; // batch version of key2id
 char **hash_keys (char *path) ; // list all keys in a hashtable
-uint *hash2hash (char *src, char *trg, char *access) ; // map ids: src -> trg 
+uint *hash2hash (char *src, char *trg, char *access) ; // map ids: src -> trg
 uint *backmap (uint *map); // inverse map: map[i]==j <-> inv[j]==i
 
 //unsigned keyIn (hash_t *t, char *key) ;
@@ -81,4 +81,3 @@ typedef struct { // obsolete now
 
 
 #endif
-

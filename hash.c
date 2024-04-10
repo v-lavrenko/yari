@@ -1,28 +1,28 @@
 /*
-  
-  Copyright (c) 1997-2021 Victor Lavrenko (v.lavrenko@gmail.com)
-  
+
+  Copyright (c) 1997-2024 Victor Lavrenko (v.lavrenko@gmail.com)
+
   This file is part of YARI.
-  
+
   YARI is free software: you can redistribute it and/or modify it
   under the terms of the GNU General Public License as published by
   the Free Software Foundation, either version 3 of the License, or
   (at your option) any later version.
-  
+
   YARI is distributed in the hope that it will be useful, but WITHOUT
   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
   License for more details.
-  
+
   You should have received a copy of the GNU General Public License
   along with YARI. If not, see <http://www.gnu.org/licenses/>.
-  
+
 */
 
 #include "hash.h"
 #include "timeutil.h"
 
-//float HASH_LOAD = 0.9; 
+//float HASH_LOAD = 0.9;
 //uint  HASH_FUNC = 0; // 0:multiadd 1:murmur3 2:OneAtATime
 //uint  HASH_PROB = 0;  // 0:linear 1:quadratic 2:secondary
 ulong COLLISIONS = 0;
@@ -54,7 +54,7 @@ hash_t *open_hash_time() {
   hash_t *h = open_hash_inmem ();
   h->access[0] = 'T';
   h->path = strdup("TIME");
-  return h;  
+  return h;
 }
 
 hash_t *open_hash_if_exists (char *path, char *access) {
@@ -64,14 +64,14 @@ hash_t *open_hash_if_exists (char *path, char *access) {
 hash_t *open_hash (char *_path, char *_access) {
   if (!_path) return open_hash_inmem ();
   if (!strcmp(_path,"TIME")) return open_hash_time();
-  if (*_access != 'w' && file_exists (_path) && !file_exists ("%s/hash.code",_path)) { 
+  if (*_access != 'w' && file_exists (_path) && !file_exists ("%s/hash.code",_path)) {
     fprintf (stderr, "\n\nERROR: %s is outdated, re-index or downgrade\n\n", _path);
-    exit(1); 
+    exit(1);
   }
   //int MAP_OLD = MAP_MODE; MAP_MODE |= MAP_POPULATE; // pre-load hashtable
-  char *path = strdup (_path), x[9999]; // 
+  char *path = strdup (_path), x[9999]; //
   char *access = strdup(_access);
-  //char *access = calloc(1,3); access[0] = _access[0]; access[1] = '!'; 
+  //char *access = calloc(1,3); access[0] = _access[0]; access[1] = '!';
   if (access[1] == '+') assert (0 && "[open_hash] invalid access+");
   //access[1] = 0; // make sure there's no '+' at the end
   hash_t *h = safe_calloc (sizeof (hash_t));
@@ -188,7 +188,7 @@ static uint add_new_key (hash_t *h, char *key, uint code) {
 // cuckoo: O(1) guaranteed read, may require changing hash-f
 // move-to-front for chaining (closed hashing)
 // tweak constants inside hash-f
-// crc32unroll / crc32+sse/avx: 4 bytes 
+// crc32unroll / crc32+sse/avx: 4 bytes
 
 uint key2id (hash_t *h, char *key) { // TODO: arg3 = len(key)
   if (!h || !key) return 0;
@@ -229,9 +229,9 @@ static it_t *keys2codes (char **keys, uint M) {
   fprintf (stderr, "keys2codes(%d)", len(keys));
   uint i, n = len(keys);
   it_t *codes = new_vec (n,sizeof(it_t));
-  for (i=0; i<n; ++i) { 
+  for (i=0; i<n; ++i) {
     char *key = keys[i];
-    codes[i].i = i; 
+    codes[i].i = i;
     codes[i].t = murmur3 (key, strlen(key));
     if (M) codes[i].t %= M;
     if (0==i%10) show_progress (i,n,"keys2codes");
@@ -303,7 +303,7 @@ uint *hash2hash2 (char *src, char *trg, char *access) {
   hash_t *TRG = open_hash (trg, access);
   uint *ids = keys2ids (TRG, keys);
   for (k = keys; k < keys+len(keys); ++k) if (*k) free(*k);
-  free_vec (keys); 
+  free_vec (keys);
   free_hash (TRG);
   return ids;
 }
@@ -391,7 +391,7 @@ uint OneAtATime (const char *key, uint len) {
 uint multiadd_hashcode (char *s) {
   //if (HASH_FUNC == 1) return murmur3 (s, strlen(s));
   //if (HASH_FUNC == 2) return OneAtATime (s, strlen(s));
-  register uint result = 0; 
+  register uint result = 0;
   while (*s) result = result * 129 + *s++;
   return result;
 }
@@ -534,15 +534,15 @@ hash_t *hmmap (char *_path, access_t access) {
 /*
 hkey_t *mk_key (ulong code, char *key) {
   hkey_t *k = safe_malloc (sizeof(hkey_t) + strlen(key));
-  k->code = code; 
+  k->code = code;
   strcpy (k->key, key);
   return k;
 }
 */
 
-/* part of old keyIn 
+/* part of old keyIn
   ///////////////////////////// make there is enough space to add elements
-  if (vcount(t->index) >= 0.5 * vtotal(t->index)) 
+  if (vcount(t->index) >= 0.5 * vtotal(t->index))
     hrehash (t, 2 * vtotal(t->index) + 1);
   t->keys = vcheck (t->keys, vcount(t->keys) + len);
   t->offset = vcheck (t->offset, vcount(t->offset) + 1);
@@ -560,7 +560,7 @@ hkey_t *mk_key (ulong code, char *key) {
 
 /*
 unsigned hsizeof (hash_t *t) {
-  return sizeof (hash_t) + 
+  return sizeof (hash_t) +
     vsizeof (t->keys) + vsizeof (t->offset) + vsizeof (t->index);
 }
 */

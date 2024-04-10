@@ -1,22 +1,22 @@
 /*
-  
-  Copyright (c) 1997-2021 Victor Lavrenko (v.lavrenko@gmail.com)
-  
+
+  Copyright (c) 1997-2024 Victor Lavrenko (v.lavrenko@gmail.com)
+
   This file is part of YARI.
-  
+
   YARI is free software: you can redistribute it and/or modify it
   under the terms of the GNU General Public License as published by
   the Free Software Foundation, either version 3 of the License, or
   (at your option) any later version.
-  
+
   YARI is distributed in the hope that it will be useful, but WITHOUT
   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
   License for more details.
-  
+
   You should have received a copy of the GNU General Public License
   along with YARI. If not, see <http://www.gnu.org/licenses/>.
-  
+
 */
 
 #include "hash.h"
@@ -68,8 +68,8 @@ int dict_uniq(char *prm) {
     ++NN;
   }
   ulong **P = (ulong **)pointers_to_vec (C), **p;
-  sort_vec (P, cmp_Ulong_ptr); 
-  for (p=P; p<P+len(P); ++p) 
+  sort_vec (P, cmp_Ulong_ptr);
+  for (p=P; p<P+len(P); ++p)
     printf ("%lu\t%s", **p, id2key(H,(*p-C+1)));
   assert (!strstr(prm,"pct")); // TODO: reimplement the below
   //double norm = strstr(prm,"pct") ? (NN/100) : 1;
@@ -118,11 +118,11 @@ int main (int argc, char *argv[]) {
   //HASH_FUNC = getprm(prm,"F=",0);
   //HASH_PROB = getprm(prm,"P=",0);
   //HASH_LOAD = getprm(prm,"L=",0.5);
-  
+
   if (argc > 1 && (!strncmp(a(1), "-dedup", 6))) return dict_dedup();
   if (argc > 1 && (!strncmp(a(1), "-uniq", 5) ||
 		   !strncmp(a(1), "-addup", 6))) return dict_uniq(a(1));
-  
+
   if (argc < 3) return fputs (usage, stderr);
 
   //if (!strcmp(argv[1], "lock")) { MAP_MODE |= MAP_LOCKED;   ++argv; --argc; }
@@ -434,7 +434,7 @@ int main (int argc, char *argv[]) {
     uint id = key2id (h, phrase);
     assert (!strcmp (id2key(h,id), phrase));
     if (0 == ++lines%10000000)
-      printf ("[%.2fs] %.0fM lines -> %d keys 2^%u collisions 2^%u remaps\n", 
+      printf ("[%.2fs] %.0fM lines -> %d keys 2^%u collisions 2^%u remaps\n",
 	      vtime(), lines/1E6, nkeys(h), ilog2(COLLISIONS), ilog2(MMAP_MOVES));
   }
   free_hash (h);
@@ -465,7 +465,7 @@ int main (int argc, char *argv[]) {
   printf ("[%.2f] filled an mmapped hash (%d lines)\n", vtime(), lines);
   hfree (dict);
   printf ("[%.2f] freed an mmapped hash\n", vtime());
-  
+
   rewind (in);
   dict = hmmap ("tryhash", read_only);
   printf ("[%.2f] mmapped existing hash\n", vtime());
@@ -477,7 +477,7 @@ int main (int argc, char *argv[]) {
   printf ("[%.2f] verified an mmapped hash\n", vtime());
   hfree (dict);
   printf ("[%.2f] freed an mmapped hash\n", vtime());
-  
+
   rewind (in);
   dict = hnew (10, 0);
   printf ("[%.2f] allocced a new hash\n", vtime());
@@ -489,7 +489,7 @@ int main (int argc, char *argv[]) {
   hwrite (dict, "tryhash");
   hfree (dict);
   printf ("[%.2f] freed an allocced hash\n", vtime());
-  
+
   rewind (in);
   dict = hread ("tryhash");
   printf ("[%.2f] read existing hash\n", vtime());

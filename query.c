@@ -1,6 +1,6 @@
 /*
 
-  Copyright (c) 1997-2021 Victor Lavrenko (v.lavrenko@gmail.com)
+  Copyright (c) 1997-2024 Victor Lavrenko (v.lavrenko@gmail.com)
 
   This file is part of YARI.
 
@@ -146,7 +146,7 @@ void rerank_snippets (index_t *I, snip_t *S, char *qry, char **words, char *prm)
     //ngram_snippet (old, Q, ngramsz, snipsz, &score) :
     //html_snippet (old, words, snipsz, &score));
     if     (ngramsz) s->snip = (paragr ?
-				best_paragraph (I, old, qry, Q, ngramsz, &score) : 
+				best_paragraph (I, old, qry, Q, ngramsz, &score) :
 				qryLen > 60 ?
 				ngram_snippet (old, Q, ngramsz, snipsz, &score) :
 				html_snippet (old, words, snipsz, &score));

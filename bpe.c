@@ -249,18 +249,18 @@ int main (int argc, char *argv[]) {
 static enum MHD_Result handler
 (void *cls, // context argument from MHD_start_daemon
  struct MHD_Connection * connection,
- const char *url, // requested url 
+ const char *url, // requested url
  const char *method, const char *version, // GET,POST and HTTP version
  const char *up_data, size_t * up_size, // from POST, PUT etc
  void **ptr // I can set this, will be oreserved across calls
  ) {
   const char * page = cls;
   int ret;
-  
+
   if (strcmp(method, "GET")) return MHD_NO; // only support GET
   if (*upload_data_size) return MHD_NO; // upload data in a GET
-  
-  *ptr = NULL; // clear context pointer 
+
+  *ptr = NULL; // clear context pointer
   struct MHD_Response *response = MHD_create_response_from_buffer
     (strlen(page), (void*) page, MHD_RESPMEM_PERSISTENT);
   int ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
@@ -276,14 +276,14 @@ int start_httpd(char *prm) {
   uint flags = MHD_USE_THREAD_PER_CONNECTION, END = MHD_OPTION_END;
   struct MHD_Daemon *d = MHD_start_daemon
     (flags, // OR of MHD_FLAG
-     port, 
-     NULL, NULL, // AcceptPolicyCallback (auth) + arg to it 
-     &handler, PAGE, // AccessHandlerCallback + arg to it 
-     END);  
+     port,
+     NULL, NULL, // AcceptPolicyCallback (auth) + arg to it
+     &handler, PAGE, // AccessHandlerCallback + arg to it
+     END);
   assert (d && "MHD_start_daemon returned NULL");
   (void) getc (stdin); // wait for keypress
   MHD_stop_daemon(d);
-  return 0;  
+  return 0;
 }
 
 */

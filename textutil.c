@@ -1,6 +1,6 @@
 /*
 
-  Copyright (c) 1997-2021 Victor Lavrenko (v.lavrenko@gmail.com)
+  Copyright (c) 1997-2024 Victor Lavrenko (v.lavrenko@gmail.com)
 
   This file is part of YARI.
 
@@ -18,6 +18,7 @@
   along with YARI. If not, see <http://www.gnu.org/licenses/>.
 
 */
+
 #define _GNU_SOURCE
 #include <assert.h>
 #include <string.h>
@@ -71,7 +72,7 @@ void csub (char *str, char *what, char with) {
   for (t=s=str+1; *s; ++s) if (s[0] != with || s[-1] != with) *t++ = *s;
   *t = 0;
   //  char *s = str-1, *t = str, first = 0;
-  //  while (*++s) 
+  //  while (*++s)
   //    if (!strchr (what, *s)) {*t++ = *s; first = 1;}
   //    else if (first) {*t++ = with; first = 0; }
   //  *t = 0;
@@ -1062,7 +1063,7 @@ char *html_snippet (char *text, char **words, int sz, float *score) {
   uint prev = span.j, stop = span.i;
   //fprintf (stderr, "BEST_SPAN: [%d:%d]..%ld\n", prev, stop, strlen(text));
   for (h = hits; h < hits+len(hits); ++h) {
-    char beg[9]; sprintf (beg, "<c%d>", 1 + (h->k % 6)); 
+    char beg[9]; sprintf (beg, "<c%d>", 1 + (h->k % 6));
     char end[9]; sprintf (end, "</c%d>", 1 + (h->k % 6));
     //char *beg = "<b>", *end = "</b>";
     if (h->i < prev) continue; // hit starts ouside window

@@ -1,22 +1,22 @@
 /*
-  
-  Copyright (c) 1997-2021 Victor Lavrenko (v.lavrenko@gmail.com)
-  
+
+  Copyright (c) 1997-2024 Victor Lavrenko (v.lavrenko@gmail.com)
+
   This file is part of YARI.
-  
+
   YARI is free software: you can redistribute it and/or modify it
   under the terms of the GNU General Public License as published by
   the Free Software Foundation, either version 3 of the License, or
   (at your option) any later version.
-  
+
   YARI is distributed in the hope that it will be useful, but WITHOUT
   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
   License for more details.
-  
+
   You should have received a copy of the GNU General Public License
   along with YARI. If not, see <http://www.gnu.org/licenses/>.
-  
+
 */
 
 #include <time.h>
@@ -54,7 +54,7 @@ struct tm time2tm (time_t time) ; // unix timestamp --> broken-down time
 //                  int tm_yday;        /* day in the year */
 //                  int tm_isdst;       /* daylight saving time */
 
-char *time2strf (char *buf, char *format, time_t time) ; 
+char *time2strf (char *buf, char *format, time_t time) ;
 char *time2str (char *buf, time_t time) ;
 int time2hour (time_t time) ;
 int time2wday (time_t time) ;

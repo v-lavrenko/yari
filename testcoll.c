@@ -1,27 +1,27 @@
 /*
-  
-  Copyright (c) 1997-2021 Victor Lavrenko (v.lavrenko@gmail.com)
-  
+
+  Copyright (c) 1997-2024 Victor Lavrenko (v.lavrenko@gmail.com)
+
   This file is part of YARI.
-  
+
   YARI is free software: you can redistribute it and/or modify it
   under the terms of the GNU General Public License as published by
   the Free Software Foundation, either version 3 of the License, or
   (at your option) any later version.
-  
+
   YARI is distributed in the hope that it will be useful, but WITHOUT
   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
   License for more details.
-  
+
   You should have received a copy of the GNU General Public License
   along with YARI. If not, see <http://www.gnu.org/licenses/>.
-  
+
 */
 
 #include "coll.h"
 
-// #define foreach(M,v) 
+// #define foreach(M,v)
 // #define looks only for commas and parens!
 //#define repeat_until(block,predicate) do {block} while (!(predicate)
 //(4); repeat_until({int x,y; x=h(x,y);},z);
@@ -40,27 +40,27 @@
 */
 
 int main (int argc, char *argv[]) {
-  
-  if (argc < 2) { 
-    fprintf (stderr, "Usage: %s NAME rows cols\n", argv[0]); 
-    fprintf (stderr, "       %s -visual MATRIX\n", argv[0]); 
-    fprintf (stderr, "       %s -layout MATRIX\n", argv[0]); 
-    fprintf (stderr, "       %s -defrag MATRIX RESULT\n", argv[0]); 
+
+  if (argc < 2) {
+    fprintf (stderr, "Usage: %s NAME rows cols\n", argv[0]);
+    fprintf (stderr, "       %s -visual MATRIX\n", argv[0]);
+    fprintf (stderr, "       %s -layout MATRIX\n", argv[0]);
+    fprintf (stderr, "       %s -defrag MATRIX RESULT\n", argv[0]);
     return -1;
   }
-  
+
   if (!strcmp(argv[1],"-dump")) {
     coll_t *c = open_coll (argv[2], "r+");
     uint i = 0;
     fprintf (stderr, "%s: %d vecs, flen: %ld\n", argv[2], nvecs(c), (ulong)(c->vecs->flen));
-    printf ("%6d <- %6d -> %6d : %10ld\n", 
+    printf ("%6d <- %6d -> %6d : %10ld\n",
 	    c->prev[i], i, c->next[i], (ulong)(c->offs[i]));
     while ((i = c->next[i])) {
       vec_t *vec = vect (get_vec (c, i));
-      //printf ("%d <- %d -> %d : %ld\n", 
+      //printf ("%d <- %d -> %d : %ld\n",
       //      c->prev[i], i, c->next[i], c->offs[i]);
-      printf ("%6d <- %6d -> %6d : %10ld : %10ld = %2d x %6lu > %6u\n", 
-	      c->prev[i], i, c->next[i], (ulong)(c->offs[i]), 
+      printf ("%6d <- %6d -> %6d : %10ld : %10ld = %2d x %6lu > %6u\n",
+	      c->prev[i], i, c->next[i], (ulong)(c->offs[i]),
 	      (ulong)(vsizeof(vec)), vec->esize, vlimit(vec), vec->count);
       free_vec (vec->data);
     }
@@ -72,20 +72,20 @@ int main (int argc, char *argv[]) {
     coll_t *c = open_coll (argv[2], "r");
     uint i = 0;
     fprintf (stderr, "%s: %d vecs, flen: %ld\n", argv[2], nvecs(c), (ulong)(c->vecs->flen));
-    for (i = 0; i <= nvecs(c); ++i) 
+    for (i = 0; i <= nvecs(c); ++i)
       printf ("%6d : %10ld\n", i, (ulong)(c->offs[i]));
     free_coll (c);
     return 0;
   }
-  
+
   return 0;
-  
+
   char *NAME = argv[1];
   uint nr = (1<<atoi(argv[2]))-1, nni = atoi(argv[3]), r;
   ulong nR = 0, nW = 0, sz = sizeof(uint), MB = 1<<20;
   float t, t2, wait = atof(argv[4]);
   coll_t *c;
-  
+
   srandom(1); nR = nW = 0;
   c = open_coll (NAME, "w+");
   vtime();
@@ -101,7 +101,7 @@ int main (int argc, char *argv[]) {
     nW += ni;
   }
   free_coll (c);
-  
+
   c = open_coll (NAME, "r+");
   //assert (nvecs(c) == nr);
   vtime();
@@ -115,12 +115,12 @@ int main (int argc, char *argv[]) {
   }
   t2 = vtime();
   free_coll (c);
-  
+
   assert (nR == nW);
-  
+
   printf("%s: %d vecs += %d els: %ld gets, %ld puts, %.0f / %.0f MB/s\n",
 	 NAME, nr, nni, nW, nR, ((nW*sz) / (t*MB)), ((nR*sz) / (t2*MB)));
-  
+
   srandom(1); nR = nW = 0;
   /*
   c = open_coll (NAME, "w+");
@@ -134,7 +134,7 @@ int main (int argc, char *argv[]) {
     nW += ni;
   }
   free_coll (c);
-  
+
   c = open_coll (NAME, "r+");
   //assert (nvecs(c) == nr);
   vtime();
@@ -148,36 +148,36 @@ int main (int argc, char *argv[]) {
   t2 = vtime();
   free_coll (c);
   */
-  
+
   assert (nR == nW);
-  
+
   printf("%s: %d vecs += %d els: %ld wmap, %ld rmap, %.0f / %.0f MB/s\n",
 	 NAME, nr, nni, nW, nR, ((nW*sz) / (t*MB)), ((nR*sz) / (t2*MB)));
-  
-  /*  
+
+  /*
   if (!strcmp(argv[1],"-visual")) {
     m = m_open (argv[2], read_only);
     m_visualize (m);
     m_free (m);
-    return 0; 
+    return 0;
   }
-  
+
   if (!strcmp(argv[1],"-layout")) {
     m = m_open (argv[2], read_only);
     m_layout (m);
     m_free (m);
-    return 0; 
+    return 0;
   }
 
   if (!strcmp(argv[1],"-defrag")) {
-    m_defrag (argv[2], argv[3]); 
-    return 0; 
+    m_defrag (argv[2], argv[3]);
+    return 0;
   }
   */
 
-  
+
   /*
-  
+
   printf ("Timings for a %d x %d matrix\n", nr, nc);
   vtime();
   srandom(1);
@@ -205,17 +205,17 @@ int main (int argc, char *argv[]) {
 
   srandom(1);
   for (time = 0; time < wait; time += vtime()) {
-    
+
     unsigned r = random() % nr, c = random()
-  
+
   NAME = argv[1];
-  X = 
+  X =
     Y = atoi (argv[3]);
   TOUT = atoi (argv[4]);
     free_matrix (m);
 
   if (1) {
-  
+
   printf ("Timings for a %d x %d matrix of type 1\n", X, Y);
   vtime();
   srandom(1);
@@ -236,7 +236,7 @@ int main (int argc, char *argv[]) {
     ++ops;
   }
   printf ("%10.2fK writes per second (%d/%f)\n", ops/time, ops, time);
-  
+
   vtime();
   srandom(1);
   for (k = 0; k < ops; ++k) {
@@ -249,7 +249,7 @@ int main (int argc, char *argv[]) {
 	assert (y < vcount(a));
 	assert (a[y] == x+y);
 	//if (a[y] != (x + y))
-	//  printf ("%d <> %d TEST[%d][%d]\n", 
+	//  printf ("%d <> %d TEST[%d][%d]\n",
 	//	  x+y, a[y], x, y);
       }
       vfree (a);
@@ -259,9 +259,9 @@ int main (int argc, char *argv[]) {
   printf ("%10.2fK reads per second (%d/%f)\n", ops/time, ops, time);
 
   }
-  
+
   ///////////////////////// TYPE 2 /////////////////////////
-  
+
   printf ("Timings for a %d x %d matrix of type 2\n", X, Y);
 
   vtime();
@@ -283,7 +283,7 @@ int main (int argc, char *argv[]) {
   }
   m_free(m);
   printf ("%10.2fK writes per second (%d/%f)\n", ops/time, ops, time);
-  
+
   vtime();
   srandom(1);
   m = m_open (NAME, read_only);
@@ -305,6 +305,6 @@ int main (int argc, char *argv[]) {
   m_free(m);
   printf ("%10.2fK reads per second (%d/%f)\n", ops/time, ops, time);
   */
-    
+
   return 0;
 }

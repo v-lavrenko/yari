@@ -1,3 +1,24 @@
+/*
+
+  Copyright (c) 1997-2024 Victor Lavrenko (v.lavrenko@gmail.com)
+
+  This file is part of YARI.
+
+  YARI is free software: you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  YARI is distributed in the hope that it will be useful, but WITHOUT
+  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+  or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+  License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with YARI. If not, see <http://www.gnu.org/licenses/>.
+
+*/
+
 #include "mmap.h"
 
 size_t fsize (char *path) {
@@ -17,20 +38,20 @@ ulong xsum_chunk (int fd, size_t beg, size_t end, ulong seed) {
   ulong result = sdbm_hash (buf+skip, sz, seed);
   munmap (buf, msize);
   //fprintf(stderr,"%d [%lu+%lu] -> [%lu+%lu] %lx -> %lx\n", fd, beg, sz, mbeg, msize, seed, result);
-  return result;  
+  return result;
 }
 
 ulong xsum_file (char *path) {
   size_t sz = fsize(path), end;
   //fprintf(stderr,"%s len %lu\n", path, sz);
   if (!sz) return 0; // file doesn't exist or is empty -> 0
-  ulong xsum = sz;  
+  ulong xsum = sz;
   int fd = safe_open (path, "r");
-  if (sz < 3*4096) xsum = xsum_chunk (fd, 0, sz, xsum);    
+  if (sz < 3*4096) xsum = xsum_chunk (fd, 0, sz, xsum);
   else {
-    for (end = 4096; end < sz; end *= 2) 
+    for (end = 4096; end < sz; end *= 2)
       xsum = xsum_chunk (fd, end-4096, end, xsum);
-    xsum = xsum_chunk (fd, sz-4096, sz, xsum);    
+    xsum = xsum_chunk (fd, sz-4096, sz, xsum);
   }
   close(fd);
   return xsum;
@@ -59,7 +80,7 @@ void xsum_check(char *file) {
 }
 
 
-char *usage = 
+char *usage =
   "xsum f1 f2 f3  ... fast log-probing checksum with md5-like output\n"
   "xsum -c [file] ... verify checksums in a file (or on stdin)\n"
   ;

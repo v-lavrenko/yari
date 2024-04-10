@@ -1,6 +1,6 @@
 /*
 
-  Copyright (c) 1997-2021 Victor Lavrenko (v.lavrenko@gmail.com)
+  Copyright (c) 1997-2024 Victor Lavrenko (v.lavrenko@gmail.com)
 
   This file is part of YARI.
 
@@ -136,24 +136,24 @@ char *time2str (char *buf, time_t time) {
   return time2strf (buf, "%F,%T", time);
 }
 
-int time2hour (time_t time) { 
-  return time2tm(time).tm_hour; 
+int time2hour (time_t time) {
+  return time2tm(time).tm_hour;
 }
 
-int time2wday (time_t time) { 
-  return time2tm(time).tm_wday; 
+int time2wday (time_t time) {
+  return time2tm(time).tm_wday;
 }
 
 int same_day (time_t t1, time_t t2) {
   int d1 = time2tm(t1).tm_wday;
   int d2 = time2tm(t2).tm_wday;
-  return (d1 == d2) && ((t2 - t1) < 1 * DAYS); 
+  return (d1 == d2) && ((t2 - t1) < 1 * DAYS);
 }
 
 int same_week (time_t t1, time_t t2) {
   int d1 = time2tm(t1).tm_wday;
   int d2 = time2tm(t2).tm_wday;
-  return (d1 <= d2) && ((t2 - t1) < 5 * DAYS); 
+  return (d1 <= d2) && ((t2 - t1) < 5 * DAYS);
 }
 
 time_t today_hhmm (time_t now, char *hhmm) {
@@ -183,7 +183,7 @@ inline void *show_eta (ulong done, ulong total, char *s, void *_state) {
   eta->last = now;
   if (eta->beg == 0) { eta->beg = now; return; }
   fprintf (stderr, ".");
-  
+
   return (void*) state;
 }
 
@@ -192,12 +192,12 @@ inline void show_progress (ulong done, ulong total, char *s) { // thread-unsafe:
   static time_t last = 0, begt = 0;
   time_t this = time(0);
   //printf ("%d %d %d\n", this, last, CLOCKS_PER_SEC);
-  //if (this - last < CLOCKS_PER_SEC) return; 
+  //if (this - last < CLOCKS_PER_SEC) return;
   if (this == last) return;
   last = this;
   fprintf (stderr, ".");
   if (!begt) begt = this;
-  if (done < prev) prev = done; 
+  if (done < prev) prev = done;
   if (++dots < line) return;
   double todo = total-done, di = done-prev, ds = this-begt, rpm = 60*di/ds, ETA = todo/rpm;
   //double ETA = ((double)(N-n)) / ((n-m) * 60 / line); // minutes

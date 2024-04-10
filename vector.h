@@ -1,22 +1,22 @@
 /*
-  
-  Copyright (c) 1997-2021 Victor Lavrenko (v.lavrenko@gmail.com)
-  
+
+  Copyright (c) 1997-2024 Victor Lavrenko (v.lavrenko@gmail.com)
+
   This file is part of YARI.
-  
+
   YARI is free software: you can redistribute it and/or modify it
   under the terms of the GNU General Public License as published by
   the Free Software Foundation, either version 3 of the License, or
   (at your option) any later version.
-  
+
   YARI is distributed in the hope that it will be useful, but WITHOUT
   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
   License for more details.
-  
+
   You should have received a copy of the GNU General Public License
   along with YARI. If not, see <http://www.gnu.org/licenses/>.
-  
+
 */
 
 #include "mmap.h"
@@ -49,11 +49,11 @@ inline off_t vsizeof(vec_t *v) {return sizeof(vec_t) + vlimit(a)*a->esize;}
 
 /*
 inline void* vgrow (void *x, uint n) {
-  vec_t *v = vect(x); 
+  vec_t *v = vect(x);
   return (v->count + n < vlimit(v)) ? x : _agrow (x, n); }
 
 inline void* vresize (void *x, uint n) {
-  return (n < vlimit(vect(x))) ? x : _vresize (x,n); 
+  return (n < vlimit(vect(x))) ? x : _vresize (x,n);
 }
 */
 
@@ -83,7 +83,7 @@ void *set_vec_el (void *vec, uint i, void *el) ;
 void *ref_vec_el (void **vec, uint i) ;
 void *ins_vec_el (void *vec, uint i, void *el) ; // insert el into [i], shift old [i..n]
 void del_vec_el (void *vec, uint i) ;
-void **pointers_to_vec (void *V) ; // vector of n pointers 
+void **pointers_to_vec (void *V) ; // vector of n pointers
 
 int cmp_jix (const void *n1, const void *n2) ; // by increasing j then i
 int cmp_jix_X (const void *n1, const void *n2) ; // by decreasing x
@@ -146,7 +146,7 @@ uint trilen (uint o) ; // triangular offset -> number of rows & columns
 
 /////////////////// 07.13.99 Experimental...
 //void *vmerge (unsigned result_esize,
-//	      void *vector1, void *vector2, 
+//	      void *vector1, void *vector2,
 //	      void *parameter,
 //	      int (*compare) (void*, void*),
 //	      void (*join) (void*,void*,void*,void*));

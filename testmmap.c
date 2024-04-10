@@ -1,22 +1,22 @@
 /*
-  
-  Copyright (c) 1997-2021 Victor Lavrenko (v.lavrenko@gmail.com)
-  
+
+  Copyright (c) 1997-2024 Victor Lavrenko (v.lavrenko@gmail.com)
+
   This file is part of YARI.
-  
+
   YARI is free software: you can redistribute it and/or modify it
   under the terms of the GNU General Public License as published by
   the Free Software Foundation, either version 3 of the License, or
   (at your option) any later version.
-  
+
   YARI is distributed in the hope that it will be useful, but WITHOUT
   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
   License for more details.
-  
+
   You should have received a copy of the GNU General Public License
   along with YARI. If not, see <http://www.gnu.org/licenses/>.
-  
+
 */
 
 #include <math.h>
@@ -82,12 +82,12 @@ void *test_random_access (void *prm) {
       safe_pread (fd, chunk, size, offs);
       for (p = chunk; p < chunk + size; ++p) sum += *p;
       if (!pre) free (chunk);
-    } 
+    }
   }
   if (MAP) munmap (MAP, page_align (flen, '>'));
   double lag = (mstime() - start);
   fprintf (stderr, "%.0fms %lx %s tread:%d\n", lag, sum, (char*)prm, thread);
-  free (prealloc); 
+  free (prealloc);
   close (fd);
   return NULL;
 }
@@ -109,26 +109,26 @@ int main (int argc, char *argv[]) {
   if (argc < 2) { fprintf (stderr, "Usage: %s n\n", *argv); return -1;}
   ulong N = (1ul << atoi (argv[1])), M = 1<<28, sz = sizeof(ulong), iter = 0;
   char *NAME = (argc > 2) ? argv[2] : "trymmap.mmap";
-  
+
   srandom(1);
-  mmap_t *m = open_mmap (NAME, "w", M * sz); 
+  mmap_t *m = open_mmap (NAME, "w", M * sz);
   expand_mmap (m, N * sz);
   free_mmap(m);
   while (1) {
-    m = open_mmap (NAME, "a", M * sz); 
+    m = open_mmap (NAME, "a", M * sz);
     for (iter = 0; iter < 100; ++iter) {
       ulong beg = random()%(N-M), num = random()%M, i, nz=0;
       ulong *x = move_mmap (m, (off_t)beg*sz, (off_t)num*sz);
-      for (i = 0; i < num; ++i) 
+      for (i = 0; i < num; ++i)
 	if (x[i]) {assert (x[i] == beg+i); ++nz;}
 	else x[i] = beg+i;
-      fprintf (stderr, "[%.0fs] filled %lu + %lu: %lu matched\n", 
-	       vtime(), beg, num, nz); 
+      fprintf (stderr, "[%.0fs] filled %lu + %lu: %lu matched\n",
+	       vtime(), beg, num, nz);
     }
     free_mmap(m);
     fprintf(stderr, "-------------\n");
   }
-  
+
   return 1;
 */
 }

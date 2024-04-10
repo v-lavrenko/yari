@@ -1,22 +1,22 @@
 /*
-  
-  Copyright (c) 1997-2021 Victor Lavrenko (v.lavrenko@gmail.com)
-  
+
+  Copyright (c) 1997-2024 Victor Lavrenko (v.lavrenko@gmail.com)
+
   This file is part of YARI.
-  
+
   YARI is free software: you can redistribute it and/or modify it
   under the terms of the GNU General Public License as published by
   the Free Software Foundation, either version 3 of the License, or
   (at your option) any later version.
-  
+
   YARI is distributed in the hope that it will be useful, but WITHOUT
   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
   License for more details.
-  
+
   You should have received a copy of the GNU General Public License
   along with YARI. If not, see <http://www.gnu.org/licenses/>.
-  
+
 */
 
 #include <math.h>
@@ -43,7 +43,7 @@ ATOM     32  P    DC A   2       7.767  -2.312   3.534  1.00  0.00           P
 */
 
 
-// 
+//
 //          1         2         3         4         5         6         7         8
 // 123456789-123456789-123456789-123456789-123456789-123456789-123456789-123456789-
 // HEADER    DNA-RNA HYBRID                          05-DEC-94   100D
@@ -53,11 +53,11 @@ ATOM     32  P    DC A   2       7.767  -2.312   3.534  1.00  0.00           P
 //
 // ATOM   6654  OE1AGLU A1139     -17.325  39.535  34.165  0.56 23.10           O
 // ATOM      1  N   HIS A1796      27.257  -9.140  37.352  1.00112.91           N
-// 
-// 1-4: "ATOM" 
+//
+// 1-4: "ATOM"
 // 7-11: atom serial number (6-11 allowed, ) ... always uint, 6 always empty?
 // 13-16: atom name ... CA, N, C, O, H, CB, HA ... 132+ total
-// 17: alternate location indicator ... rarely A or B 
+// 17: alternate location indicator ... rarely A or B
 // 18-20: residue name ... 20 + D{ATCGI}
 // 22: chain identifier ... A,B,C..X
 // 23-26: residue sequence number ... uint, can be -1
@@ -127,13 +127,13 @@ atom_t line2atom (char *line, hash_t *ELS, uint i) {
 }
 
 int pdb_load (char *_PDB, char *_IDS, char *_ELS) {
-  coll_t *PDB = open_coll (_PDB, "a+");  // 
+  coll_t *PDB = open_coll (_PDB, "a+");  //
   hash_t *IDS = open_hash (_IDS, "a");
   hash_t *ELS = open_hash (_ELS, "a");
   atom_t *A = NULL;
   ulong NR = 0, NS = 0, NM = 0, NA = 0, NNS = 180;
   char *L = calloc(90,1), *ID = calloc(20,1);
-  while (++NR && fgets(L,85,stdin)) {    
+  while (++NR && fgets(L,85,stdin)) {
     assert (L[80] == '\n');
     L[80] = '\0';
     if (!strncmp(L,"HEADER",6) && ++NS) { // ID = PDB code
@@ -152,7 +152,7 @@ int pdb_load (char *_PDB, char *_IDS, char *_ELS) {
       uint id = key2id (IDS, ID);
       put_vec (PDB,id,A);
       free_vec (A);
-      A=NULL;      
+      A=NULL;
       if (!(NS%100)) show_progress (NS/1000, NNS, "k structs");
     }
   }
@@ -167,7 +167,7 @@ void pdb_dump_vec (atom_t *A, uint top, hash_t *ELS, char *ID) {
     char *el = id2str(ELS,a->el);
     printf ("%s\t%s\t%d\t%.3f\t%.3f\t%.3f\t%.3f\n", ID, el, a->n, a->x, a->y, a->z, sqrt(L2(a)));
     free(el);
-  }  
+  }
 }
 
 void pdb_dump_pvec (atom_t **P, uint top, hash_t *ELS, char *ID) {
@@ -193,22 +193,22 @@ int pdb_dump (char *_PDB, char *_IDS, char *_ELS, char *prm) {
   uint top = getprm (prm, "top=", 0);
   char *rid = getprms (prm, "dump:", NULL, ",");
   uint id = rid ? key2id (IDS,rid) : 0;
-  uint beg = rid ? id : 1, end = rid ? id : nvecs(PDB);  
+  uint beg = rid ? id : 1, end = rid ? id : nvecs(PDB);
   if (hdr) printf ("%s\t%s\t%s\t%s\t%s\t%s\t%s\n", "id", "el", "asn", "x", "y", "z", "L2");
   for (id = beg; id <= end; ++id) {
     char *ID = id2key(IDS,id);
     atom_t *A = get_vec(PDB,id);
-    //printf ("%d..%d\n", id, len(A));    
+    //printf ("%d..%d\n", id, len(A));
     if (!ptr) {
       //fprintf(stderr, "original\n");
       if (sortX) sort_vec (A, cmp_atom_x);
       if (sortY) sort_vec (A, cmp_atom_y);
       if (sortZ) sort_vec (A, cmp_atom_z);
-      if (sortN) sort_vec (A, cmp_atom_n);      
+      if (sortN) sort_vec (A, cmp_atom_n);
       pdb_dump_vec (A, top, ELS, ID);
     }
     else {
-      //fprintf(stderr, "pointers\n");      
+      //fprintf(stderr, "pointers\n");
       atom_t **P = (atom_t**)pointers_to_vec (A);
       if (sortX) sort_vec (P, cmp_patom_x);
       if (sortY) sort_vec (P, cmp_patom_y);
@@ -227,7 +227,7 @@ int pdb_dump (char *_PDB, char *_IDS, char *_ELS, char *prm) {
 int pdb_test (char *_PDB, char *_IDS, char *_ELS) {
   coll_t *PDB = open_coll (_PDB, "r+");
   hash_t *IDS = open_hash (_IDS, "r");
-  hash_t *ELS = open_hash (_ELS, "r");    
+  hash_t *ELS = open_hash (_ELS, "r");
   uint id, N = nvecs(PDB);
   for (id = 1; id <= N; ++id) {
     char *ID = id2key (IDS,id);
@@ -241,13 +241,13 @@ int pdb_test (char *_PDB, char *_IDS, char *_ELS) {
     for (i = 0; i < n; ++i) // assert: pointer offse i == vector index A[i].i
       if (P[i]->i != i) printf ("%s P[%d]->i %d != %d\n", ID, i, P[i]->i, i);
     sort_vec (P, cmp_patom_x);
-    for (i = 1; i < n; ++i) // assert: increasing X 
+    for (i = 1; i < n; ++i) // assert: increasing X
       if (P[i]->x < P[i-1]->x) printf ("%s P[%d]->x %.3f < %.3f\n", ID, i, P[i]->x, P[i-1]->x);
     sort_vec (P, cmp_patom_y);
-    for (i = 1; i < n; ++i) // assert: increasing Y  
+    for (i = 1; i < n; ++i) // assert: increasing Y
       if (P[i]->y < P[i-1]->y) printf ("%s P[%d]->y %.3f < %.3f\n", ID, i, P[i]->y, P[i-1]->y);
     sort_vec (P, cmp_patom_z);
-    for (i = 1; i < n; ++i) // assert: increasing Z  
+    for (i = 1; i < n; ++i) // assert: increasing Z
       if (P[i]->z < P[i-1]->z) printf ("%s P[%d]->z %.3f < %.3f\n", ID, i, P[i]->z, P[i-1]->z);
     sort_vec (P, cmp_patom_n);
     for (i = 0; i < n; ++i) // assert: pointers == vector elements (after re-sorting)
@@ -313,12 +313,12 @@ int pdb_ball (char *prm, char *_BALLS, char *_BIDS, char *_PDB, char *_IDS, char
   hash_t *BIDS = open_hash (_BIDS, "w");
   coll_t *PDB = open_coll (_PDB, "r+");
   hash_t *IDS = open_hash (_IDS, "r");
-  hash_t *ELS = open_hash (_ELS, "r");  
+  hash_t *ELS = open_hash (_ELS, "r");
   float R = getprm(prm,"r=",5); // ball radius (Angstroms)
-  uint el = strstr(prm,",CA") ? key2id (ELS, "CA") : 0; // center element (CA)  
+  uint el = strstr(prm,",CA") ? key2id (ELS, "CA") : 0; // center element (CA)
   uint id, N = nvecs(PDB);
   for (id = 1; id <= N; ++id) {
-    char *ID = id2key (IDS,id);    
+    char *ID = id2key (IDS,id);
     atom_t  *A = get_vec (PDB,id);
     atom_t **B = mk_balls (A, R, el);
     //printf ("%s: %d atoms, %d balls\n", ID, len(A), num_balls(B));
@@ -336,7 +336,7 @@ ix_t *ball2peel (atom_t *A) { // i:element x:distance to origin
   ix_t *V = new_vec (0, sizeof(ix_t));
   for (a = A; a < A+len(A); ++a) {
     float x = a->x, y = a->y, z = a->z;
-    ix_t new = {a->el, sqrt(x*x + y*y + z*z)}; 
+    ix_t new = {a->el, sqrt(x*x + y*y + z*z)};
     V = append_vec (V, &new);
   }
   sort_vec (V, cmp_ix_i);
@@ -382,9 +382,9 @@ void pdb_show_L2s (char *id, atom_t *A, uint n) {
 }
 
 uint count_same_el (atom_t **a, atom_t **end) { // count atoms of the same element as a
-  atom_t **x = a; 
+  atom_t **x = a;
   while (x < end && (*x)->el == (*a)->el) ++x;
-  return x-a; 
+  return x-a;
 }
 
 float L2diff (atom_t *a, atom_t *b) {
@@ -432,7 +432,7 @@ ab_t *align_balls (atom_t **A, atom_t **B, float near, float far) {
     else { // a,b = same element => posible match
       uint na = count_same_el(a,aEnd), nb = count_same_el(b,bEnd);
       if (na>1 || nb>1) { // a[0:na] <-> b[0:nb]
-	AB = align_sub_balls (AB, a, na, b, nb, near, far); 
+	AB = align_sub_balls (AB, a, na, b, nb, near, far);
       }
       else if (L2diff(*a,*b) < near) {
 	AB = add_ab(AB,*a,*b); // a <-> b
@@ -446,7 +446,7 @@ ab_t *align_balls (atom_t **A, atom_t **B, float near, float far) {
 }
 
 void print_alignment (ab_t *AB, atom_t **A, atom_t **B, hash_t *ELS) {
-  ab_t *ab; 
+  ab_t *ab;
   for (ab = AB; ab < AB+len(AB); ++ab) {
     atom_t *a = ab->a, *b = ab->b;
     float da = sqrt(L2(a)), db = sqrt(L2(b)), dab = ABS(da-db);
@@ -455,7 +455,7 @@ void print_alignment (ab_t *AB, atom_t **A, atom_t **B, hash_t *ELS) {
     printf ("AB %.3f %s %+.3f %+.3f %+.3f %+.3f %+.3f %+.3f\n",
 	    dab, el, a->x, a->y, a->z, b->x, b->y, b->z);
   }
-  atom_t **p; uint na=0, nb=0;  
+  atom_t **p; uint na=0, nb=0;
   printf("\n");
   for (p = A; p < A+len(A); ++p) if (*p) {
       atom_t a = **p; ++na;
@@ -465,7 +465,7 @@ void print_alignment (ab_t *AB, atom_t **A, atom_t **B, hash_t *ELS) {
   printf("\n");
   for (p = B; p < B+len(B); ++p) if (*p) {
       atom_t b = **p; ++nb;
-      char *el = id2key (ELS,b.el);      
+      char *el = id2key (ELS,b.el);
       printf ("B %.3f %s %+.3f %+.3f %+.3f\n", sqrt(L2(&b)), el, b.x, b.y, b.z);
     }
   //printf ("%d aligned, left: %d=%d %d=%d \n", len(AB), na, len(A)-len(AB), nb, len(B)-len(AB));
@@ -490,7 +490,7 @@ int pdb_align (char *_BALLS, char *_BIDS, char *_ELS, char *_a, char *_b, char *
 
 float *atofv (char *a, char sep) {
   char **S = split (a, sep); uint i, n = len(S);
-  float *X = new_vec (n, sizeof(float));  
+  float *X = new_vec (n, sizeof(float));
   for (i=0; i<n; ++i) X[i] = atof(S[i]);
   free_vec (S);
   return X;
@@ -505,10 +505,10 @@ ix_t *peel2hist (ix_t *P, hash_t *ELS, hash_t *BINS, float *thr) {
     while (*t <= x && t <= last) ++t; // 1st threshold above x       x t
     float *lo1 = MAX(thr,t-1), *hi1 = MIN(last,t);     // 0-----2---.-4-----6
     //float *lo2 = MAX(thr,t-1), *hi2 = MIN(last,t+1);   // ---1-----3-----5---
-    //printf ("%s %.3f -> [%.1f,%.1f) [%.1f,%.1f)\n", el, x, 
+    //printf ("%s %.3f -> [%.1f,%.1f) [%.1f,%.1f)\n", el, x,
     H[i].i   = key2id(BINS,fmt(_,"%s_%.1f_%.1f",el,*lo1,*hi1)); // 2..4
     //H[2*i].i   = key2id(BINS,fmt(_,"%s_%.1f_%.1f",el,*lo1,*hi1)); // 2..4
-    //H[2*i+1].i = key2id(BINS,fmt(_,"%s_%.1f_%.1f",el,*lo2,*hi2)); // 3..5        
+    //H[2*i+1].i = key2id(BINS,fmt(_,"%s_%.1f_%.1f",el,*lo2,*hi2)); // 3..5
   }
   sort_uniq_vec (H);
   return H;
@@ -545,7 +545,7 @@ int pdb_hist (char *_HIST, char *_BINS, char *_PEEL, char *_ELS, char *prm) {
     free_vec (H); free_vec (P);
     show_progress (id/1000, N/1000, "k histograms");
   }
-  free_coll(HIST); free_coll(PEEL); free_hash(BINS); free_hash(ELS); 
+  free_coll(HIST); free_coll(PEEL); free_hash(BINS); free_hash(ELS);
   return 0;
 }
 
@@ -569,16 +569,16 @@ int pdb_eval (char *_SIMS, char *_BALL, char *_BIDS, char *_ELS, char *prm) {
       printf ("%s\t%s\t%d\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\n", ID, el, a->n, a->x, a->y, a->z, sqrt(L2(a)), s->x);
     }
     free_vec (A);
-  } 
+  }
   free_vec (S); free(QID);
   free_coll (SIMS); free_coll (BALL); free_hash (BIDS); free_hash (ELS);
   return 0;
 }
 
-char *usage = 
+char *usage =
   "pdb load PDB IDS ELS ... read PDB structures from stdin\n"
   "pdb size PDB         ... number of models\n"
-  "pdb info PDB [IDS]   ... size for each model\n"  
+  "pdb info PDB [IDS]   ... size for each model\n"
   "pdb test PDB IDS ELS ... sanity checks on PDB and sorting\n"
   "pdb dump:100D PDB IDS ELS ... dump PDB structures to stdout\n"
   "pdb ball,r=5,CA BALLS BIDS PDB IDS ELS ... 5A balls around every CA atom\n"
@@ -609,7 +609,7 @@ int main (int argc, char *argv[]) {
 
 //uint *rowmin (float **X) { // index of minimal column for each row
 //  uint r, c, m, nr = len(X), nc = len(X[0]), *M = new_vec (nr, sizeof(uint));
-//  for (r=0; r<nr; ++r) {    
+//  for (r=0; r<nr; ++r) {
 //    for (m=c=0; c<nc; ++c) if (X[r][c] < X[r][m]) m = c;
 //    M[r] = m;
 //  }
@@ -618,7 +618,7 @@ int main (int argc, char *argv[]) {
 
 //uint *colmin (float **X) { // index of minimal row for each column
 // uint r, c, m, nr = len(X), nc = len(X[0]), *M = new_vec (nc, sizeof(uint));
-//  for (c=0; c<nc; ++c) {    
+//  for (c=0; c<nc; ++c) {
 //    for (m=r=0; r<nr; ++r) if (X[r][c] < X[m][c]) m = r;
 //    M[c] = m;
 //  }
@@ -644,7 +644,7 @@ int main (int argc, char *argv[]) {
 //  return best;
 //}
 
-//float *L2s (atom_t *A, int n) { 
+//float *L2s (atom_t *A, int n) {
 //  float *X = new_vec(n,sizeof(float));
 //  while (--n>=0) X[n] = sqrt(L2(A+n));
 //  return X;

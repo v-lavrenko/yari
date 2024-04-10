@@ -1,22 +1,22 @@
 /*
-  
-  Copyright (c) 1997-2021 Victor Lavrenko (v.lavrenko@gmail.com)
-  
+
+  Copyright (c) 1997-2024 Victor Lavrenko (v.lavrenko@gmail.com)
+
   This file is part of YARI.
-  
+
   YARI is free software: you can redistribute it and/or modify it
   under the terms of the GNU General Public License as published by
   the Free Software Foundation, either version 3 of the License, or
   (at your option) any later version.
-  
+
   YARI is distributed in the hope that it will be useful, but WITHOUT
   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
   License for more details.
-  
+
   You should have received a copy of the GNU General Public License
   along with YARI. If not, see <http://www.gnu.org/licenses/>.
-  
+
 */
 
 #include <stdio.h>
@@ -48,9 +48,9 @@ int *col_names (char **cols, int n, char *hdr) {
 
 int *col_nums (char **cols, int n, char *hdr) {
   int i; char *s;
-  for (i=0; i<n; ++i) 
+  for (i=0; i<n; ++i)
     if (cols[i][0] != '\\') // skip \literal
-      for (s=cols[i]; *s; ++s) 
+      for (s=cols[i]; *s; ++s)
 	if (!isdigit(*s)) return col_names (cols, n, hdr);
   int *nums = calloc(n,sizeof(int));
   for (i=0; i<n; ++i) nums[i] = atoi(cols[i]);
@@ -62,7 +62,7 @@ void print_val(char *val, int eol) {
     csub(val,"\t\r\n",' ');
     fputs(val,stdout);
   }
-  putchar(eol ? '\n' : '\t');  
+  putchar(eol ? '\n' : '\t');
 }
 
 void cut_tsv (char *line, int *nums, int n, char **cols) {
@@ -138,7 +138,7 @@ int map_refs (char *MAP) {
   coll_t *TRG = MAP ? open_coll (fmt(x,"%s.trg",MAP), "r") : NULL;
   while (0 < (nb = getline(&line,&sz,stdin))) {
     if (MAP) gsub_xml_refs (line, SRC, TRG); // '&#xae;' -> '(R)'
-    else no_xml_refs(line); // erase &#xae; 
+    else no_xml_refs(line); // erase &#xae;
     fputs (line, stdout);
   }
   free_hash(SRC);
@@ -154,7 +154,7 @@ int wc_stdin () {
   while (0 < (nb = getline(&line,&sz,stdin))) {
     NL += 1; // number of lines
     NB += nb; // number of bytes
-    int ws = 1; char *s;    
+    int ws = 1; char *s;
     for (s = line; *s; ++s) {
       if (*s == ' ') ws = 1;
       else if (ws) { ws = 0; ++NW; } // space -> word transition
@@ -182,7 +182,7 @@ void show_header (char **cols, int n) {
   int i; fputc ('#', stdout);
   for (i = 0; i < n; ++i) {
     char sep = (i < n-1) ? '\t' : '\n';
-    fputs (cols[i], stdout); 
+    fputs (cols[i], stdout);
     fputc (sep, stdout);
   }
 }
@@ -195,14 +195,14 @@ void stdin_grams (char *prm) {
   while (0 < (nb = getline(&line,&sz,stdin))) {
     if (line[nb-1] == '\n') line[nb-1] = '\0';
     for (i=0; i<nb-k; ++i) ...
-  }  
+  }
 }
 */
 
 #define arg(i) ((i < argc) ? argv[i] : NULL)
 #define a(i) ((i < argc) ? argv[i] : "")
 
-char *usage = 
+char *usage =
   "xcut 3 2 \\X 17    ... print columns 3, 2, 'X', 17 from stdin\n"
   "xcut age size type ... use 1st line to map age -> column number\n"
   "xcut age size type ... stdin = {JSON} records one-per-line\n"

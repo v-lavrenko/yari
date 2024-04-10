@@ -1,3 +1,24 @@
+/*
+
+  Copyright (c) 1997-2024 Victor Lavrenko (v.lavrenko@gmail.com)
+
+  This file is part of YARI.
+
+  YARI is free software: you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  YARI is distributed in the hope that it will be useful, but WITHOUT
+  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+  or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+  License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with YARI. If not, see <http://www.gnu.org/licenses/>.
+
+*/
+
 #include "coll.h"
 #include "hash.h"
 #include "textutil.h"
@@ -7,7 +28,7 @@
 // read 1st line from stdin, split into keys, insert into DICT
 int xsv_header (char *DICT) {
   hash_t *D = open_hash (DICT, "w");
-  char *buf = 0; 
+  char *buf = 0;
   size_t sz=0, nb = getline (&buf,&sz,stdin); // read 1st line
   if (buf[nb-1] == '\n') buf[--nb] = '\0'; // strip \n
   if (buf[nb-1] == '\r') buf[--nb] = '\0'; // strip \r
@@ -29,7 +50,7 @@ int xsv_load (char *cells, char *rows) {
   while (0 < (nb = getline(&row,&sz,stdin))) { // read a line
     if (row[nb-1] == '\n') row[--nb] = '\0'; // strip \n
     if (row[nb-1] == '\r') row[--nb] = '\0'; // strip \r
-    
+
     it_t *ids = new_vec(0,sizeof(it_t));
     char **V = split(row,'\t'); // values in the row
     uint i, n = len(V);
@@ -43,7 +64,7 @@ int xsv_load (char *cells, char *rows) {
     put_vec (R, ++nr, ids);
     free_vec (ids);
     free_vec (V);
-    if (0 == nr%1000) show_progress (nr>>20, 0, "M rows");    
+    if (0 == nr%1000) show_progress (nr>>20, 0, "M rows");
   }
   free_coll (C); free_coll(R); free (row);
   return 0;
@@ -56,15 +77,15 @@ off_t xsv_push_header (char *tsv, char *dict) {
   if (!dict) return 0; // skip header
   hash_t *H = open_hash (dict, "w"); uint i;
   off_t sz = strcspn (tsv, "\r\n"); // row size
-  char *row = strndup (tsv, sz); 
+  char *row = strndup (tsv, sz);
   char **keys = split (row, '\t'); // split row into columns
-  for (i = 0; i < len(keys); ++i) 
+  for (i = 0; i < len(keys); ++i)
     key2id (H, keys[i]);  // insert column names into dict
   fprintf (stderr, "%s: %d keys\n", hdr, nkeys(H));
   free_hash (H);
   free_vec (keys);
-  free (row);  
-  return sz + strspn (tsv+sz, "\r\n"); // next row  
+  free (row);
+  return sz + strspn (tsv+sz, "\r\n"); // next row
 }
 */
 
@@ -97,7 +118,7 @@ int xsv_index_rows (char *_tsv, char *rows) {
     if (0 == NR%1000) show_progress (NR>>20, 0, "M rows");
   }
   printf("%s [%d x %d] %ldMB\n", _tsv, R->rdim, R->cdim, o>>20);
-  free_vec (row); free_coll (R); free_mmap (M);  
+  free_vec (row); free_coll (R); free_mmap (M);
   return 0;
 }
 
@@ -116,7 +137,7 @@ int xsv_do_get (char *tsv, char *_R, char *row, char *col) {
 int xsv_size (char *_R) {
   coll_t *R = open_coll (_R, "r+");
   printf("%s: %u x %u\n", _R, R->rdim, R->cdim);
-  free_coll(R); 
+  free_coll(R);
   return 0;
 }
 
