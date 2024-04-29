@@ -189,6 +189,7 @@ void rows_x_rows (coll_t *P, coll_t *A, coll_t *B) ;
 void rows_o_rows (coll_t *out, coll_t *A, char op, coll_t *B) ;
 void rows_a_rows (coll_t *out, float wa, coll_t *A, float wb, coll_t *B) ;
 void filter_rows (coll_t *rows, char op, ix_t *mask) ;
+void rows_x_num (coll_t *rows, char op, double num) ;
 ix_t *cols_x_vec_iseen (coll_t *cols, ix_t *V) ; // SCORE + list of seen ids
 ix_t *cols_x_vec_iskip (coll_t *cols, ix_t *V) ; // SCORE + skip-lists
 

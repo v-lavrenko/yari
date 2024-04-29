@@ -1575,6 +1575,7 @@ void weigh_mtx_or_vec (coll_t *M, ix_t *V, char *prm, stats_t *s) {
   float rbf = getprm(prm,"rbf=",0);
   float lmj = getprm(prm,"lm:j=",0); if (lmj) s->b = lmj;
   float lmd = getprm(prm,"lm:d=",0); if (lmd) s->k = lmd;
+  float fix = getprm(prm,"const=",0);
   char *inq = strstr(prm,"inq");
   char *idf = strstr(prm,"idf");
   char *r01 = strstr(prm,"range01");
@@ -1591,6 +1592,7 @@ void weigh_mtx_or_vec (coll_t *M, ix_t *V, char *prm, stats_t *s) {
     if (rbf) vec_x_num (vec, 'r', rbf);
     if (top) trim_vec (vec, top);
     if (thr) vec_x_num (vec, 'T', thr);
+    if (fix) vec_x_num (vec, '=', fix);
     if (uni) vec_x_num (vec, '=', 1./len(vec));
     if (L1)  vec_x_num (vec, '/', sum(vec)/L1);
     if (L2)  vec_x_num (vec, '/', sqrt(sum2(vec)/L2));
@@ -2146,7 +2148,13 @@ void filter_rows (coll_t *rows, char op, ix_t *mask) {
   }
 }
 
-
+void rows_x_num (coll_t *rows, char op, double num) {
+  uint n = num_rows (rows), id;
+  for (id = 1; id <= n; ++id) {
+    ix_t *R = get_vec_ro (rows, id); // in-place
+    vec_x_num (R, op, num); // in-place
+  }
+}
 
 // Lp-norm, chi-squared (X2), Bhattacharyya Coefficient (BC)
 /*
@@ -2911,6 +2919,10 @@ ix_t *vec_x_vec (ix_t *X, char op, ix_t *Y) {
   return ixy_to_ix_and_free (Z);
 }
 
+double bin_entropy (float p) {
+  return - (p * log(p) + (1-p) * log(1-p)) / log(2);
+}
+
 void vec_x_num (ix_t *A, char op, double b) {
   ix_t *e = A+len(A), *a = A-1;
   switch (op) {
@@ -2939,6 +2951,7 @@ void vec_x_num (ix_t *A, char op, double b) {
   case '[': while (++a<e) a->x = floorf (a->x);            break;
   case ']': while (++a<e) a->x = ceilf (a->x);             break;
   case 'i': while (++a<e) a->x = roundf (a->x);            break;
+  case 'H': while (++a<e) a->x = bin_entropy (a->x);       break;
   default: assert (0 && "unknown vector-scalar operation");
     //case 'r': for (; a<e; ++a) a->x = random()*1.0/RAND_MAX; break;
     //case '%': for (; a<e; ++a) a->x = random() < b/100;      break;
