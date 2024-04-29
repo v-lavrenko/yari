@@ -311,7 +311,6 @@ char *itoa (char*_a, uint i) {
   return a;
 }
 
-
 // erase (overwrite with 'C') every occurence of A...B
 void erase_between (char *buf, char *A, char *B, int C) {
   int lenA = strlen (A);
@@ -1366,6 +1365,7 @@ sjk_t make_ngram (sjk_t *T, int a, int z) {
   return (sjk_t) {buf, T[a].j, T[z].k};
 }
 
+// n-grams of size n from a sequence of tokens T.
 sjk_t *go_ngrams (sjk_t *T, uint n) {
   sjk_t *G = new_vec(0,sizeof(sjk_t));
   int i, N = len(T), m = n-1;
@@ -1377,6 +1377,35 @@ sjk_t *go_ngrams (sjk_t *T, uint n) {
     G = append_vec (G, &ngram);
   }
   return G;
+}
+
+// n-grams of size 1..n from tokens T.
+sjk_t *go_all_ngrams (sjk_t *tokens, uint n) {
+  sjk_t *result = new_vec(0,sizeof(sjk_t));
+  do {
+    sjk_t *G = go_ngrams (tokens, n);
+    result = append_many (result, G, len(G));
+    free_vec (G); // do not use free_tokens here!
+  } while (--n > 1);
+  return result;
+}
+
+// just the string portion of each sjk token.
+char **sjk_strings (sjk_t *T) {
+  uint i, n = len(T);
+  char **S = new_vec(n, sizeof(char*));
+  for (i=0; i<n; ++i) S[i] = strdup(T[i].s);
+  return S;
+}
+
+// list of all 1..n-grams from text.
+char **text_to_ngrams (char *text, int n) {
+  sjk_t *tokens = go_tokens (text);
+  sjk_t *ngrams = go_all_ngrams (tokens, n);
+  char **strings = sjk_strings (ngrams);
+  free_tokens (tokens);
+  free_tokens (ngrams);
+  return strings;
 }
 
 hash_t *ngrams_dict (char *qry, int n) {
@@ -1420,6 +1449,41 @@ float *ngrams_freq (char *text, int n, hash_t *H) {
   } while (--n > 0);
   free_tokens(tokens);
   return F;
+}
+
+double fake_df (char *gram, hash_t *W, stats_t *S) {
+  ulong *DF = S->df;
+  double nd = S->ndocs, df = nd;
+  char *w;
+  if (!gram || !*gram) return 1;
+  while ((w = next_token (&gram, " "))) {
+    if (stop_word(w)) continue;
+    uint id = has_key(W,w);
+    if (!id || id >= len(DF)) continue;
+    df *= (DF[id] / nd); 
+  }
+  return df;
+}
+
+void weigh_fake_idf (ix_t *V, hash_t *H, hash_t *W, stats_t *S) {
+  ix_t *v, *end = V+len(V);
+  for (v = V; v < end; ++v) {
+    char *gram = id2key(H, v->i);
+    double df = fake_df(gram, W, S), nd = S->ndocs;
+    v->x = log ((0.5 + nd) / df) / log (1.0 + nd);
+  }
+}
+
+double fake_cf (char *gram, hash_t *W, stats_t *S) {
+  double *CF = S->cf, cf = S->nposts; char *w;
+  if (!gram || !*gram) return 1;
+  while ((w = next_token (&gram, " "))) {
+    if (stop_word(w)) continue;
+    uint id = has_key(W,w);
+    if (!id || id >= len(CF)) continue;
+    cf = MIN(cf, CF[id]);
+  }
+  return cf;
 }
 
 double fake_bg (char *gram, hash_t *W, stats_t *S) {

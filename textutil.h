@@ -100,6 +100,7 @@ void stop_toks (char **toks) ;
 void keep_midsize_toks (char **toks, uint lo, uint hi) ;
 void keep_wordlike_toks (char **toks) ;
 char **text_to_toks (char *text, char *prm) ;
+char **text_to_ngrams (char *text, int n) ;
 
 ix_t *toks2vec (char **toks, hash_t *ids) ;
 char **vec2toks (ix_t *vec, hash_t *ids) ;
