@@ -222,7 +222,7 @@ uint max_word_id (ix_t **C) {
 }
 
 // ICF[w] = {i:word, x:number of clusters containing word}
-ix_t *inverse_cluster_frequency (ix_t **C) {
+ix_t *inverse_cluster_frequency1 (ix_t **C) {
   uint nc = len(C);
   ix_t **c, *ICF = new_vec (0, sizeof(ix_t)), *w;
   for (c = C; c < C+nc; ++c) {
@@ -239,7 +239,7 @@ ix_t *inverse_cluster_frequency (ix_t **C) {
 
 void disjoin_centroids (ix_t **C) {
   uint nc = len(C);
-  ix_t *icf = inverse_cluster_frequency (C);
+  ix_t *icf = inverse_cluster_frequency1 (C);
   ix_t **c;
   for (c = C; c < C+nc; ++c) {
     vec_mul_vec (*c, icf);
@@ -261,12 +261,14 @@ void show_assigned (jix_t *_A) {
   free_vec(A);
 }
 
-#endif
+#endif // KMEANSix
 
 // run K-means over documents in DxW
 // store cluster assignments in KxD
 // store cluster centroids in KxW
 void k_means (coll_t *DxW, uint K, int iter, coll_t **_KxD, coll_t **_KxW) {
+  printf("\nk-means: D[%dx%d] -> %d clusters %d iters\n",
+	 num_rows(DxW), num_cols(DxW), K, iter);
   uint D = num_rows(DxW); // , W = num_cols(DxW);
   coll_t *KxW = open_coll_inmem(); // cluster centroids
   coll_t *KxD = open_coll_inmem(); // cluster-document assignment
@@ -287,20 +289,22 @@ void k_means (coll_t *DxW, uint K, int iter, coll_t **_KxD, coll_t **_KxW) {
 }
 
 // F[w] = how well word w pinpoints a group
-float *inverse_cluster_frequency (coll_t *KxW) {
+float *inverse_cluster_frequency2 (coll_t *KxW) {
   float *f, N = num_rows (KxW);
   float *F = sum_cols (KxW, 0); // F[w] = #clusters with word w
   for (f = F; f < F+len(F); ++f)
     if (*f) *f = log ((N+0.5) / *f) / log(N+1);
+    //if (*f) *f = N / *f;
   return F;
 }
 
 // reduce each centroid to most discriminative keywords
 void cluster_signatures (coll_t *KxW) {
-  float *F = inverse_cluster_frequency (KxW);
+  float *F = inverse_cluster_frequency2 (KxW);
   uint K = num_rows(KxW), k;
   for (k = 1; k <= K; ++k) {
     ix_t *vec = get_vec (KxW, k);
+    vec_x_full (vec, '*', F);
     vec_x_full (vec, '*', F);
     put_vec (KxW, k, vec);
     free_vec (vec);
@@ -375,6 +379,78 @@ coll_t *mtx_rowset (coll_t *M, ix_t *R) {
   return D;
 }
 */
+
+// -------------------- DTree / InfoGain --------------------
+
+// convert frequencies (out of n) into entropies
+void binary_entropies (ix_t *F, float n) {
+  ix_t *f; for (f = F; f < F+len(F); ++f) {
+    double p = f->x / n, z = log(2);
+    f->x = - (sqrt(p) * log(p) + (1-p) * log(1-p)) / z;
+  }
+}
+
+void poisson_pmf (ix_t *F, double mu) {
+  ix_t *f;
+  for (f = F; f < F+len(F); ++f) {
+    double k = f->x;
+    f->x = exp(k * log(mu) - mu - lgamma(k+1));
+  }
+}
+
+
+void show_vec2 (char *tag, uint K, ix_t *_V, hash_t *H) {
+  ix_t *V = copy_vec(_V), *v;
+  printf("%s%s%s [%d]:", fg_BLUE, tag, RESET, len(V));
+  sort_vec(V, cmp_ix_X);
+  if (K > len(V)) K = len(V);
+  for (v = V; v < V+K; ++v) {
+    char *word = id2str(H, v->i);
+    printf (" %s%s%s:%.2f", fg_CYAN, word, RESET, v->x);
+    free (word);
+  }
+  printf("\n");
+  fflush(stdout);
+  free_vec(V);
+}
+
+// pick word that splits docs R in half
+// L,R = docs with / without word
+// discard words that occur in L
+void ig_cluster (coll_t *DxW, hash_t *H, coll_t **_KxD, coll_t **_KxW) {
+  coll_t *KxW = open_coll_inmem(); // word representing the cluster
+  coll_t *KxD = open_coll_inmem(); // docs assigned to the cluster
+  uint nd = num_rows(DxW), K = 0;
+  ix_t *R = const_vec (nd,1); // start w all docs
+  rows_x_num (DxW, '=', 1); // words occur or not
+  while (len(R) && ++K < 10) {
+    fprintf(stderr, "-----\n");
+    ix_t *W = cols_x_vec (DxW, R); // all words in R (w frequency)
+    show_vec2("W", 30, W, H);
+    //binary_entropies (W, len(R));
+    poisson_pmf (W, 10);            // want word that grabs ~5 docs
+    show_vec2("W", 20, W, H);
+    trim_vec (W, 1); W->x=1;       // W: word for best split
+    show_vec2("W", 20, W, H);
+    ix_t *L = rows_x_vec (DxW, W); // L: all docs containing W
+    chop_vec(L);
+    filter_not (R, L);             // R: remaining docs
+    show_vec2("L", 30, L, NULL);
+    show_vec2("R", 30, R, NULL);
+    ix_t *V = cols_x_vec (DxW, L); // V: all words in L
+    vec_x_num(V, '>', 1);          //    that occur at least twice
+    chop_vec(V);
+    show_vec2("V", 30, V, H);
+    filter_rows (DxW, '!', V);     // remove V from consideration
+    fflush(stdout);
+    put_vec (KxW, K, W);
+    put_vec (KxD, K, L);
+    free_vecs (W, L, V, (void*)-1);
+  }
+  free_vec (R);
+  if (_KxD) *_KxD = KxD; else free_coll(KxD);
+  if (_KxW) *_KxW = KxW; else free_coll(KxW);
+}
 
 // -------------------- renumber --------------------
 

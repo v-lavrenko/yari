@@ -41,6 +41,7 @@ void mst_dot (jix_t *mst, hash_t *ID) ; //digraph { a -> b[label="0.2"]; }
 
 // ------------------------- k-means -------------------------
 
+void ig_cluster (coll_t *DxW, hash_t *H, coll_t **_KxD, coll_t **_KxW) ;
 void k_means (coll_t *DxW, uint K, int iter, coll_t **_KxD, coll_t **_KxW) ;
 float *inverse_cluster_frequency (coll_t *KxW) ;
 void cluster_signatures (coll_t *KxW) ;
