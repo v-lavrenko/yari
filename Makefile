@@ -29,7 +29,7 @@ CC=gcc -m64 $(opt) $(warn) -I . -o $@ $(f64)
 
 exe = testmmap testvec testcoll dict mtx stem kvs hl bio pdb \
 shard pval ts ptail xcut xtime spell query nutil xsum xsv \
-bpe re
+bpe re compress
 
 all: libyari.a $(exe)
 	etags *.c *.h
