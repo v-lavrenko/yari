@@ -638,6 +638,20 @@ void show_toks (char **toks, char *fmt) {
   while (++t < end) printf(fmt, *t);
 }
 
+uint *read_ids(FILE *in, hash_t *H) {
+  char *buf = NULL; size_t bufsz = 0;
+  int sz = 0, skip = 0;
+  uint *ids = new_vec (0, sizeof(uint));
+  while ((sz = getline(&buf, &bufsz, in)) > 0) {
+    if (buf[sz-1] == '\n') buf[--sz] = '\0'; // strip newline
+    uint id = key2id(H, buf);
+    if (id) ids = append_vec(ids, &id);
+    else if (++skip < 5) fprintf(stderr, "%s has no key: '%s'\n", H->path, buf);
+  }
+  if (buf) free(buf);
+  return ids;
+}
+
 char **readlines(char *path) {
   char *buf = NULL;
   size_t bufsz = 0;
@@ -916,10 +930,10 @@ jix_t best_span (ijk_t *hits, uint nwords, uint SZ, float eps) {
     double score = score_snippet (seen, eps);
     if (score > best.x) best = (jix_t) {L->i, (R-1)->j, score};
     if (0) { // debug
-      for (i=0; i<nwords; ++i) fprintf (stderr, "%d ", seen[i]);
-      fprintf (stderr, "= %.4f [%d..%d]", best.x, best.j, best.i);
-      for (h=L; h<R; ++h) fprintf (stderr, " %d:%d", h->k, h->i);
-      fprintf (stderr, "\n");
+      for (i=0; i<nwords; ++i) printf ("%d ", seen[i]);
+      printf ("= %.4f [%d..%d]", best.x, best.j, best.i);
+      for (h=L; h<R; ++h) printf (" %d:%d", h->k, h->i);
+      printf ("\n");
     }
   }
   free_vec (seen);
@@ -942,10 +956,10 @@ jix_t best_span_xml (ijk_t *hits, uint nwords, uint SZ, float eps) {
     double score = score_snippet (seen, eps);
     if (score > best.x) best = (jix_t) {L->i, (R-1)->j, score};
     if (0) { // debug
-      for (i=0; i<nwords; ++i) fprintf (stderr, "%d ", seen[i]);
-      fprintf (stderr, "= %.4f [%d..%d]", best.x, best.j, best.i);
-      for (h=L; h<R; ++h) fprintf (stderr, " %d:%d", h->k, h->i);
-      fprintf (stderr, "\n");
+      for (i=0; i<nwords; ++i) printf ("%d ", seen[i]);
+      printf ("= %.4f [%d..%d]", best.x, best.j, best.i);
+      for (h=L; h<R; ++h) printf (" %d:%d", h->k, h->i);
+      printf ("\n");
     }
     // unsee L for next iteration of the loop
     if (L->k != tag) --seen [L->k]; // unsee a word
@@ -986,16 +1000,16 @@ char *snippet2 (char *text, char **words, int sz, float *score) {
   ijk_t *hits = hits_for_all_words (text, words);
   if (0) { // debug
     ijk_t *H = hits, *end = H+MIN(10,len(H)), *h;
-    fprintf (stderr, "\nword:"); for (h=H; h<end; ++h) fprintf (stderr, "\t%d", h->k);
-    fprintf (stderr, "\nbeg:"); for (h=H; h<end; ++h) fprintf (stderr, "\t%d", h->i);
-    fprintf (stderr, "\nend:"); for (h=H; h<end; ++h) fprintf (stderr, "\t%d", h->j);
-    fprintf (stderr, "\n");
+    printf ("\nword:"); for (h=H; h<end; ++h) printf ("\t%d", h->k);
+    printf ("\nbeg:");  for (h=H; h<end; ++h) printf ("\t%d", h->i);
+    printf ("\nend:");  for (h=H; h<end; ++h) printf ("\t%d", h->j);
+    printf ("\n");
   }
   jix_t span = best_span (hits, len(words), sz, 0.001);
   if (score) *score = span.x;
   span = broaden_span(text, span, sz);
   char *snip = strndup (text+span.j, span.i - span.j);
-  if (0) fprintf (stderr, "%s\n", snip);
+  if (0) printf ("%s\n", snip);
   free_vec (hits);
   return snip;
 }

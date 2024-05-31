@@ -609,16 +609,17 @@ int do_exec_qry (char *qry, char *index, char *prm) {
 // generate a fake query (string) from a collection of docs
 char *fake_qry (index_t *I, char *prm) {
   char *docid = getprms(prm,"docid=",NULL,",");
-  fprintf(stderr,"%sQuery: %s%s%s", fg_CYAN, fg_BLUE, docid, RESET);
+  printf("%sQuery: %s%s%s", fg_CYAN, fg_BLUE, docid, RESET);
   uint id = key2id(I->DOC,docid);
   char *text = copy_doc_text (I->XML, id);
-  fprintf(stderr," %s\n", text);
+  printf(" %s\n", text);
   if (strstr(prm,"next")) {
     char *doc = copy_doc_text (I->XML, id+1);
-    fprintf(stderr, "%sSuffix: %s%s\n", fg_CYAN, RESET, doc);
+    printf("%sSuffix: %s%s\n", fg_CYAN, RESET, doc);
     free(doc);
   }
-  fprintf(stderr,"\n");
+  printf("\n");
+  fflush(stdout);
   return text;
 }
 

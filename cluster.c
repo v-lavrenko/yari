@@ -294,7 +294,6 @@ float *inverse_cluster_frequency2 (coll_t *KxW) {
   float *F = sum_cols (KxW, 0); // F[w] = #clusters with word w
   for (f = F; f < F+len(F); ++f)
     if (*f) *f = log ((N+0.5) / *f) / log(N+1);
-    //if (*f) *f = N / *f;
   return F;
 }
 
@@ -424,7 +423,7 @@ void ig_cluster (coll_t *DxW, hash_t *H, coll_t **_KxD, coll_t **_KxW) {
   ix_t *R = const_vec (nd,1); // start w all docs
   rows_x_num (DxW, '=', 1); // words occur or not
   while (len(R) && ++K < 10) {
-    fprintf(stderr, "-----\n");
+    printf("-----\n");
     ix_t *W = cols_x_vec (DxW, R); // all words in R (w frequency)
     show_vec2("W", 30, W, H);
     //binary_entropies (W, len(R));

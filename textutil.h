@@ -84,6 +84,7 @@ uint split2 (char *str, char sep, char **_tok, uint ntoks) ;
 char **strsplit (char *str, char *sep) ;
 
 char **readlines(char *path) ;
+uint *read_ids(FILE *in, hash_t *H) ;
 int read_doc (FILE *in, char *buf, int n, char *beg, char *end) ;
 
 void porter_stemmer (char *word, char *stem) ;
