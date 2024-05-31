@@ -59,6 +59,24 @@ void dump_rnd (char *C, char *prm) {
   free_coll(c);
 }
 
+// read list of ids from stdin, dump chunks
+void dump_ids (char *C, char *RH) {
+  hash_t *h = open_hash (RH, "r");
+  uint *ids = read_ids(stdin, h), *id, chunks = 0;
+  free_hash(h);
+  sort_vec(ids, cmp_u);
+  fprintf(stderr, "%s: %d keys\n", RH, len(ids));
+  coll_t *c = open_coll (C, "r+");
+  for (id = ids; id < ids + len(ids); ++id)
+    if (has_vec (c,*id)) {
+      puts(get_chunk(c,*id));
+      ++chunks;
+    }
+  fprintf(stderr, "%s: %d chunks\n", C, chunks);
+  free_coll(c);
+  free_vec(ids);
+}
+
 void dump_raw (char *C, char *RH, char *id) {
   coll_t *c = open_coll (C, "r+");
   hash_t *h = *RH ? open_hash (RH, "r") : NULL;
@@ -284,8 +302,8 @@ void do_rekey (char *_A, char *_H, char *_B, char *_G, char *prm) { // A[j] = B[
     j = map[i-1];
     if (!j) { ++drop; continue; } // key not in A[H]
     char *b = get_chunk(B,i);
-    //off_t sz = chunk_sz (B, i); // strlen is faster... wtf?
-    if (b) put_chunk (A, j, b, strlen(b)+1);
+    off_t sz = chunk_sz(B,i); // strlen(b)+1 only works for strings
+    if (b) put_chunk (A, j, b, sz);
   }
   fprintf (stderr, "done: %s[%d] dropped: %d\n", _A, nvecs(A), drop);
   free_coll(A); free_coll(B); free_vec(map);
@@ -1271,6 +1289,7 @@ char *usage =
   //"  -merge C = A + B            - C[i] = A[i] + B[i] (concatenates records)\n"
   //"  -rekey A a = B b [addnew]   - A[j] = B[i] where key = a[j] = b[i]\n"
   //"   merge A += B [prm]         - A[j] += B[i] (concat, assume ids compatible)\n"
+  "  -dump-ids XML HASH          - read keys on stdin, dump their values\n"
   "   rekey A a += B b [addnew]  - A[j] = B[i] (replace) where key = a[j] = b[i]\n"
   "   merge A a += B b [prm]     - A[j] += B[i] (concat) where key = a[j] = b[i]\n"
   "                                prm: addnew ... add new keys if not in a\n"
@@ -1323,6 +1342,7 @@ int main (int argc, char *argv[]) {
     //if (!strcmp (a(0), "merge") &&
     //!strcmp (a(2), "+="))    do_merge (a(1), NULL, a(3), NULL, a(4));
     if (!strcmp (a(0), "-dump")) dump_raw (a(1), a(2), a(3));
+    if (!strcmp (a(0), "-dump-ids")) dump_ids (a(1), a(2));
     if (!strcmp (a(0), "-rand")) dump_rnd (a(1), a(2));
     if (!strcmp (a(0), "-dmap")) dump_raw_ret (a(1), a(2), a(3));
     if (!strcmp (a(0), "size")) do_size (a(1));
