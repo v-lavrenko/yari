@@ -43,6 +43,8 @@ typedef unsigned long ulong;
 typedef unsigned char uchar;
 typedef unsigned short ushort;
 
+typedef char byte; // used for vectors of bytes
+
 //#define off64_t off_t;
 
 typedef struct { uint i; float x; } ix_t;
@@ -60,6 +62,8 @@ typedef struct { uint i; uint j; uint k; } ijk_t;
 typedef struct { char *s; uint j; uint k; } sjk_t;
 
 typedef struct { char *s; float x; } sx_t;
+
+typedef struct { char *s; uint i; float x; } six_t;
 
 typedef struct { char *k; char *v; } kv_t;
 
