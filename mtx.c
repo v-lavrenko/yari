@@ -539,8 +539,8 @@ void mtx_weigh (char *TRG, char *prm, char *SRC, char *STATS) { // thread-unsafe
     else if (LM && k) { vec = doc2lm (tmp=vec, stats->cf, k, 0); free_vec(tmp); }
     else if (LM && b) { vec = doc2lm (tmp=vec, stats->cf, 0, b); free_vec(tmp); }
     else if (out)     zstd_outliers (vec, stats, out);
-    else if (outside) keep_outliers (vec, outside);
-    else if (inside)  drop_outliers (vec, inside);
+    else if (outside) keep_outliers (vec, median_interval (vec, outside));
+    else if (inside)  drop_far_outliers (vec, median_interval (vec, inside));
     else if (std) weigh_vec_std (vec, stats);
     else if (cdf) weigh_vec_cdf (vec);
     else if (Lap) weigh_vec_laplacian (vec, stats);

@@ -1515,15 +1515,51 @@ void zstd_outliers (ix_t *vec, stats_t *s, float out) {
   }
 }
 
-xy_t cdf_interval (ix_t *X, float p) { // at least p of the values fall into [x,y]
+// {x,y} s.t. at least p of the values fall into [x,y]
+xy_t cdf_interval (ix_t *X, float p) {
   if (!len(X) || p <= 0 || p > 1) return (xy_t) {0,0};
   ix_t *C = distinct_values (X, 0), *last = C+len(C)-1, *c;
-  for (c = C+1; c <= last; ++c) c->i += c[-1].i; // CDF
+  for (c = C+1; c <= last; ++c) c->i += c[-1].i; // cumulative counts
   xy_t CI = {C->x, last->x}, THR = { (1-p)/2 * last->i, (1+p)/2 * last->i};
   if (len(C) < 30) return CI;
   for (c = C; c <= last; ++c) if (c->i >= THR.x) { CI.x = c->x; break; } // [x
   for (c = last; c >= C; --c) if (c->i <= THR.y) { CI.y = c->x; break; } // ??
   free_vec (C);
+  return CI;
+}
+
+// {x,y} s.t. at least p of the values fall into [x,y]
+xy_t median_interval (ix_t *_X, float p) {
+  uint n = len(_X), drop = 1 + (1-p) * n;
+  ix_t *X = copy_vec(_X);
+  sort_vec(X, cmp_ix_x);
+  ix_t *a = X, *z = X + n - 1;
+  while (--drop > 0) {
+    double mid = median(a, z-a+1);
+    double da = mid - a->x, dz = z->x - mid;
+    if (da < dz) --z; // z is more of an outlier
+    else         ++a; // a is an outlier
+  }
+  xy_t CI = {a->x, z->x};
+  free_vec(X);
+  return CI;
+}
+
+// {x,y} s.t. at least p of the values fall into [x,y]
+xy_t compact_interval (ix_t *_X, float p) {
+  uint n = len(_X), drop = (1-p) * n;
+  ix_t *X = copy_vec(_X);
+  sort_vec(X, cmp_ix_x);
+  ix_t *a = X, *z = X + n - 1;
+  while (a < z && drop > 0) {
+    double da = (a+1)->x - a->x; // compaction from (a) -> (a+1)
+    double dz = z->x - (z-1)->x; // compaction from (z) -> (z-1)
+    if (da < dz) --z; // removing z yields a more compact CI
+    else         ++a; // removing a compacts more
+    --drop;
+  }
+  xy_t CI = {a->x, z->x};
+  free_vec(X);
   return CI;
 }
 
@@ -1539,16 +1575,14 @@ xy_t cdf_interval_q (ix_t *X, float p) { // at least p of the values are in [x,y
 }
 */
 
-void keep_outliers (ix_t *X, float p) {
+void keep_outliers (ix_t *X, xy_t CI) {
   fprintf (stderr, "[%f..%f] %d -> ", min(X)->x, max(X)->x, len(X));
-  xy_t CI = cdf_interval (X,p);
   vec_x_range (X, '-', CI);
   fprintf (stderr, "%d [%f..%f]\n", len(X), CI.x, CI.y);
 }
 
-void drop_outliers (ix_t *X, float p) {
+void drop_far_outliers (ix_t *X, xy_t CI) {
   float lo = min(X)->x, hi = max(X)->x;
-  xy_t CI = cdf_interval (X,p);
   if (lo > CI.x / 2) CI.x = lo; // lo value not far
   if (hi < CI.y * 2) CI.y = hi; // hi value not far
   if (CI.x == lo && CI.y == hi) return; // nothing to do
@@ -1557,12 +1591,40 @@ void drop_outliers (ix_t *X, float p) {
   fprintf (stderr, "[%f..%f] %d -> %d [%f..%f]\n", lo, hi, n, len(X), min(X)->x, max(X)->x);
 }
 
-void crop_outliers (ix_t *X, float p) {
+void drop_outliers (ix_t *X, xy_t CI) {
   fprintf (stderr, "[%f..%f] %d -> ", min(X)->x, max(X)->x, len(X));
-  xy_t CI = cdf_interval (X,p);
-  vec_x_num (X, 'M', CI.x); // max (x,lo)
-  vec_x_num (X, 'm', CI.y); // min (x,hi)
+  vec_x_range (X, '.', CI);
   fprintf (stderr, "%d [%f..%f]\n", len(X), min(X)->x, max(X)->x);
+}
+
+void crop_outliers (ix_t *X, xy_t CI) {
+  fprintf (stderr, "[%f..%f] %d -> ", min(X)->x, max(X)->x, len(X));
+  vec_x_range (X, '=', CI);
+  fprintf (stderr, "%d [%f..%f]\n", len(X), min(X)->x, max(X)->x);
+}
+
+// z deviations above mean score in p-confidence interval of V
+float ci_value_threshold (ix_t *V, float p, float z) {
+  if (!V || len(V) < 10) return -Infinity;
+  xy_t s = mean_and_stdev(V, p);
+  printf("[%+.4f..%+.4f] %+.4f ± %.4f ", min(V)->x, max(V)->x, s.x, s.y);
+  printf("← %+.4f ← %+.4f ← %+.4f ← %+.4f ← %+.4f\n", s.x+5*s.y, s.x+4*s.y, s.x+3*s.y, s.x+2*s.y, s.x+1*s.y);
+  return s.x + z * s.y;
+}
+
+// z deviations above mean delta in p-confidence interval of V
+float ci_delta_threshold (ix_t *V, float p, float z) {
+  int n = len(V), m = n/2 + 1;
+  ix_t *D = value_deltas(V); // deltas between adjacent scores in V
+  float jump = ci_value_threshold(D, p, z); // unusually large delta
+  ix_t *Y = copy_vec(V);
+  sort_vec(Y, cmp_ix_X);
+  while (--m > 0) if (Y[m-1].x - Y[m].x > jump) break;
+  float result = -Infinity;
+  if (m > 0)      result = (Y[m-1].x + Y[m].x) / 2;
+  else if (n > 5) result = (Y[4].x + Y[5].x) / 2;
+  free_vec(D); free_vec(Y);
+  return result;
 }
 
 // reweigh every vector in M, or given vector V (if M==0)
@@ -2336,6 +2398,20 @@ double sump (float p, ix_t *V) {
   return s;
 }
 
+double sum_slice (ix_t *V, uint n) {
+  ix_t *end = V + n, *v = V-1;
+  double s = 0;
+  while (++v < end) s += v->x;
+  return s;
+}
+
+double sum2_slice (ix_t *V, uint n) {
+  ix_t *end = V + n, *v = V-1;
+  double s = 0;
+  while (++v < end) s += v->x * v->x;
+  return s;
+}
+
 double norm (float p, float root, ix_t *V) {
   ix_t *end = V + len(V), *v = V-1;
   double s = 0;
@@ -2347,10 +2423,43 @@ double norm (float p, float root, ix_t *V) {
   return root ? powa(s,root) : s;
 }
 
-double variance (ix_t *X, uint N) {
-  if (!N) N = len(X);
-  double EX = sum(X)/N, EX2 = sum2(X)/N;
-  return EX2 - EX * EX;
+// assumes X[0:n) is sorted
+double median (ix_t *X, uint n) {
+  uint m = n>>1; // midpoint
+  if (n & 1) return X[m].x;
+  else return (X[m].x + X[m+1].x) / 2;
+}
+
+double mean(ix_t *X) { return sum(X) / len(X); }
+
+double stdev(ix_t *X) { return sqrt(variance(X, 0)); }
+
+double variance (ix_t *X, uint n) {
+  if (!n) n = len(X);
+  if (n < 2) return 0;
+  double EX = sum(X) / n;
+  double EX2 = sum2(X) / n;
+  return (EX2 - EX * EX) * n / (n-1); // Bessel's correction
+}
+
+// returns mean and standard deviation of values in X
+xy_t mean_and_stdev_of_vec(ix_t *X) {
+  uint n = len(X);
+  if (n < 2) return (xy_t) {(n ? X->x : 0), 0};
+  double EX = sum(X) / n;
+  double EX2 = sum2(X) / n;
+  double VX = (EX2 - EX * EX) * n / (n-1); // Bessel
+  return (xy_t) {EX, sqrt(VX)};
+}
+
+// mean and st.dev of p-confidence interval of X
+xy_t mean_and_stdev(ix_t *_X, float p) {
+  ix_t *X = copy_vec(_X);
+  xy_t CI = median_interval(X, p);
+  vec_x_range(X, '.', CI); // drop outliers
+  xy_t result = mean_and_stdev_of_vec(X);
+  free_vec(X);
+  return result;
 }
 
 ulong sumi (uint *V) {
@@ -2390,7 +2499,17 @@ uint count (ix_t *V, char op, float x) {
   return n;
 }
 
-// sort V, collapse duplicates, replace id by count of dups
+// sort X high-to-low, return deltas between adjacent values
+ix_t *value_deltas(ix_t *X) {
+  ix_t *D = copy_vec(X);
+  sort_vec(D, cmp_ix_X);
+  uint i, n = len(D)-1;
+  for (i=0; i<n; ++i) D[i].x = D[i].x - D[i+1].x;
+  len(D) = n;
+  return D;
+}
+
+// sort V, collapse duplicates, replace id by count of eps-dups
 ix_t *distinct_values (ix_t *V, float eps) {
   ix_t *a, *b, *C = copy_vec(V), *end = C+len(C);
   sort_vec (C, cmp_ix_x);
@@ -2978,6 +3097,7 @@ void vec_x_range (ix_t *A, char op, xy_t R) { // [x,y)
   case '.':
   case '*': while (++a<e) a->x = (R.x <= a->x && a->x <= R.y) ? a->x : 0; break;
   case '-': while (++a<e) a->x = (a->x < R.x  ||  R.y < a->x) ? a->x : 0; break;
+  case '=': while (++a<e) a->x = (a->x < R.x) ? R.x : (a->x > R.y) ? R.y : a->x; break;
   default: assert (0 && "unknown vector-range operation");
   }
   chop_vec(A);

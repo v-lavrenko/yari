@@ -159,10 +159,16 @@ void weigh_vec_cdf (ix_t *vec) ;
 
 void weigh_invl_lmd (ix_t *invl, stats_t *s, float mu) ;
 void zstd_outliers (ix_t *vec, stats_t *s, float Z) ;
-void keep_outliers (ix_t *X, float p) ;
-void crop_outliers (ix_t *X, float p) ;
-void drop_outliers (ix_t *X, float p) ;
+void keep_outliers (ix_t *X, xy_t CI) ;
+void crop_outliers (ix_t *X, xy_t CI) ;
+void drop_far_outliers (ix_t *X, xy_t CI) ;
 xy_t cdf_interval (ix_t *X, float p) ;
+xy_t median_interval (ix_t *_X, float p) ;
+xy_t compact_interval (ix_t *_X, float p) ;
+xy_t mean_and_stdev(ix_t *_X, float p) ;
+
+float ci_value_threshold (ix_t *V, float p, float z) ;
+float ci_delta_threshold (ix_t *V, float p, float z) ;
 
 // reweigh every vector in M, or given vector V (if M==0)
 void weigh_mtx_or_vec (coll_t *M, ix_t *V, char *prm, stats_t *s) ;
@@ -207,7 +213,10 @@ double sum (ix_t *V) ;
 double sum2 (ix_t *V) ;
 double sump (float p, ix_t *V) ;
 double norm (float p, float root, ix_t *V) ;
+double median (ix_t *X, uint n) ;
 double variance (ix_t *X, uint N) ;
+double mean(ix_t *X) ;
+double stdev(ix_t *X) ;
 double covariance (ix_t *X, ix_t *Y, uint N) ;
 double MSE (ix_t *X, ix_t *Y, uint N) ; // N=1 gives SSE
 double sumf (float *V) ;
@@ -219,6 +228,7 @@ uint  *maxi (uint *V) ;
 uint count (ix_t *V, char op, float x) ;
 ix_t *distinct_values (ix_t *V, float eps) ;
 double value_entropy (ix_t *V) ;
+ix_t *value_deltas(ix_t *X) ;
 
 double H (ix_t *X, ix_t *Y, double mu, float *CF, ulong CL) ;
 double KL (ix_t *X, ix_t *Y, double mu, float *CF, ulong CL) ;
