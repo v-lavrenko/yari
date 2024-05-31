@@ -68,7 +68,7 @@ uint *mtf_decode (uint *U) { (void)U;
 //#define last_byte(char b) b &
 
 // in-place reverse byte array [beg..end)
-void reverse (char *beg, char *end) {
+void reverse_bytes (char *beg, char *end) {
   for (--end; beg < end; ++beg, --end) {
     char tmp = *beg; *beg = *end; *end = tmp;
   }
@@ -81,7 +81,7 @@ char *push_vbytes (uint U, char *buf) {
     *end++ = U & 127; // 7 lowest bits (vbyte) -> end of buffer
     U >>= 7; // shift out 7 lowest bits
   } while (U); // nothing to encode
-  reverse (buf, end); // most-significant first
+  reverse_bytes (buf, end); // most-significant first
   end[-1] |= 128; // terminate last vbyte
   return end; // new end of buffer
 }
