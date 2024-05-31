@@ -176,7 +176,7 @@ void set_B_nibble (uchar *B, off_t n, uint u) {
   B[byte] |= ((0xF & u) << shift); }
 
 uchar get_U_nibble (uint U, uint n)          { return 0xF & (U >> ((7-n)<<2)); }
-void  set_U_nibble (uint U, uint n, uchar u) { U |= ((0xF & u) << ((7-n)<<2)); }
+void  set_U_nibble (uint *U, uint n, uchar u) { (*U) |= ((0xF & u) << ((7-n)<<2)); }
 
 // encode U -> B[b..e], return e, fail if e>=eob
 off_t push_nibble (uint U, uchar *B, off_t b, uint eob) { (void)eob;
