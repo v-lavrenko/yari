@@ -543,20 +543,25 @@ void show_qry_costs (ixy_t *Q) {
 // match as many query terms as possible before deadline
 // use DOT product, assume weighting pre-applied
 ix_t *timed_qry (ix_t *_Q, coll_t *INVL, char *prm) {
-  double deadline = mstime() + getprm (prm,"timed=",100);
-  uint max_bytes = getprm (prm, "qbytes=", 0);
+  double budget = getprm (prm,"timed=",100);
+  double deadline = mstime() + budget;
+  double max_bytes = getprm (prm, "qbytes=", 0);
   uint max_terms = getprm (prm, "qterms=", 0);
   uint beam = getprm (prm, "beam=", 10000);
+  fprintf(stderr, "\n%stimed_qry%s beam:%d terms:%d %.0fKB %.0fms\n",
+	  fg_BLUE, RESET, beam, max_terms, max_bytes/1E3, budget);
   ixy_t *Q = qry_costs (_Q, INVL), *q=Q, *end = Q + len(Q);
-  uint used_bytes = q->y;
+  double used_bytes = q->y;
   //loglag("costs");
   //show_qry_costs (Q);
   if (used_bytes > 1e8) { free_vec(Q); return const_vec(0,0); }
   ix_t *R = get_vec (INVL, q->i);
   while (++q < end && mstime() < deadline) {
-    if (max_bytes && max_bytes < (used_bytes += q->y)) break;
+    used_bytes += q->y;
+    if (max_bytes && max_bytes < used_bytes) break;
     if (max_terms && max_terms < q-Q) break;
     ix_t *D = get_vec_ro (INVL, q->i), *tmp;
+    //fprintf(stderr, "%d:%.0fK ", q->i, q->y/1E3);
     R = vec_add_vec (1, tmp=R, q->x, D);
     free_vec(tmp);
     if (len(R) < beam) continue;
@@ -565,7 +570,9 @@ ix_t *timed_qry (ix_t *_Q, coll_t *INVL, char *prm) {
     //assert (vec_is_sorted(R));
     sort_vec (R, cmp_ix_i);
   }
-  printf("\ntimed_qry: %ld/%d terms %dMB", q-Q, len(Q), used_bytes>>20);
+  double lag = mstime() - deadline + budget;
+  fprintf(stderr, "%stimed_qry%s docs:%d terms:%ld/%d %.0fKB %.0fms\n",
+	  fg_BLUE, RESET, len(R), q-Q, len(Q), used_bytes/1E3, lag);
   free_vec(Q);
   return R;
 }
