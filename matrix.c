@@ -1615,6 +1615,7 @@ float ci_value_threshold (ix_t *V, float p, float z) {
 // z deviations above mean delta in p-confidence interval of V
 float ci_delta_threshold (ix_t *V, float p, float z) {
   int n = len(V), m = n/2 + 1;
+  if (n < 1) return -Infinity;
   ix_t *D = value_deltas(V); // deltas between adjacent scores in V
   float jump = ci_value_threshold(D, p, z); // unusually large delta
   ix_t *Y = copy_vec(V);
@@ -2501,6 +2502,7 @@ uint count (ix_t *V, char op, float x) {
 
 // sort X high-to-low, return deltas between adjacent values
 ix_t *value_deltas(ix_t *X) {
+  if (!X || len(X) < 1) return NULL;
   ix_t *D = copy_vec(X);
   sort_vec(D, cmp_ix_X);
   uint i, n = len(D)-1;
