@@ -19,22 +19,22 @@
 
 */
 
-#include <stddef.h>
+#include <arpa/inet.h>
 #include <assert.h>
-#include <string.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <errno.h>
 #include <err.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <netdb.h>
+#include <netinet/in.h>
+#include <pthread.h>
 #include <signal.h>
+#include <stdarg.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <netdb.h>
-#include <pthread.h>
-#include <stdarg.h>
+#include <unistd.h>
 
 #ifndef NETUTIL
 #define NETUTIL

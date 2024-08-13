@@ -106,7 +106,7 @@ void hl_subs(char *line, char *h) {
 }
 
 int hl_xml() {
-  char *TAG = fg_CYAN, *STR = fg_GREEN;
+  char *TAG = fg_GREEN, *STR = fg_CYAN;
   int c, prev = 0, intag = 0, instr = 0;
   while ((c = getchar()) != EOF) {
     if (c == '<' && prev != '\\' && !intag) { // opening <
