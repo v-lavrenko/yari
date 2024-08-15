@@ -113,6 +113,33 @@ void mtx_stats (char *_S, char *_M, char *prm) {
   }
 }
 
+void *get_vec_read (coll_t *c, uint id) ;
+void put_vec_write (coll_t *c, uint id, void *vec) ;
+
+// write XML documents from KVS into MTX, append COL dict.
+void mtx_from_kvs (char *_MTX, char *_COL, char *_KVS, char *prm) {
+  coll_t *KVS = open_coll (_KVS, "r+");
+  coll_t *MTX = open_coll (_MTX, "w+");
+  hash_t *COL = open_hash (_COL, "a!");
+  uint id, nd = nvecs(KVS);
+  fprintf (stderr, "[%.0fs] %s [%d x %s] = load %s\n", vtime(), _MTX, nd, _COL, _KVS);
+  for (id = 1; id <= nd; ++id) {
+    if (!has_vec(KVS,id)) continue;
+    char *doc = strdup(get_chunk(KVS,id));
+    ix_t *vec = parse_vec_xml (doc, NULL, COL, prm);
+    put_vec_write (MTX, id, vec);
+    free_vec(vec);
+    free(doc);
+    show_progress (id, nd, " docs");
+  }
+  MTX->rdim = nd;
+  MTX->cdim = nkeys(COL);
+  fprintf (stderr, "[%.0fs] %d rows, %d cols\n", vtime(), num_rows(MTX), num_cols(MTX));
+  free_coll(MTX);
+  free_coll(KVS);
+  free_hash(COL);
+}
+
 void mtx_load (char *M, char *RH, char *CH, char *type, char *prm) {
   ulong done = 0;
   char *buf = malloc(1<<24), *id = 0;
@@ -298,9 +325,6 @@ uint *hash_merge2 (char *_A, char *_B, char *pA) {
   free_hash (A); free_toks (keys);
   return F;
 }
-
-void *get_vec_read (coll_t *c, uint id) ;
-void put_vec_write (coll_t *c, uint id, void *vec) ;
 
 // merge B [Rb x Cb] into A [Ra x Ca] mapping rows and columns as needed
 void mtx_merge (char *_A, char *_RA, char *_CA,
@@ -1981,6 +2005,7 @@ char *usage =
   "mtx options             - matrix operations, optional [parameters] are in brackets\n"
   //  " -m 256                 - set mmap window to 256MB (set to ~25% of available RAM)\n"
   " -r 1                   - re-seed the random number generator (1:default, 0:systime)\n"
+  " from:kvs M C KVS prm   - fill matrix M with XML from KVS. p=wra. No join/skip.\n"
   " load:fmt M [R] [C] prm - read matrix M from stdin. Formats: rcv,csv,svm,txt,xml\n"
   "                          hashes R,C used to map string ids -> row/column numbers\n"
   "                          p=xxx access permissions for M,R,C (default:waa)\n"
@@ -2217,12 +2242,13 @@ int main (int argc, char *argv[]) {
     fprintf (stderr, "RNG SEED is %u\n", seed); argv+=2; argc-=2; }
   argc = remove_sugar (argc, argv);
   if      (!strncmp(a(1), "size", 4))   mtx_size (arg(2), a(1));
-  else if (!strcmp(a(1),  "rm"))        rm_dir (arg(2));
+  else if (!strcmp (a(1), "rm"))        rm_dir (arg(2));
   else if (!strncmp(a(1), "cksum", 5))  mtx_cksum (a(1), argc-2, argv+2);
   else if (!strncmp(a(1), "norm", 4))   mtx_norm (arg(2), a(1));
   else if (!strncmp(a(1), "trace", 5))  mtx_trace (arg(2), a(1));
   else if (!strncmp(a(1), "stats", 5))  mtx_stats (arg(2), arg(3), a(1));
   else if (!strncmp(a(1), "load:", 5))  mtx_load (arg(2), arg(3), arg(4), a(1)+5, a(5));
+  else if (!strcmp (a(1), "from:kvs"))  mtx_from_kvs (arg(2), arg(3), arg(4), a(5));
   else if (!strncmp(a(1), "quantil",7)) mtx_quantiles (arg(2), arg(3));
   else if (!strncmp(a(1),"print:libsvm",12)) mtx_print_libsvm (a(1),arg(2),arg(3));
   else if (!strncmp(a(1),"print:XY",8)) mtx_print_XY  (arg(2), a(3), arg(4), a(5), a(1));

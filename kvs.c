@@ -77,16 +77,20 @@ void dump_ids (char *C, char *RH) {
   free_vec(ids);
 }
 
-void dump_raw (char *C, char *RH, char *id) {
+void dump_raw (char *C, char *RH, char *id, char *prm) {
+  int EOD = strstr (prm, "null") ? '\0' : '\n';
   coll_t *c = open_coll (C, "r+");
   hash_t *h = *RH ? open_hash (RH, "r") : NULL;
   uint no = id ? getprm(id,"no=",0) : 0;
   uint i = no ? no : *id ? key2id(h,id) : 1;
   uint n = *id ? i : nvecs(c);
   //printf ("%s %s %d %d\n", C, RH, i, n);
-  for (; i <= n; ++i)
-    if (has_vec (c,i))
-      printf ("%s\n", (char*)get_chunk(c,i));
+  for (; i <= n; ++i) {
+    char *doc = get_chunk(c,i);
+    if (!doc || !*doc) continue;
+    fputs(doc, stdout);
+    fputc(EOD, stdout);
+  }
   free_coll(c); free_hash(h);
 }
 
@@ -151,13 +155,15 @@ void load_xml_or_json (char *C, char *RH, char *prm) {
   char *skip = strstr(prm,"skip"), *join = strstr(prm,"join");
   char *Long = strstr(prm,"longer");
   char *addk = strstr(prm,"addkeys");
+  int EOD = strstr(prm,"null") ? '\0' : '\n';
   ulong done = 0, nodoc = 0, noid = 0, dups = 0;
   size_t SZ = 1<<24;
   ssize_t sz = 0;
   char *buf = calloc(1,SZ);
   coll_t *c = open_coll (C, "a+");
   hash_t *rh = open_hash (RH, (addk ? "a!" : "r!"));
-  while ((sz=getline(&buf, &SZ, stdin)) > 0) { // assume one-per-line
+  // read docs separated by '\n' or '\0'
+  while ((sz=getdelim(&buf, &SZ, EOD, stdin)) > 0) {
     //fprintf(stderr,"%100.100s\n", buf);
     int jsonp = buf[strspn(buf," \t")] == '{'; // JSON ot XML?
     if (!(++done%10000)) show_progress (done, 0, " docs");
@@ -1282,10 +1288,12 @@ char *usage =
   "kvs                           - optional [parameters] are in brackets\n"
   "  -m 256                      - set mmap size to 256MB\n"
   "  -rs 1                       - set random seed to 1\n"
-  "  -dump XML [HASH id]         - dump all [id] from collection XML/JSON\n"
+  "  -dump XML [HASH id [prm]]   - dump all [id] from collection XML/JSON\n"
+  "                                prm: null ... docs separated by \\0 not \\n\n"
   "  -load XML HASH [prm]        - stdin -> collection XML/JSON indexed by HASH\n"
   //  "  -json JSON HASH [prm]       - stdin -> collection JSON indexed by HASH\n"
   "                                prm: skip, join duplicates, addkeys\n"
+  "                                     null ... docs separated by \\0 not \\n\n"
   //"  -merge C = A + B            - C[i] = A[i] + B[i] (concatenates records)\n"
   //"  -rekey A a = B b [addnew]   - A[j] = B[i] where key = a[j] = b[i]\n"
   //"   merge A += B [prm]         - A[j] += B[i] (concat, assume ids compatible)\n"
@@ -1341,7 +1349,7 @@ int main (int argc, char *argv[]) {
 	!strcmp (a(3), "+="))    do_merge2 (a(1), a(2), a(4), a(5), a(6));
     //if (!strcmp (a(0), "merge") &&
     //!strcmp (a(2), "+="))    do_merge (a(1), NULL, a(3), NULL, a(4));
-    if (!strcmp (a(0), "-dump")) dump_raw (a(1), a(2), a(3));
+    if (!strcmp (a(0), "-dump")) dump_raw (a(1), a(2), a(3), a(4));
     if (!strcmp (a(0), "-dump-ids")) dump_ids (a(1), a(2));
     if (!strcmp (a(0), "-rand")) dump_rnd (a(1), a(2));
     if (!strcmp (a(0), "-dmap")) dump_raw_ret (a(1), a(2), a(3));
