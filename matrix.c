@@ -47,23 +47,27 @@ uint vec_is_sorted (ix_t *V) {
 
 jix_t *scan_jix (FILE *in, uint maxlen, hash_t *rows, hash_t *cols) {
   jix_t *buf = new_vec (0, sizeof(jix_t)), new = {0,0,0};
-  char line[1000], row[1000], col[1000];
+  char line[1000];
   uint fskip=0, rskip=0, cskip=0, vskip=0;
   while (fgets (line, 999, in)) {
-    if (*line == '#') { // comments and signals start with a #
-      if (!strcmp(line,"# END\n")) break; // stop if end of block
-      else continue; // skip over comments
-    }
-    if (3 != sscanf (line, "%s %s %f", row, col, &new.x)) {
+    if (!strcmp(line,"# END\n")) break; // end of block
+    if (*line == '#') continue; // skip over comments
+    char *row = tsv_value(line,1);
+    char *col = tsv_value(line,2);
+    char *val = tsv_value(line,3);
+    if (!row || !col || !val) {
       if (++fskip<9) fprintf (stderr, "cannot parse: %100.100s...\n", line);
+      free(row); free(col); free(val);
       continue;
     }
-    new.j = rows ? key2id (rows, row) : atol(row); // row id -> integer
-    new.i = cols ? key2id (cols, col) : atol(col); // column id -> integer
-    if      (!new.j) { if (++rskip<9) fprintf (stderr, "skipping row [%s] %s", row, line); }
-    else if (!new.i) { if (++cskip<9) fprintf (stderr, "skipping col [%s] %s", col, line); }
+    new.j = rows ? key2id(rows, row) : atol(row); // row id -> integer
+    new.i = cols ? key2id(cols, col) : atol(col); // column id -> integer
+    new.x = atof(val);
+    if      (!new.j) {if (++rskip<9) fprintf(stderr, "skipping row [%s] %s", row, line);}
+    else if (!new.i) {if (++cskip<9) fprintf(stderr, "skipping col [%s] %s", col, line);}
     //else if (!new.x) { if (++vskip<9) fprintf (stderr, "skipping zero val %s", line); }
     else buf = append_vec (buf, &new); // keep zero values
+    free(row); free(col); free(val);
     if (maxlen && len(buf) >= maxlen) break;
   }
   sort_vec (buf, cmp_jix); // rsort?
@@ -763,7 +767,7 @@ void sort_vecs (coll_t *c, char *prm) {
 void scan_mtx (coll_t *rows, coll_t *cols, hash_t *rh, hash_t *ch, char *prm) {
   while (1) {
     uint size = MIN(4294967295,MAP_SIZE/sizeof(jix_t));
-    jix_t *buf = scan_jix (stdin, size, rh, ch);
+    jix_t *buf = scan_jix (stdin, size/8, rh, ch);
     if (!len(buf)) {free_vec (buf); break;}
     if (rows) append_jix (rows, buf);
     if (cols) transpose_jix (buf);
