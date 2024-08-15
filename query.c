@@ -82,19 +82,13 @@ char *copy_doc_text (coll_t *XML, uint id) {
   if (!chunk) return NULL;
   char *text = strdup(chunk);
   erase_between(text, "<DOCID>", "</DOCID>", ' ');
-  //char *text = extract_between (chunk, "</DOCID>", "</DOC>");
-  erase_between(text, "<title", ">", '\t');
-  erase_between(text, "<p:",    ">", '\t');
-  erase_between(text, "<claim", ">", '\t');
-  gsub (text, "</title>", '\t');
-  gsub (text, "</claim>", '\t');
-  gsub (text, "</p>",     '\t');
   no_xml_tags (text);
   chop (text, " "); // chop whitespace around docid
-  //no_xml_refs (text);
-  csub (text, "\"\\\r\n", ' ');
-  //fprintf(stderr,"copy_doc_text: %d -> len:%ld CR:%d\n", id, strlen(text), cntchr(text,'\r'));
   return text;
+  // TODO: evaluate if the following are needed:
+  // no_xml_refs (text); // remove &quot; etc.
+  // csub (text, "\"\\\r\n", ' '); // makes json-safe
+  // spaces2space (text); // multiple spaces
 }
 
 // returns just id and score for each doc in D.
