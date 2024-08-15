@@ -60,6 +60,9 @@ void no_xml_tags (char *S) ; // erase <...>
 
 // erase (overwrite with 'C') every occurence of A...B
 void erase_between (char *buf, char *A, char *B, int C) ;
+
+// modifies s to be safe to include in JSON.
+void json_safe (char *s) ;
 char *json_value (char *json, char *key) ;
 double json_numval (char *json, char *key) ;
 char *json_pair (char *json, char *_str) ;

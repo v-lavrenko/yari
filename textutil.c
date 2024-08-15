@@ -402,6 +402,12 @@ uint parenspn (char *str) { // span of parenthesized string starting at *str
   return s - str;
 }
 
+// Modifies s to be safe for inclusion in JSON.
+void json_safe (char *s) {
+  if (!s || !*s) return;
+  csub (s, "\"\\\t\r\n", ' '); // chars that mess up JSON
+}
+
 char *json_docid (char *json) {
   char *id = json_value (json, "docid");
   if (!id) id = json_value (json, "id");
@@ -1474,7 +1480,7 @@ double fake_df (char *gram, hash_t *W, stats_t *S) {
     if (stop_word(w)) continue;
     uint id = has_key(W,w);
     if (!id || id >= len(DF)) continue;
-    df *= (DF[id] / nd); 
+    df *= (DF[id] / nd);
   }
   return df;
 }
@@ -1710,7 +1716,7 @@ char *hybrid_snippet (char *text, char **words, hash_t *Q, int gramsz, int snips
 char *best_paragraph (index_t *I, char *text, char *qry, hash_t *_Q, int n, float *score) {
   //fprintf(stderr,"best_paragraph: text[%ld] qry[%ld] hash[%d] n:%d CR:%d\n",
   //strlen(text), strlen(qry), nkeys(_Q), n, cntchr(text,'\r'));
-  char **P = split(text,'\t'); // assume Tab-separated paragraphs
+  char **P = strsplit(text,"\n\n"); // paragraphs separated by \n\n
   //fprintf(stderr,"%d paras\n", len(P));
   ix_t best = {0, -Infinity};
   uint i, nP = len(P);
@@ -1725,7 +1731,7 @@ char *best_paragraph (index_t *I, char *text, char *qry, hash_t *_Q, int n, floa
   }
   *score = best.x;
   char *result = strdup(P[best.i]);
-  free_vec (P);
+  free_toks (P); // strsplit mallocs each field
   free_vec (Q);
   //free_vec(BG);
   (void) I;
