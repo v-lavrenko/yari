@@ -93,7 +93,7 @@ ix_t *parse_vec_svm (char *str, char **id, hash_t *ids) ;
 ix_t *parse_vec_csv (char *str, char **id) ;
 ix_t *parse_vec_txt (char *str, char **id, hash_t *ids, char *prm) ;
 ix_t *parse_vec_xml (char *str, char **id, hash_t *ids, char *prm) ;
-
+ix_t *parse_as_ngrams (char *str, hash_t *ids, int ngramsz, char *pos);
 
 void print_mtx (coll_t *rows, hash_t *rh, hash_t *ch, char *how) ;
 void print_vec_rcv (ix_t *vec, hash_t *ids, char *vec_id, char *fmt) ;

@@ -1322,26 +1322,46 @@ void free_tokens (sjk_t *T) {
   free_vec (T);
 }
 
-sjk_t *go_tokens (char *text) {
+// true if alphanumeric or solo dash, slash, apostrophe.
+int ok_inside_token(char *p) {
+  if (isalnum(*p)) return 1;
+  if (!isalnum(p[-1])) return 0;
+  return *p == '-' || *p == '/' || *p == '\'';
+}
+
+// alphanumeric tokens s with offsets: j = start, k = end.
+sjk_t *good_tokens (char *text) {
   sjk_t *T = new_vec(0,sizeof(sjk_t)), tok;
   char *p = text, *End = text + strlen(text);
   while (p < End) {
-    while (*p && !isalnum(*p)) ++p; // find number or letter
+    while (p < End && !isalnum(*p)) ++p; // find number or letter
+    if (p >= End) break; // no more tokens
     tok.j = p - text; // start of possible token
-    while (isalnum(*p) || *p == '-') ++p; // possible end
-    if (*p == '-') --p;
-    if (*p == 's') --p;
+    while (p > text && p < End && ok_inside_token(p)) ++p; // end
+    while (p > text && !isalnum(p[-1])) --p; // trim right
     tok.k = p - text; // end of possible token
     if (tok.k <= tok.j) continue;
     tok.s = strndup (text + tok.j, tok.k - tok.j);
     lowercase (tok.s);
     T = append_vec (T, &tok);
-    assert (tok.j <= End-text);
+    assert (tok.j < tok.k);
     assert (tok.k <= End-text);
   }
   return T;
 }
 
+// lemmatize token string, keep original offsets.
+void stem_tokens (sjk_t *T, char *how) {
+  char buf[1000];
+  sjk_t *t;
+  for (t = T; t < T+len(T); ++t) {
+    stem_word (t->s, buf, how);
+    free (t->s);
+    t->s = strdup(buf);
+  }
+}
+
+// replace stopwords with empty tokens.
 void stop_tokens (sjk_t *T) {
   sjk_t *t;
   for (t = T; t < T+len(T); ++t) {
@@ -1386,24 +1406,24 @@ sjk_t make_ngram (sjk_t *T, int a, int z) {
 }
 
 // n-grams of size n from a sequence of tokens T.
-sjk_t *go_ngrams (sjk_t *T, uint n) {
+sjk_t *good_ngrams (sjk_t *T, uint n) {
   sjk_t *G = new_vec(0,sizeof(sjk_t));
   int i, N = len(T), m = n-1;
   for (i = 0; i < N-m; ++i) {
     if (!T[i].s || !T[i+m].s) continue;
     //if (skip_token(T+i) || skip_token(T+i+m)) continue;
     sjk_t ngram = make_ngram (T, i, i+m);
-    assert (ngram.k - ngram.j > 0);
+    assert (ngram.j < ngram.k);
     G = append_vec (G, &ngram);
   }
   return G;
 }
 
 // n-grams of size 1..n from tokens T.
-sjk_t *go_all_ngrams (sjk_t *tokens, uint n) {
+sjk_t *all_ngrams (sjk_t *tokens, uint n) {
   sjk_t *result = new_vec(0,sizeof(sjk_t));
   do {
-    sjk_t *G = go_ngrams (tokens, n);
+    sjk_t *G = good_ngrams (tokens, n);
     result = append_many (result, G, len(G));
     free_vec (G); // do not use free_tokens here!
   } while (--n > 1);
@@ -1420,8 +1440,8 @@ char **sjk_strings (sjk_t *T) {
 
 // list of all 1..n-grams from text.
 char **text_to_ngrams (char *text, int n) {
-  sjk_t *tokens = go_tokens (text);
-  sjk_t *ngrams = go_all_ngrams (tokens, n);
+  sjk_t *tokens = good_tokens (text);
+  sjk_t *ngrams = all_ngrams (tokens, n);
   char **strings = sjk_strings (ngrams);
   free_tokens (tokens);
   free_tokens (ngrams);
@@ -1431,10 +1451,10 @@ char **text_to_ngrams (char *text, int n) {
 hash_t *ngrams_dict (char *qry, int n) {
   //printf("%s%d-grams_dict%s: %s\n", fg_MAGENTA, n, RESET, qry);
   hash_t *H = open_hash_inmem();
-  sjk_t *tokens = go_tokens (qry);
+  sjk_t *tokens = good_tokens (qry);
   //show_tokens (tokens, "qry-toks");
   do {
-    sjk_t *T = go_ngrams (tokens, n), *t;
+    sjk_t *T = good_ngrams (tokens, n), *t;
     //show_tokens (T, "qry-grams");
     for (t=T; t < T+len(T); ++t) key2id (H, t->s);
     free_tokens(T);
@@ -1461,9 +1481,9 @@ float fCE2(float *Q, float *D, float *BG) {
 
 float *ngrams_freq (char *text, int n, hash_t *H) {
   float *F = new_vec (nkeys(H)+1, sizeof(float));
-  sjk_t *tokens = go_tokens (text);
+  sjk_t *tokens = good_tokens (text);
   do {
-    sjk_t *T = go_ngrams (tokens, n), *t;
+    sjk_t *T = good_ngrams (tokens, n), *t;
     for (t=T; t < T+len(T); ++t) ++F [has_key(H, t->s)];
     free_tokens(T);
   } while (--n > 0);
@@ -1533,7 +1553,7 @@ float *ngrams_bg (hash_t *H, hash_t *W, stats_t *S) {
 float ngram_score (sjk_t *tokens, hash_t *H, int n) {
   uint N = nkeys(H), *seen = new_vec (N+1, sizeof(uint));
   do {
-    sjk_t *T = go_ngrams (tokens, n), *t;
+    sjk_t *T = good_ngrams (tokens, n), *t;
     for (t=T; t < T+len(T); ++t) {
       uint id = has_key(H, t->s);
       if (id) ++seen[id];
@@ -1549,7 +1569,7 @@ ijk_t *ngram_matches (sjk_t *tokens, hash_t *H, int n) {
   //show_tokens (tokens, "doc-toks");
   ijk_t *matches = new_vec (0, sizeof(ijk_t));
   do {
-    sjk_t *T = go_ngrams (tokens, n), *t;
+    sjk_t *T = good_ngrams (tokens, n), *t;
     //show_tokens (T, "doc-grams");
     for (t=T; t < T+len(T); ++t) {
       uint id = has_key(H, t->s);
@@ -1649,7 +1669,7 @@ void assert_sjk (sjk_t *M, uint maxK) {
 char *ngram_snippet (char *text, hash_t *Q, int gramsz, int snipsz, float *score) {
   uint textLen = strlen(text);
   // all unigrams in text, alnum, in-order {s:strndup j:begOffs k:endOffs}
-  sjk_t *tokens = go_tokens (text);                   assert_sjk (tokens, textLen);
+  sjk_t *tokens = good_tokens (text);                 assert_sjk (tokens, textLen);
   // form n-grams, look up in Q, return {i:N, j:begOffs, k:endOffs}
   ijk_t *matches = ngram_matches (tokens, Q, gramsz); assert_ijk (matches, len(matches), textLen, 9);
   // merge overlapping [j:k), keep highest i:N
@@ -1680,7 +1700,7 @@ char *ngram_snippet (char *text, hash_t *Q, int gramsz, int snipsz, float *score
 // take text as-is and highlight it using n-grams
 char *ngram_highlight (char *text, hash_t *Q, int gramsz) {
   uint textLen = strlen(text);
-  sjk_t *tokens = go_tokens (text);
+  sjk_t *tokens = good_tokens (text);
   assert_sjk (tokens, textLen);
   ijk_t *matches = ngram_matches (tokens, Q, gramsz);
   assert_ijk (matches, len(matches), textLen, gramsz);

@@ -476,6 +476,17 @@ char *___ftoa (char *fmt, float f) { // thread-unsafe: static + buffer overflow
   return buf;
 }
 
+void frees (void *s1, ...) {
+  va_list args;
+  va_start (args, s1);
+  void *s = s1;
+  while (s != (void*)-1) {
+    if (s) free (s);
+    s = va_arg (args, void*);
+  }
+  va_end (args);
+}
+
 char *acat2 (char *a, char *b) {
   if (!a || !b) return NULL;
   uint sz = strlen(a) + strlen(b);

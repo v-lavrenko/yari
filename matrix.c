@@ -916,12 +916,12 @@ void print_vec_txt (ix_t *vec, hash_t *ids, char *vec_id, int xml) {
   printf (xml ? "</DOC>\n" : "\n");
 }
 
-ix_t *parse_go_ngrams (char *str, hash_t *ids, int ngramsz, char *positional) {
+ix_t *parse_as_ngrams (char *str, hash_t *ids, int ngramsz, char *positional) {
   ix_t *vec = new_vec (0, sizeof(ix_t)); int n;
-  sjk_t *tokens = go_tokens (str);
+  sjk_t *tokens = good_tokens (str);
   stop_tokens (tokens);
   for (n = 1; n <= ngramsz; ++n) {
-    sjk_t *T = go_ngrams (tokens, n), *t;
+    sjk_t *T = good_ngrams (tokens, n), *t;
     for (t=T; t < T+len(T); ++t) {
       float x = positional ? pack_span(t->j,t->k) : 1;
       uint id = key2id (ids, t->s);
@@ -947,7 +947,7 @@ ix_t *parse_vec_txt (char *str, char **id, hash_t *ids, char *prm) { // thread-u
   char *nowb = strstr (prm, "nowb");
   char *buf = 0, *ws = strstr(prm,"tokw") ? " \t\r\n" : NULL;
   if (id) *id = strdup (next_token (&str, " \t"));
-  if (ngramsz) return parse_go_ngrams (str, ids, ngramsz, positional);
+  if (ngramsz) return parse_as_ngrams (str, ids, ngramsz, positional);
   if (nowb) squeeze (str, NULL, NULL); // squeeze out punctuation and spaces
   if (gram) {
     buf = malloc (1<<26);
