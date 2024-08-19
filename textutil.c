@@ -1322,11 +1322,11 @@ void free_tokens (sjk_t *T) {
   free_vec (T);
 }
 
-// true if alphanumeric or solo dash, slash, apostrophe.
-int ok_inside_token(char *p) {
+// true if *p is alphanumeric or solo dash, slash, apostrophe.
+int ok_inside_token(char *p, char *beg) {
   if (isalnum(*p)) return 1;
-  if (!isalnum(p[-1])) return 0;
-  return *p == '-' || *p == '/' || *p == '\'';
+  if (p > beg && !isalnum(p[-1])) return 0;
+  return (*p == '-') || (*p == '/') || (*p == '\'');
 }
 
 // alphanumeric tokens s with offsets: j = start, k = end.
@@ -1337,7 +1337,7 @@ sjk_t *good_tokens (char *text) {
     while (p < End && !isalnum(*p)) ++p; // find number or letter
     if (p >= End) break; // no more tokens
     tok.j = p - text; // start of possible token
-    while (p > text && p < End && ok_inside_token(p)) ++p; // end
+    while (ok_inside_token(p, text)) ++p; // end
     while (p > text && !isalnum(p[-1])) --p; // trim right
     tok.k = p - text; // end of possible token
     if (tok.k <= tok.j) continue;
