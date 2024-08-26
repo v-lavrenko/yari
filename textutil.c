@@ -1452,6 +1452,7 @@ hash_t *ngrams_dict (char *qry, int n) {
   //printf("%s%d-grams_dict%s: %s\n", fg_MAGENTA, n, RESET, qry);
   hash_t *H = open_hash_inmem();
   sjk_t *tokens = good_tokens (qry);
+  stop_tokens(tokens);
   //show_tokens (tokens, "qry-toks");
   do {
     sjk_t *T = good_ngrams (tokens, n), *t;
@@ -1482,6 +1483,7 @@ float fCE2(float *Q, float *D, float *BG) {
 float *ngrams_freq (char *text, int n, hash_t *H) {
   float *F = new_vec (nkeys(H)+1, sizeof(float));
   sjk_t *tokens = good_tokens (text);
+  stop_tokens(tokens);
   do {
     sjk_t *T = good_ngrams (tokens, n), *t;
     for (t=T; t < T+len(T); ++t) ++F [has_key(H, t->s)];
@@ -1706,19 +1708,22 @@ char *ngram_highlight (char *text, hash_t *Q, int gramsz) {
   assert_ijk (matches, len(matches), textLen, gramsz);
   ijk_t *M = merge_matches (matches), *m;
   assert_ijk (M, len(M), textLen, gramsz);
-  uint prev = 0, stop = textLen;;
+  uint prev = 0, stop = textLen;
   char *buf = 0; int bufsz=0;
   for (m = M; m < M+len(M); ++m) {
     if (m->j < prev) continue; // hit starts outside span
     if (m->k > stop) break;    // hit ends outside span
-    char bTag[9]; sprintf (bTag, "<g%d>", m->i);
-    char eTag[9]; sprintf (eTag, "</g%d>", m->i);
+    //char bTag[9]; sprintf (bTag, "<g%d>", m->i);
+    //char eTag[9]; sprintf (eTag, "</g%d>", m->i);
+    char *bTag = "<b>", *eTag = "</b>";
     memcat (&buf, &bufsz, text + prev, m->j - prev); // text before match
-    memcat (&buf, &bufsz, bTag, 4);
+    memcat (&buf, &bufsz, bTag, 3);
     memcat (&buf, &bufsz, text + m->j, m->k - m->j); // match itself
-    memcat (&buf, &bufsz, eTag, 5);
+    memcat (&buf, &bufsz, eTag, 4);
     prev = m->k;
   }
+  if (prev < stop)
+    memcat (&buf, &bufsz, text + prev, stop - prev); // after last hit
   free_vec (M);
   free_vec (matches);
   free_tokens (tokens);
