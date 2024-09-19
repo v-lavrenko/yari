@@ -663,14 +663,46 @@ void mtx_window (char *PxW, char *DxW, char *MAP, char *prm) {
   free_coll(D); free_coll(P); free_coll(M);
 }
 
-// renumber: squeeze out empty rows / columns
-/*
-void mtx_deflate (char *_A, char *_RA, char *_CA,
-		  char *_B, char *_RB, char *_CB) {
-  coll_t
-  float *F = sum_cols (src, 0), *f;
+// squeeze/renumber: B[S,:] = A[R,:] without empty rows
+void mtx_deflate_rows(char *_B, char *_S, char *_A, char *_R) {
+  coll_t *A = open_coll (_A, "r+");  hash_t *R = open_hash (_R, "r");
+  coll_t *B = open_coll (_B, "w+");  hash_t *S = open_hash (_S, "w");
+  uint r, nr = num_rows(A);
+  for (r = 1; r <= nr; ++r) {
+    ix_t *row = get_vec_ro(A, r);
+    if (!len(row)) continue;
+    uint s = id2id(R, r, S);
+    put_vec_write(B, s, row);
+    show_progress (r, nr, " row-deflated");
+  }
+  free_coll(A);  free_coll(B);  free_hash(R);  free_hash(S);
 }
-*/
+
+// squeeze/renumber: B[:,D] = A[:,C] without empty columns
+void mtx_deflate_cols(char *_B, char *_D, char *_A, char *_C) {
+  coll_t *A = open_coll (_A, "r+");  hash_t *C = open_hash (_C, "r");
+  coll_t *B = open_coll (_B, "w+");  hash_t *D = open_hash (_D, "w");
+  uint r, nr = num_rows(A);
+  for (r = 1; r <= nr; ++r) {
+    ix_t *V = get_vec(A, r), *v;
+    for (v = V; v < V+len(V); ++v) v->i = id2id(C, v->i, D);
+    chop_vec(V);
+    put_vec_write(B, r, V);
+    free_vec(V);
+    show_progress (r, nr, " column-deflated");
+  }
+  free_coll(A);  free_coll(B);  free_hash(C);  free_hash(D);
+}
+
+// allows: M [COLS] = deflate M [COLS]
+void mtx_deflate(char *B, char *H, char *A, char *G, char *prm) {
+  char _B[1000]; sprintf (_B, "%s.%d", B, getpid());
+  char _H[1000]; sprintf (_H, "%s.%d", H, getpid());
+  if (strstr(prm,":cols")) mtx_deflate_cols(_B, _H, A, G);
+  if (strstr(prm,":rows")) mtx_deflate_rows(_B, _H, A, G);
+  mv_dir (_B, B);
+  mv_dir (_H, H);
+}
 
 /* deprecated in favor of docs_to_psgs
 mtx_append_psgs (coll_t *m, ix_t *vec, uint sz, char ifdup, char *id, hash_t *rh) {
@@ -2129,6 +2161,8 @@ char *usage =
   " A = subset B [H]       - read ids from stdin and set A[id] = B[id] using hash H\n"
   " A = rowset B [H]       - A[r,*] = B[r,*] for r in {rows}, read from stdin via H\n"
   " A = colset B H         - A[*,c] = B[*,c] for c in {cols}, read from stdin via H\n"
+  " B S = deflate:rows A R - B[S,*] = A[R,*] without empty rows\n"
+  " B D = deflate:cols A C - B[*,D] = A[*,C] without empty columns\n"
   " W = window:prm P [MAP] - rows of P -> overlapping windows, MAP: row -> winIds\n"
   "                          prm:size=100,step=50\n"
   " xval:fold=1 A T E [V]  - cross-validation: split A -> train,test,valid rows\n"
@@ -2261,8 +2295,10 @@ int main (int argc, char *argv[]) {
   else if (!strncmp(a(1), "LTR:eval", 8)) mtx_letor_eval (arg(2), arg(3), arg(4), arg(5), a(1));
   else if (!strncmp(a(1), "xval", 4))   mtx_xval (arg(2), arg(3), arg(4), arg(5), a(1));
   else if (!strncmp(a(1), "trans", 5))  mtx_transpose (arg(1), arg(2), NULL);
-  else if (!strncmp(a(1), "merge", 5)
-	   && !strcmp (a(5),"+="))    mtx_merge (arg(2), arg(3), arg(4), arg(6), arg(7), arg(8), a(1));
+  else if (!strncmp(a(4), "deflate", 7) && !strcmp(a(3), "="))
+    mtx_deflate(arg(1), arg(2), arg(5), arg(6), a(4));
+  else if (!strncmp(a(1), "merge", 5) && !strcmp (a(5),"+="))
+    mtx_merge (arg(2), arg(3), arg(4), arg(6), arg(7), arg(8), a(1));
   else if (!strcmp(a(2),"=") && argc > 3) {
     char tmp[1000];
     sprintf (tmp, "%s.%d", arg(1), getpid()); // temporary target
