@@ -1257,8 +1257,8 @@ void update_stats_from_file (stats_t *s, hash_t *dict, char *file) {
     id = key2id (dict, word);
     if (id) {
       grow_stats (s, id);
-      s->df[id] = df;
-      s->cf[id] = cf;
+      s->df[id] += df;
+      s->cf[id] += cf;
     }
     s->nposts += cf;
     if (df > s->ndocs) s->ndocs = df;
