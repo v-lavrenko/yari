@@ -164,6 +164,7 @@ void load_xml_or_json (char *C, char *RH, char *prm) {
   hash_t *rh = open_hash (RH, (addk ? "a!" : "r!"));
   // read docs separated by '\n' or '\0'
   while ((sz=getdelim(&buf, &SZ, EOD, stdin)) > 0) {
+    if (sz == 1 && isspace(*buf)) continue; // empty doc
     //fprintf(stderr,"%100.100s\n", buf);
     int jsonp = buf[strspn(buf," \t")] == '{'; // JSON ot XML?
     if (!(++done%10000)) show_progress (done, 0, " docs");
