@@ -19,6 +19,7 @@
 
 */
 
+#include <stdio.h>
 #include <math.h>
 #include <err.h>
 //#include <omp.h>

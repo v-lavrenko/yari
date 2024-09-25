@@ -19,6 +19,7 @@
 
 */
 
+#include <ctype.h>
 #include "math.h"
 #include "matrix.h"
 #include "textutil.h"
