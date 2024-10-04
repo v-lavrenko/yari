@@ -69,13 +69,15 @@ int dict_uniq(char *prm) {
   }
   ulong **P = (ulong **)pointers_to_vec (C), **p;
   sort_vec (P, cmp_Ulong_ptr);
-  for (p=P; p<P+len(P); ++p)
-    printf ("%lu\t%s", **p, id2key(H,(*p-C+1)));
-  assert (!strstr(prm,"pct")); // TODO: reimplement the below
-  //double norm = strstr(prm,"pct") ? (NN/100) : 1;
-  //sort_vec (C, cmp_ix_X);
-  //for (c = C; c < C+nkeys(H); ++c)
-  //printf ("%.0f\t%s", c->x / norm, id2key(H,c->i));
+  if (!strstr(prm,"pct")) {
+    for (p=P; p<P+len(P); ++p)
+      printf ("%lu\t%s", **p, id2key(H,(*p-C+1)));
+  } else {
+    double sum = 0;
+    for (p=P; p<P+len(P); ++p) sum += **p;
+    for (p=P; p<P+len(P); ++p)
+      printf ("%9.6f\t%s", 100.0*(**p)/sum, id2key(H,(*p-C+1)));
+  }
   if (line) free (line);
   free_hash (H);
   free_vec (C);
