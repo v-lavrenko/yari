@@ -178,6 +178,23 @@ int nf_stdin () {
   return 0;
 }
 
+int do_paragraphs () {
+  int nCR = 0; // run-length of newlines
+  while (1) {
+    int c = getchar();
+    if (c == EOF) break;
+    if (c == '\n') ++nCR;
+    else { // any other character
+      if      (nCR >= 2) fputs("\n", stdout); // paragraph
+      else if (nCR == 1) fputs("·", stdout);
+      putchar(c);
+      nCR = 0;
+    }
+  }
+  if (nCR > 0) putchar('\n');
+  return 0;
+}
+
 void show_header (char **cols, int n) {
   int i; fputc ('#', stdout);
   for (i = 0; i < n; ++i) {
@@ -209,7 +226,8 @@ char *usage =
   "xcut age size type ... stdin = <XML> documents one-per-line\n"
   "xcut -h age size   ... print header before cutting\n"
   "xcut -wc           ... faster than wc byte/word/line counter\n"
-  "xcut -nf           ... awk -F'\t' '{print NF, length}'\n"
+  "xcut -nf           ... awk -F'\\t' '{print NF, length}'\n"
+  "xcut -para         ... suppress '\\n' convert '\\n\\n' -> '\\n'\n"
   "xcut -noxml        ... strip CR, <tags>, MAP: '&copy;' -> '(C)'\n"
   "xcut -refs [MAP]   ... MAP: '&amp;' -> '&' (see dict -inmap)\n"
   //  "xcut -lf 'trg'     ... add LF immediately after trigger 'trg'\n"
@@ -221,6 +239,7 @@ int main (int argc, char *argv[]) {
   if (!strcmp(a(1),"-refs")) return map_refs(arg(2));
   if (!strcmp(a(1),"-wc")) return wc_stdin();
   if (!strcmp(a(1),"-nf")) return nf_stdin();
+  if (!strcmp(a(1),"-para")) return do_paragraphs();
   //if (!strcmp(a(1),"-lf")) return LF_after(arg(2));
   if (!strcmp(a(1),"-h")) { ++argv; --argc; show_header(argv+1,argc-1); }
   cut_stdin(argv+1,argc-1);
