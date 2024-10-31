@@ -1,6 +1,7 @@
 #!/usr/bin/gawk -f
 
 BEGIN {
+    FS = OFS = "\t";
     if (!f) f = 1;
     if (!i) i = f;
     if (!o) o = f;

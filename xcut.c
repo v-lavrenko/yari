@@ -186,7 +186,7 @@ int do_paragraphs () {
     if (c == '\n') ++nCR;
     else { // any other character
       if      (nCR >= 2) fputs("\n", stdout); // paragraph
-      else if (nCR == 1) fputs("·", stdout);
+      else if (nCR == 1) fputs("\t", stdout);
       putchar(c);
       nCR = 0;
     }
