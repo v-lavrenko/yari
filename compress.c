@@ -411,6 +411,22 @@ void unzstd (char **trg, size_t *sz, char *src, size_t ssz) {
   zstd_assert(*sz, "decode");
 }
 
+char *get_chunk_zstd (coll_t *c, uint id) {
+  char *buf=NULL; size_t used=0;
+  char *src = get_chunk(c, id);
+  size_t ssz = chunk_sz(c, id);
+  unzstd(&buf, &used, src, ssz);
+  return buf;
+}
+
+void put_chunk_pwrite (coll_t *c, uint id, void *chunk, off_t size) ;
+void put_chunk_zstd (coll_t *c, uint id, char *src, size_t ssz) {
+  char *buf=NULL; size_t used=0;
+  zstd(&buf, &used, src, ssz, 3);
+  put_chunk_pwrite(c, id, buf, used);
+  free(buf);
+}
+
 byte *zstd_vec (void *vec, int level) {
   size_t vec_sz = len(vec) * vesize(vec); // #bytes in the content of vec
   size_t max_sz = ZSTD_compressBound(vec_sz); // worst-case compressed size
@@ -653,21 +669,6 @@ uint *do_decode (char *B, char a, char x) {
   }
   if ((!x) && (a != 'b')) delta_decode(U);
   return U;
-}
-
-void put_zstd_chunk (coll_t *c, uint id, char *src, size_t ssz) {
-  char *buf=NULL; size_t used=0;
-  zstd(&buf, &used, src, ssz, 3);
-  put_chunk(c, id, buf, used);
-  free(buf);
-}
-
-char *get_zstd_chunk (coll_t *c, uint id) {
-  char *buf=NULL; size_t used=0;
-  char *src = get_chunk(c, id);
-  size_t ssz = chunk_sz(c, id);
-  unzstd(&buf, &used, src, ssz);
-  return buf;
 }
 
 // compress SRC strings into TRG byte-vectors
