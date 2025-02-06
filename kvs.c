@@ -61,19 +61,22 @@ void dump_rnd (char *C, char *prm) {
 }
 
 // read list of ids from stdin, dump chunks
-void dump_ids (char *C, char *RH) {
+void dump_ids (char *C, char *RH, char *prm) {
+  int EOD = strstr (prm, "null") ? '\0' : '\n';
   hash_t *h = open_hash (RH, "r");
   uint *ids = read_ids(stdin, h), *id, chunks = 0;
   free_hash(h);
   sort_vec(ids, cmp_u);
   fprintf(stderr, "%s: %d keys\n", RH, len(ids));
   coll_t *c = open_coll (C, "r+");
-  for (id = ids; id < ids + len(ids); ++id)
-    if (has_vec (c,*id)) {
-      puts(get_chunk(c,*id));
-      ++chunks;
-    }
-  fprintf(stderr, "%s: %d chunks\n", C, chunks);
+  for (id = ids; id < ids + len(ids); ++id) {
+    char *doc = get_chunk(c, *id);
+    if (!doc || !*doc) continue;
+    fputs(doc, stdout);
+    fputc(EOD, stdout);
+    ++chunks;
+  }
+  fprintf(stderr, "%s: %d / %d chunks\n", C, chunks, len(ids));
   free_coll(c);
   free_vec(ids);
 }
@@ -1299,7 +1302,7 @@ char *usage =
   //"  -merge C = A + B            - C[i] = A[i] + B[i] (concatenates records)\n"
   //"  -rekey A a = B b [addnew]   - A[j] = B[i] where key = a[j] = b[i]\n"
   //"   merge A += B [prm]         - A[j] += B[i] (concat, assume ids compatible)\n"
-  "  -dump-ids XML HASH          - read keys on stdin, dump their values\n"
+  "  -dump-ids XML HASH [null]   - read keys on stdin, dump their values\n"
   "   rekey A a += B b [addnew]  - A[j] = B[i] (replace) where key = a[j] = b[i]\n"
   "   merge A a += B b [prm]     - A[j] += B[i] (concat) where key = a[j] = b[i]\n"
   "                                prm: addnew ... add new keys if not in a\n"
@@ -1352,7 +1355,7 @@ int main (int argc, char *argv[]) {
     //if (!strcmp (a(0), "merge") &&
     //!strcmp (a(2), "+="))    do_merge (a(1), NULL, a(3), NULL, a(4));
     if (!strcmp (a(0), "-dump")) dump_raw (a(1), a(2), a(3), a(4));
-    if (!strcmp (a(0), "-dump-ids")) dump_ids (a(1), a(2));
+    if (!strcmp (a(0), "-dump-ids")) dump_ids (a(1), a(2), a(3));
     if (!strcmp (a(0), "-rand")) dump_rnd (a(1), a(2));
     if (!strcmp (a(0), "-dmap")) dump_raw_ret (a(1), a(2), a(3));
     if (!strcmp (a(0), "size")) do_size (a(1));
