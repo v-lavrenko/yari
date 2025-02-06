@@ -195,6 +195,7 @@ void mtx_load (char *M, char *RH, char *CH, char *type, char *prm) {
 void mtx_print (char *prm, char *_M, char *RH, char *CH) {
   if (!prm) prm = "";
   uint top = getprm (prm,"top=",0), rno = getprm (prm,"rno=",0);
+  float thresh = getprm (prm,"thresh=",0);
   //uint dd = getprm (prm,"dd=",4);
   char *rcv = strstr(prm,"rcv"), *txt = strstr(prm,"txt"), *xml = strstr(prm,"xml");
   char *svm = strstr(prm,"svm"), *csv = strstr(prm,"csv"); // *tsv = strstr(prm,"tsv");
@@ -218,6 +219,7 @@ void mtx_print (char *prm, char *_M, char *RH, char *CH) {
     if (!len(vec) && !empty && !csv) { free_vec(vec); continue; }
     else if (!len(vec) && nonempty)  { free_vec(vec); continue; }
     char *rid = id2str(rh,i);
+    if   (thresh) { vec_x_num (vec, 'T', thresh); chop_vec (vec); }
     if      (top) { trim_vec (vec, top); sort_vec (vec, cmp_ix_X); }
     if      (Len) printf ("%s\t%d\n", rid, len(vec));
     else if (rcv) print_vec_rcv (vec, ch, rid, fmt);
