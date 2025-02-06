@@ -132,7 +132,7 @@ ix_t *levenstein_ops (ix_t *A, ix_t *B) {
 void show_levenstein_ops (ix_t *O, hash_t *h) {
   ix_t *o = O-1, *end = O+len(O);
   while (++o < end) {
-    char *op = (o->x > 0) ? bg_GREEN : (o->x < 0) ? bg_RED : "";
+    char *op = (o->x > 0) ? fg_GREEN : (o->x < 0) ? fg_RED : "";
     char *cl = RESET;
     if (h) printf(" %s%s%s", op, id2key(h,o->i), cl);
     else   printf(" %s%d%s", op, o->i, cl);
@@ -514,9 +514,11 @@ int do_levenstein_ops (char *_A, char *_B) {
   return 0;
 }
 
-char *__default_ws = " \t\r\n~`!@#$%^&*()_-+=[]{}|\\:;\"'<>,.?/";
+//char *__default_ws = " \t\r\n~`!@#$%^&*()_-+=[]{}|\\:;\"'<>,.?/";
+char *__default_ws = " \t\r\n";
 ix_t *xml2vec (char *_str, hash_t *h) {
-  char *str = get_xml_intag (_str, "description");
+  char *str = strdup(_str);
+  //char *str = get_xml_intag (_str, "description"); // why??
   no_xml_refs(str);
   no_xml_tags(str);
   csub (str, __default_ws, ' ');
@@ -527,29 +529,68 @@ ix_t *xml2vec (char *_str, hash_t *h) {
   free (str);
   return vec;
 }
+void show_vec (ix_t *vec, char what) ;
 
-
-int do_xml_pairs (char *_XML, char *_IDS, char *prm) {
-  char *verbose = strstr(prm,"verbose");
-  coll_t *XML = open_coll (_XML, "r+");
-  hash_t *IDS = open_hash (_IDS, "r");
-  char _a[999], _b[999];
-  while (2 == fscanf(stdin, "%s %s", _a, _b)) {
+int do_xml_pairs (char *_XML1, char *_IDS1, char *_XML2, char *_IDS2, char *prm) {
+  char *debug = strstr(prm,"debug"), *diff = strstr(prm,"diff");
+  coll_t *XML1 = open_coll (_XML1, "r+");
+  coll_t *XML2 = open_coll (_XML2, "r+");
+  hash_t *IDS1 = open_hash (_IDS1, "r");
+  hash_t *IDS2 = open_hash (_IDS2, "r");
+  size_t sz = 999999;
+  char *line = malloc(sz);
+  while (0 < getline(&line,&sz,stdin)) {
+    char *id1 = tsv_value(line, 1), *id2 = tsv_value(line, 2);
+    uint   i1 = key2id(IDS1, id1),    i2 = key2id(IDS2, id2);
+    if (debug) printf ("%s [%d] vs. %s [%d]\n", id1, i1, id2, i2);
     hash_t *TOK = open_hash (0, 0);
-    uint a = key2id(IDS,_a), b = key2id(IDS,_b);
-    //printf ("A:%d:%s B:%d:%s\n", a, _a, b, _b);
-    char *_A = get_chunk(XML,a); ix_t *A = xml2vec(_A,TOK);
-    char *_B = get_chunk(XML,b); ix_t *B = xml2vec(_B,TOK);
-    //printf ("A:%d B:%d words\n", len(A), len(B));
-    ix_t *ops = levenstein_ops (A,B);
-    uint dist = count(ops,'!',0), eq = count(ops,'=',0);
-    uint ins = count(ops,'>',0), del = count(ops,'<',0);
-    printf ("%d: +%d -%d / %d=\t%s\t%s\n", dist, ins, del, eq, _a, _b);
-    if (verbose) show_levenstein_ops (ops, TOK);
+    char *xml1 = get_chunk(XML1,i1), *xml2 = get_chunk(XML2,i2);
+    if (debug) printf ("%s\n%s\n", xml1, xml2);
+    ix_t *vec1 = xml2vec(xml1,TOK),  *vec2 = xml2vec(xml2,TOK);
+    if (debug) { show_vec(vec1, 'i'); show_vec(vec2, 'i'); }
+    double n1 = len(vec1), n2 = len(vec2);
+    if (n1 * n2 > 1e6) fprintf(stderr, "HUGE: %s [%.0f x %.0f] %s\n", id1, n1, n2, id2);
+    ix_t *ops = levenstein_ops (vec1, vec2);
+    if (diff) show_levenstein_ops (ops, TOK);
+    uint eqs = count(ops,'=',0);
+    uint ins = count(ops,'>',0);
+    uint del = count(ops,'<',0);
+    float sim = (float)eqs / len(ops);
+    printf ("%s\t%s\t%.4f\t=%d +%d -%d\n", id1, id2, sim, eqs, ins, del);
     fflush(stdout);
-    free_vec(A); free_vec(B); free_vec(ops); free_hash(TOK);
+    free_vec(vec1); free_vec(vec2); free_vec(ops); free_hash(TOK);
+    free(id1); free(id2);
   }
-  free_coll(XML); free_hash(IDS); //free_hash(TOK);
+  free_coll(XML1); free_hash(IDS1);
+  free_coll(XML2); free_hash(IDS2);
+  free(line);
+  return 0;
+}
+
+// replace SIMS[j,i] with edit similarity of XML[j], XML[i].
+int do_xml_sims(char *_SIMS, char *_XMLj, char *_XMLi) {
+  coll_t *SIMS = open_coll(_SIMS, "a+");
+  coll_t *XMLj = open_coll(_XMLj, "r+");
+  coll_t *XMLi = open_coll(_XMLi, "r+");
+  uint j, nr = num_rows(SIMS), nc = num_cols(SIMS);
+  fprintf(stderr, "Replacing %s [%d x %d] with edit sims\n", _SIMS, nr, nc);
+  if (!nr) fprintf(stderr, "ERROR: %s is empty!\n", _SIMS);
+  for (j = 1; j <= nr; ++j) {
+    hash_t *TOK = open_hash (0, 0);
+    ix_t *P = get_vec_ro(SIMS, j), *p;
+    for (p = P; p < P+len(P); ++p) {
+      char *Xj = get_chunk(XMLj, j);
+      char *Xi = get_chunk(XMLi, p->i);
+      ix_t *Vj = xml2vec(Xj, TOK);
+      ix_t *Vi = xml2vec(Xi, TOK);
+      ix_t *ops = levenstein_ops (Vj, Vi);
+      p->x = count(ops,'=',0) / (float)len(ops);
+      free_vec(Vi); free_vec(Vj); free_vec(ops);
+    }
+    free_hash(TOK);
+    show_progress(j, nr, " rows replaced");
+  }
+  free_coll(SIMS); free_coll(XMLj); free_coll(XMLi);
   return 0;
 }
 
@@ -565,19 +606,21 @@ char *usage =
   "       spell -eval  WORD WORD_CF [quiet] < pairs.tsv\n"
   "       spell -dist  word word\n"
   "       spell -ops  'b a n a' 'b n a'\n"
-  "       spell -pairs XML IDS < stdin: id1 id2\n"
+  "       spell -pairs XML1 IDS1 XML2 IDS2 < stdin: id1 id2\n"
+  "       spell -sims  SIMS XML1 XML2\n"
   ;
 
 int main (int argc, char *A[]) {
   if (argc < 2) return fprintf (stderr, "%s", usage);
-  if (!strcmp(a(1),"-fuse"))  return do_fuse (a(2), a(3), a(4), a(5));
-  if (!strcmp(a(1),"-split")) return do_split (a(2), a(3), a(4));
-  if (!strcmp(a(1),"-edits")) return do_edits (a(2), atoi(a(3)), a(4), a(5));
-  if (!strcmp(a(1),"-pub"))   return do_pubmed (a(2), a(3), a(4), a(5));
-  if (!strcmp(a(1),"-eval"))  return do_eval_spell (a(2), a(3), a(4));
-  if (!strcmp(a(1),"-dist"))  return do_levenstein (a(2), a(3));
-  if (!strcmp(a(1),"-ops"))  return do_levenstein_ops (a(2), a(3));
-  if (!strcmp(a(1),"-pairs")) return do_xml_pairs (a(2), a(3), a(4));
+  if (!strncmp(a(1),"-fuse",5))  return do_fuse (a(2), a(3), a(4), a(5));
+  if (!strncmp(a(1),"-split",6)) return do_split (a(2), a(3), a(4));
+  if (!strncmp(a(1),"-edits",6)) return do_edits (a(2), atoi(a(3)), a(4), a(5));
+  if (!strncmp(a(1),"-pub",4))   return do_pubmed (a(2), a(3), a(4), a(5));
+  if (!strncmp(a(1),"-eval",5))  return do_eval_spell (a(2), a(3), a(4));
+  if (!strncmp(a(1),"-dist",5))  return do_levenstein (a(2), a(3));
+  if (!strncmp(a(1),"-ops",4))   return do_levenstein_ops (a(2), a(3));
+  if (!strncmp(a(1),"-pairs",6)) return do_xml_pairs (a(2), a(3), a(4), a(5), a(1));
+  if (!strncmp(a(1),"-sims",5))  return do_xml_sims (a(2), a(3), a(4));
 
   if (argc == 3) {
     hash_t *H = open_hash (0,0);
