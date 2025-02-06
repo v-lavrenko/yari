@@ -827,7 +827,7 @@ void mtx_product (char *_P, char *_A, char *_B, char *prm) {
 	      strstr(prm,"BAND") ? 'B' : strstr(prm,"slin") ? 'k' :
 	      strstr(prm,"smax") ? 'S' : strstr(prm,"smin") ? 's' : 	
 	      strstr(prm,"maxx") ? 'M' : strstr(prm,"minx") ? 'm' : '.');
-  char *merge = strstr(prm,"merge");
+  uint merge = getprm(prm,"merge=",0);
   float p = index("2CJD",sim) ? 2 : index("1HX",sim) ? 1 : getprm(prm,",p=",0);
   int keepz = strstr(prm,"keepzero") || index("012nN",sim); // keep 0 distance
   int  top = getprm (prm,"top=",0);
@@ -852,10 +852,11 @@ void mtx_product (char *_P, char *_A, char *_B, char *prm) {
     //ix_t *_a = get_vec (A, id), *a = _a-1, *aEnd = _a+len(_a); // don't use get_vec_ro
     ix_t *_a = get_vec_mp (A, id), *a = _a-1, *aEnd = _a+len(_a);
     if (!len(_a)) { free_vec(_a); continue; }
-    if (merge) {
+    if (len(_a) < merge) {
       ix_t *_c = (len(_a) == 1) ? get_vec_mp (B, _a->i) : vec_x_rows (_a, B);
       put_vec_write (P, id, _c);
       free_vec(_a); free_vec(_c);
+      show_progress (++done, nA, " rows");
       continue;
     }
     float *S = new_vec (nB+1,sizeof(float));
@@ -2210,7 +2211,7 @@ char *usage =
 //"                                rbf=B     - convert to RBF kernel: exp(-b*P[i,j]^2)\n"
   "                                top=K     - keep K highest values in each row of P\n"
   "                                thresh=X  - keep only values > X in each row of P\n"
-  "                                merge     - use if A has short vecs, pure product\n"
+  "                                merge=L   - linear merge if len(row) < L, dot only\n"
 //"                                keepzero  - keep zero values in the matrix P\n"
   " P = A + B              - add matrix A to B: P[r,c] = A[r,c] + B[r,c]\n"
   "                          also supports: +,-,.,/,^,&,|,!,<,>\n"
