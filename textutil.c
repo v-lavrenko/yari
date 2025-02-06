@@ -118,7 +118,7 @@ void no_xml_refs (char *S) {
     if (s - beg > 10) { beg = 0; continue; } // too long
     while (++r < s) // r..s must be [#a-zA-Z0-9]
       if (!(isalnum(*r) || *r == '#')) { beg = 0; continue; }
-    memset(beg, ' ', s-beg+1);
+    if (beg) memset(beg, ' ', s-beg+1);
     beg = 0;
   }
   spaces2space (S); // multiple -> single space
