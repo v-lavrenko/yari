@@ -19,6 +19,7 @@
 
 */
 
+#include <stdlib.h>
 #include "hash.h"
 #include "bitvec.h"
 #include "timeutil.h"
