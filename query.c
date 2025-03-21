@@ -19,6 +19,7 @@
 
 */
 
+#include "types.h"
 #include "hash.h"
 #include "textutil.h"
 #include "timeutil.h"
