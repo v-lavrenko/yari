@@ -515,11 +515,13 @@ ix_t *band_qry (ix_t *Q, coll_t *INVL) {
 }
 
 // cost of each query term, slowest last
-ixy_t *qry_costs (ix_t *Q, ulong *DF) {
+ixy_t *qry_costs (ix_t *Q, ulong *DF, coll_t *INVL) {
   ixy_t *C = ix2ixy(Q, 0), *c;
   for (c = C; c < C+len(C); ++c) {
-    if (c->i < len(DF)) c->y = (float) DF[c->i];
-    else                c->y = 1;
+    c->y = 0;
+    if (c->i < len(DF)) c->y = DF[c->i];
+    if (c->y < 1) c->y = len_vec(INVL, c->i);
+    if (c->y < 1) c->y = 1.0;
   }
   sort_vec (C, cmp_ixy_y); // ascending y: invl size
   return C;
@@ -547,9 +549,9 @@ ix_t *timed_qry (ix_t *_Q, coll_t *INVL, ulong *DF, char *prm) {
   uint beam = getprm (prm, "beam=", 10000);
   fprintf(stderr, "\n%stimed_qry%s beam:%d terms:%d %.0fKB %.0fms\n",
 	  fg_BLUE, RESET, beam, max_terms, max_bytes/1E3, budget);
-  ixy_t *Q = qry_costs (_Q, DF), *q=Q, *end = Q + len(Q);
+  ixy_t *Q = qry_costs (_Q, DF, INVL), *q=Q, *end = Q + len(Q);
   double used_bytes = q->y;
-  //loglag("costs");
+  loglag("costs");
   //show_qry_costs (Q);
   if (used_bytes > 1e8) { free_vec(Q); return const_vec(0,0); }
   ix_t *R = get_vec (INVL, q->i);
