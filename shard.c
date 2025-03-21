@@ -25,19 +25,20 @@
 FILE **fopen_files (uint n, char *pfx, char *mode) {
   uint i; char path[9999];
   mkdir_parent (pfx);
-  char *_fmt = n>9999 ? "%s%05d" : n>999 ? "%s%04d" : n>99 ? "%s%03d" : n>9 ? "%s%02d" : "%s%d";
+  char *_fmt = n>10000 ? "%s%05d" : n>1000 ? "%s%04d" : n>100 ? "%s%03d" : n>10 ? "%s%02d" : "%s%d";
   FILE **file = new_vec (n, sizeof(FILE*));
   for (i = 0; i < n; ++i)
-    file[i] = safe_fopen (fmt (path,_fmt,pfx,i+1), mode);
+    file[i] = safe_fopen (fmt (path,_fmt,pfx,i), mode);
   return file;
 }
 
 // close NUM files and remove if CLEAN not NULL
 void fclose_files (FILE **file, char *pfx, char *clean) {
-  uint i; char path[9999];
-  for (i = 0; i < len(file); ++i) if (file[i]) {
+  uint i, n = len(file); char path[9999];
+  char *_fmt = n>10000 ? "%s%05d" : n>1000 ? "%s%04d" : n>100 ? "%s%03d" : n>10 ? "%s%02d" : "%s%d";
+  for (i = 0; i < n; ++i) if (file[i]) {
       fclose(file[i]);
-      if (clean) remove (fmt (path,"%s%d",pfx,i+1));
+      if (clean) remove (fmt (path,_fmt,pfx,i));
     }
   free_vec (file);
   if (clean) rmdir_parent (pfx);
@@ -45,22 +46,24 @@ void fclose_files (FILE **file, char *pfx, char *clean) {
 
 // read lines from IN, sort into OUT[i] based on column j
 void do_shard (FILE *in, FILE **out, char *prm) {
+  int bin = -1;
   char *key = getprms (prm,"key=",NULL,",");
   uint col = getprm (prm,"col=",0);
   char *line = NULL; size_t sz = 0;
   while (getline (&line, &sz, in) > 0) {
-    char *val = (key ? json_value (line,key) :
-		 col ? tsv_value (line,col) : line);
-    uint code = murmur3 (val, strlen(val));
-    uint bin =  code % len(out);
+    if (key || col) {
+      char *val = key ? json_value (line,key) : tsv_value (line,col);
+      uint code = murmur3 (val, strlen(val));
+      bin = code % len(out);
+      free(val);
+    }
+    else bin = (bin+1) % len(out);
     //fprintf (out[bin], "%u %u '%s' %s", bin, code, val, line);
     fputs (line, out[bin]);
-    if (val && (val != line)) free (val);
   }
   if (line) free (line);
   if (key) free (key);
 }
-
 
 // merge lines: this is pointless: use "sort -m"
 /*
