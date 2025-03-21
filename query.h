@@ -110,7 +110,7 @@ snip_t *text_keywords (index_t *I, char *text, uint limit) ;
 char **text_qry_toks (index_t *I, char *qry, char *prm) ;
 
 ix_t *band_qry (ix_t *Q, coll_t *INVL) ;
-ix_t *timed_qry (ix_t *_Q, coll_t *INVL, char *prm) ;
+ix_t *timed_qry (ix_t *_Q, coll_t *INVL, ulong *DF, char *prm) ;
 
 void dedup_docs (ix_t *D, coll_t *DOCS, char *prm);
 

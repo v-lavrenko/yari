@@ -220,10 +220,10 @@ ix_t *future_docs (ix_t *D, uint maxId, char *prm) {
   return F;
 }
 
-ix_t *rm_words (ix_t *Q, coll_t *DxW, coll_t *WxD, char *prm) {
+ix_t *rm_words (ix_t *Q, coll_t *DxW, coll_t *WxD, ulong *DF, char *prm) {
   uint limit = getprm(prm,"limit=",50);
   uint scale = getprm(prm,"scale=",1.0);
-  ix_t *D0 = timed_qry (Q, WxD, prm); // deadline=100ms,beam=10000
+  ix_t *D0 = timed_qry (Q, WxD, DF, prm); // deadline=100ms,beam=10000
   trim_vec (D0, limit);
   //ix_t *D1 = future_docs(D0, num_rows(DxW), prm); // future=1,decay=0.5
   vec_x_num (D0, '*', scale);
@@ -448,12 +448,13 @@ snip_t *run_text_qry (index_t *I, char *_qry, char *prm, char *mask) {
   if (!_qry) return new_vec (0, sizeof(snip_t));
   char *qry = strdup(_qry); // parse_vec destroys qry
   coll_t *INVL = I->WORDxDOC;
+  ulong *DF = I->STATS->df;
   ix_t *D, *Q = parse_vec_txt (qry, 0, I->WORD, prm); // stop,stem=K,tokw,nowb,gram=2:3
   jix_t *G = NULL; // groups of docs
   loglag("parse");
   //weigh_mtx_or_vec (0, Q, "idf,top=10", I->STATS); // inq,idf,top=10,thr=0,L2=1
   if      (strstr(prm,"band"))  D = band_qry (Q, INVL);  // Boolean AND (fast!)
-  else if (strstr(prm,"timed")) D = timed_qry (Q, INVL, prm); // deadline=100ms,beam=10000
+  else if (strstr(prm,"timed")) D = timed_qry (Q, INVL, DF, prm); // deadline=100ms,beam=10000
   else if (strstr(prm,"merge")) D = vec_x_rows (Q, INVL); // merge lists: few rare terms
   else if (strstr(prm,"score")) D = cols_x_vec (INVL, Q); // SCORE: many common terms
   else if (strstr(prm,"iseen")) D = cols_x_vec_iseen (INVL, Q);
@@ -514,10 +515,12 @@ ix_t *band_qry (ix_t *Q, coll_t *INVL) {
 }
 
 // cost of each query term, slowest last
-ixy_t *qry_costs (ix_t *Q, coll_t *INVL) {
+ixy_t *qry_costs (ix_t *Q, ulong *DF) {
   ixy_t *C = ix2ixy(Q, 0), *c;
-  for (c = C; c < C+len(C); ++c)
-    c->y = (float) chunk_sz (INVL, c->i);
+  for (c = C; c < C+len(C); ++c) {
+    if (c->i < len(DF)) c->y = (float) DF[c->i];
+    else                c->y = 1;
+  }
   sort_vec (C, cmp_ixy_y); // ascending y: invl size
   return C;
 }
@@ -536,7 +539,7 @@ void show_qry_costs (ixy_t *Q) {
 
 // match as many query terms as possible before deadline
 // use DOT product, assume weighting pre-applied
-ix_t *timed_qry (ix_t *_Q, coll_t *INVL, char *prm) {
+ix_t *timed_qry (ix_t *_Q, coll_t *INVL, ulong *DF, char *prm) {
   double budget = getprm (prm,"timed=",100);
   double deadline = mstime() + budget;
   double max_bytes = getprm (prm, "qbytes=", 0);
@@ -544,7 +547,7 @@ ix_t *timed_qry (ix_t *_Q, coll_t *INVL, char *prm) {
   uint beam = getprm (prm, "beam=", 10000);
   fprintf(stderr, "\n%stimed_qry%s beam:%d terms:%d %.0fKB %.0fms\n",
 	  fg_BLUE, RESET, beam, max_terms, max_bytes/1E3, budget);
-  ixy_t *Q = qry_costs (_Q, INVL), *q=Q, *end = Q + len(Q);
+  ixy_t *Q = qry_costs (_Q, DF), *q=Q, *end = Q + len(Q);
   double used_bytes = q->y;
   //loglag("costs");
   //show_qry_costs (Q);
@@ -677,7 +680,7 @@ int look_for_reuse (char *index, char *prm) {
     uint id = 1 + (random() % nd);
     ix_t *Q = get_vec (VECS, id);
     if (sum(Q) < Len) {free_vec(Q); continue;} // too short
-    ix_t *D = timed_qry (Q, I->WORDxDOC, prm), *d;
+    ix_t *D = timed_qry (Q, I->WORDxDOC, I->STATS->df, prm), *d;
     sort_vec(D, cmp_ix_X);
     for (d = D; d < D+len(D); ++d)
       if ((d->x / D->x) < sim) break;
