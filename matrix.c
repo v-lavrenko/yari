@@ -20,6 +20,7 @@
 */
 
 #include <math.h>
+#include "bitvec.h"
 #include "matrix.h"
 #include "hash.h"
 #include "textutil.h"
@@ -567,6 +568,31 @@ void ptrim (ix_t *vec, uint n, float p) {
   while (++b < end) if (b->x >= sup) *a++ = *b;
   len(vec) = a - vec;
   //printf("ftrim: want %4d out of %7.0f: sample %4.0f, get %5d over %.4f\n", n, N, k, vcount(vec), sup);
+}
+
+// samples k random integers in [0..M), or unrestricted if M == 0.
+uint *random_ints(uint k, uint M) {
+  uint *R = new_vec(k, sizeof(uint)), i;
+  for (i = 0; i < k; ++i) {
+    R[i] = (uint)random();
+    if (M) R[i] = R[i] % M;
+  }
+  return R;
+}
+
+// samples k integers in [0..M) without replacement.
+uint *sample_ints(uint k, uint M) {
+  assert (k + 10 < M);
+  uint *result = new_vec(0, sizeof(uint));
+  char *SEEN = bit_vec(M);
+  while (len(result) < k) {
+    uint r = random() % M;
+    if (bit_is_1(SEEN,r)) continue;
+    result = append_vec(result, &r);
+    bit_set_1(SEEN,r);
+  }
+  free_vec(SEEN);
+  return result;
 }
 
 ix_t *shuffle_vec (ix_t *V) {

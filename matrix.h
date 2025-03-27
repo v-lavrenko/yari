@@ -73,6 +73,8 @@ ulong bitvec2num (ix_t *vec) ;
 ix_t *vec2psg (ix_t *V, uint i, uint w); // i'th w/2-overlapping passage or NULL
 ix_t *shuffle_vec (ix_t *vec) ;
 void permute_vec (ix_t *V, uint nc) ; // scatter values into random columns 1..nc
+uint *random_ints(uint k, uint M) ; // k random ints in [0..M) with replacement
+uint *sample_ints(uint k, uint M) ; // k distinct ints in [0..M) without replacement
 
 ix_t *const_vec (uint n, float x) ;
 ix_t *rand_vec (uint n) ;
