@@ -73,6 +73,7 @@ void mtx_cksum (char *prm, int nM, char *_M[]) {
     fflush(stdout);
     free_coll (M);
   }
+  free_vec(I);
 }
 
 void mtx_trace (char *_M, char *prm) {
