@@ -1291,6 +1291,25 @@ void do_size (char *_C) {
   free_coll(C);
 }
 
+ulong sdbm_hash (char *buf, size_t sz, ulong seed) ;
+void do_cksum (char *prm, int nC, char *_C[]) {
+  uint k = getprm(prm,"k=",1000);
+  uint *I = random_ints(k, 0), *i;
+  for (int c=0; c<nC; ++c) {
+    coll_t *C = open_coll (_C[c], "r+");
+    ulong cksum = 1;
+    for (i=I; i < I+len(I); ++i) {
+      uint id = (*i % nvecs(C)) + 1;
+      char *s = get_chunk(C, id);
+      cksum = sdbm_hash (s, strlen(s), cksum);
+    }
+    printf("%016lx\t%s\n", cksum, _C[c]);
+    fflush(stdout);
+    free_coll (C);
+  }
+  free_vec(I);
+}
+
 char *usage =
   "kvs                           - optional [parameters] are in brackets\n"
   "  -m 256                      - set mmap size to 256MB\n"
@@ -1329,6 +1348,7 @@ char *usage =
   "                                sim=0  ... follow drag only if sim > 0\n"
   "                                top=K  ... drag only K nearest neighbours\n"
   "  size XML                    - show number of chunks in XML\n"
+  "  cksum:[k=1000] A B C ...    - fast rough checksum of stores A,B,C,...\n"
   ;
 
 #define a(i) ((i < argc) ? argv[i] : "")
@@ -1361,6 +1381,7 @@ int main (int argc, char *argv[]) {
     if (!strcmp (a(0), "-rand")) dump_rnd (a(1), a(2));
     if (!strcmp (a(0), "-dmap")) dump_raw_ret (a(1), a(2), a(3));
     if (!strcmp (a(0), "size")) do_size (a(1));
+    if (!strncmp (a(0), "cksum", 5)) do_cksum (a(0), argc-1, argv+1);
     //if (!strcmp (a(0), "-stat")) do_stats (a(1), a(2));
     if (!strcmp (a(0), "-qry")) qry = do_qry (QRY=a(1), DICT=a(2), a(3));
     if (!strcmp (a(0), "-ret")) ret = do_ret (qry, INVL=a(1), a(2)); // free ret
