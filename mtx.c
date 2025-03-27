@@ -58,16 +58,14 @@ void mtx_norm (char *_M, char *prm) {
 
 ulong sdbm_hash (char *buf, size_t sz, ulong seed) ;
 void mtx_cksum (char *prm, int nM, char *_M[]) {
-  int seed = getprm(prm,"seed=",1), m;
-  float p = getprm(prm,"p=",0);
+  int k = getprm(prm,"k=",1000), m;
+  uint *I = random_ints(k, 0), *i;
   for (m=0; m<nM; ++m) {
-    if (p) srandom(seed);
-    ulong cksum = 1;
     coll_t *M = open_coll (_M[m],"r+");
-    uint r, nr = num_rows(M);
-    for (r=1; r<=nr; ++r) {
-      if (p && rnd() > p) continue;
-      void *vec = get_vec_ro(M,r);
+    ulong cksum = 1;
+    for (i=I; i < I+len(I); ++i) {
+      uint id = (*i % num_rows(M)) + 1;
+      void *vec = get_vec_ro(M, id);
       size_t sz = len(vec) * vesize(vec);
       cksum = sdbm_hash (vec, sz, cksum);
     }
@@ -2241,8 +2239,7 @@ char *usage =
   " size[:r/c] A           - report the dimensions of A (rows/cols)\n"
   " norm[:p=1] A           - p-norm of A: SUM_r,c A[r,c]^p\n"
   " trace[:avg] A          - sum/average of elements on the diagonal of A\n"
-  " cksum[:prm] A B ...    - fast rough checksum of matrices A,B,...\n"
-  "                          prm: seed=1,p=0.1 random 10% of rows\n"
+  " cksum[:k=1000] A B C   - rough checksum of k random vectors from matrices A,B,C\n"
   " rm A                   - rm -rf A\n"
   "\nExamples: http://bit.ly/irtool\n\n"
   ;

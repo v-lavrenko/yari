@@ -57,12 +57,14 @@ coll_t *copy_coll (coll_t *src) ;
 void *get_chunk (coll_t *c, uint id) ;
 void del_chunk (coll_t *c, uint id) ;
 void put_chunk (coll_t *c, uint id, void *chunk, off_t size) ;
+void put_chunk_pwrite (coll_t *c, uint id, void *chunk, off_t size) ;
 off_t chunk_sz (coll_t *c, uint id) ;
 
 #define has_vec(c,i) ((i) > 0 && (i) <= nvecs(c) && (c)->offs[(i)])
 void *get_vec (coll_t *c, uint id) ;
 void del_vec (coll_t *c, uint id) ;
 void put_vec (coll_t *c, uint id, void *vec) ;
+void put_vec_write (coll_t *c, uint id, void *vec) ;
 void *next_vec (coll_t *c, uint *id);
 void *get_or_new_vec (coll_t *c, uint id, uint esize);
 void *get_vec_ro (coll_t *c, uint id) ;
