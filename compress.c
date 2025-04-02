@@ -27,6 +27,7 @@
 #include "hash.h"
 #include "bitvec.h"
 #include "timeutil.h"
+#include "zvec.h"
 
 /* -------------------- ideas --------------------
 
@@ -358,244 +359,6 @@ uint *bmask_decode (char *B) {
   }
   return U;
 }
-
-// ---------------------------------------- z-standard
-
-size_t ZSTD_compress( void* dst, size_t dstSz, const void* src, size_t srcSz, int lvl);
-size_t ZSTD_decompress( void* dst, size_t dstSz, const void* src, size_t srcSz);
-unsigned ZSTD_isError(size_t code);
-const char* ZSTD_getErrorName(size_t code);
-size_t ZSTD_compressBound(size_t srcSize);
-unsigned long long ZSTD_getDecompressedSize(const void* src, size_t srcSize);
-unsigned long long ZSTD_getFrameContentSize(const void *src, size_t srcSize);
-
-// if sz == error, print msg followed by zstd error.
-void zstd_assert (size_t sz, char *msg) {
-  if (ZSTD_isError(sz)) {
-    fprintf(stderr, "%s ZSTD ERROR: [%ld] %s\n", msg, sz, ZSTD_getErrorName(sz));
-    assert(0 && "YARI: compress.c:zstd_assert()");
-  }
-}
-
-// ---------- work on uint *U, like delta/vbyte/gamma ----------
-
-// compress: vector of ints U -> vector of bytes B.
-// crudely pre-allocate B
-char *zstd_encodeU (uint *U) {
-  size_t Usz = 4*len(U), Bsz = Usz+1024;
-  void *B = new_vec (Bsz, 1);
-  size_t sz = ZSTD_compress(B, Bsz, U, Usz, 5);
-  zstd_assert (sz, "encode");
-  len(B) = sz;
-  return B;
-}
-
-// decompress: vector of chars B -> vector of unts U.
-// crudely preallocate U
-uint *zstd_decodeU (char *B) {
-  size_t Bsz = len(B), Usz = 16*Bsz + (1<<28), esz = sizeof(uint);
-  uint *U = new_vec (Usz/esz, esz);
-  size_t sz = ZSTD_decompress(U, Usz, B, Bsz);
-  zstd_assert (sz, "decode");
-  len(U) = sz/esz;
-  return U;
-}
-
-// ---------- work on chunks of bytes ----------
-
-// compress chunk src[:ssz] into re-allocated trg[:sz]
-void UNUSED_zstd (char **trg, size_t *sz, char *src, size_t ssz, int level) {
-  size_t SZ = ZSTD_compressBound(ssz); // worst-case compressed size
-  *trg = safe_realloc(*trg, SZ);
-  *sz = ZSTD_compress(*trg, SZ, src, ssz, level);
-  zstd_assert(*sz, "encode");
-}
-
-// uncompress src[:ssz] into re-allocated trg[:sz]
-void UNUSED_unzstd (char **trg, size_t *sz, char *src, size_t ssz) {
-  size_t SZ = ZSTD_getFrameContentSize(src, ssz);
-  *trg = safe_realloc(*trg, SZ);
-  *sz = ZSTD_decompress(*trg, SZ, src, ssz);
-  zstd_assert(*sz, "decode");
-}
-
-// compress src[:ssz] and write it into c[id].
-// BUG: chunk_sz(id) != number of compressed bytes.
-void BUGGY_put_chunk_zstd (coll_t *c, uint id, char *src, size_t ssz) {
-  char *buf=NULL; size_t used=0;
-  UNUSED_zstd(&buf, &used, src, ssz, 3);
-  put_chunk_pwrite(c, id, buf, used); // <-- BUG
-  free(buf);
-}
-
-// return a decompressed copy of chunk c[id].
-// BUG: assumes chunk_sz == compressed bytes.
-char *BUGGY_get_chunk_zstd (coll_t *c, uint id) {
-  if (!has_vec(c, id)) return NULL;
-  char *buf=NULL; size_t used=0;
-  char *src = get_chunk(c, id);
-  size_t ssz = chunk_sz(c, id); // <-- BUG
-  UNUSED_unzstd(&buf, &used, src, ssz);
-  return buf;
-}
-
-// -------------- any vector <-> compressed vector ---------------
-
-// convert string to vector of bytes (resizeable string with length).
-byte *str_to_bytes(char *str) {
-  uint sz = strlen(str) + 1; // include terminating \0
-  byte *vec = new_vec(0, sizeof(byte));
-  return append_many(vec, str, sz);
-}
-
-// compress any buffer -> zstd-vector.
-byte *buf_to_zvec (void *buf, size_t buf_sz, int level) {
-  size_t max_sz = ZSTD_compressBound(buf_sz); // worst-case compressed size
-  byte *zvec = new_vec(max_sz, sizeof(byte));
-  size_t zvec_sz = ZSTD_compress(zvec, max_sz, buf, buf_sz, level);
-  zstd_assert(zvec_sz, "compress");
-  len(zvec) = zvec_sz;
-  return zvec;
-}
-
-// uncompress zstd-vector -> buffer (return size in *result_sz).
-void *zvec_to_buf (byte *zvec, size_t *result_sz) {
-  size_t max_sz = ZSTD_getFrameContentSize(zvec, len(zvec));
-  void *buf = safe_malloc (max_sz);
-  size_t buf_sz = ZSTD_decompress(buf, max_sz, zvec, len(zvec));
-  zstd_assert(buf_sz, "decompress");
-  if (buf_sz < max_sz) buf = safe_realloc(buf, buf_sz);
-  if (result_sz) *result_sz = buf_sz;
-  return buf;
-}
-
-// compress string -> zstd-vector.
-byte *str_to_zvec(char *s, int level) {
-  return buf_to_zvec (s, strlen(s)+1, level);
-}
-
-// uncompress zstd-vector -> string.
-char *zvec_to_str (byte *zvec) {
-  size_t sz; char *buf = zvec_to_buf (zvec, &sz);
-  if (sz > 0) buf[sz] = '\0'; // null-terminate
-  return buf;
-}
-
-// compress any vector -> zstd-vector.
-byte *vec_to_zvec (void *vec, int level) {
-  return buf_to_zvec (vec, len(vec) * vesize(vec), level);
-}
-
-// uncompress zstd-vector -> vector of given el_size.
-void *zvec_to_vec (byte *zvec, uint el_size) {
-  size_t max_sz = ZSTD_getFrameContentSize(zvec, len(zvec));
-  uint max_els = ((max_sz - 1) / el_size) + 1;
-  void *vec = new_vec(max_els, el_size);
-  size_t vec_sz = ZSTD_decompress(vec, max_sz, zvec, len(zvec));
-  zstd_assert(vec_sz, "decompress");
-  len(vec) = ((vec_sz - 1) / el_size) + 1;
-  return vec;
-}
-
-
-// compress vec and write to c[id]
-void put_vec_zst (coll_t *c, uint id, void *vec) {
-  byte *zvec = vec_to_zvec (vec, 5);
-  put_vec_write (c, id, zvec);
-  free_vec(zvec);
-}
-
-// return uncompressed copy of c[id]
-void *get_vec_zst (coll_t *c, uint id, uint el_size) {
-  byte *zvec = get_vec_ro (c, id);
-  if (!len(zvec)) return new_vec(0,0);
-  return zvec_to_vec(zvec, el_size);
-}
-
-// compress chunk and write to c[id]
-void put_chunk_zst (coll_t *c, uint id, void *chunk, size_t sz) {
-  byte *zvec = buf_to_zvec(chunk, sz, 5);
-  put_vec_write (c, id, zvec);
-  free_vec(zvec);
-}
-
-// return uncompressed copy of c[id], return size in *sz.
-void *get_chunk_zst (coll_t *c, uint id, size_t *sz) {
-  byte *zvec = get_vec_ro (c, id);
-  if (!len(zvec)) return NULL;
-  return zvec_to_buf(zvec, sz);
-}
-
-// compress KVS strings into byte-vectors.
-int compress_kvs (char *_SRC, char *_TRG, char *prm) {
-  int level = getprm(prm,"level=",5);
-  coll_t *SRC = open_coll(_SRC, "r+");
-  coll_t *TRG = open_coll(_TRG, "w+");
-  uint i, n = nvecs(SRC);
-  for (i=1; i<=n; ++i) {
-    char *text = get_chunk(SRC, i);
-    byte *zvec = buf_to_zvec(text, strlen(text)+1, level);
-    put_vec_write (TRG, i, zvec);
-    free_vec(zvec);
-    if (!(i%1000)) show_progress(i, n, " chunks compressed");
-  }
-  free_coll(SRC);
-  free_coll(TRG);
-  return 0;
-}
-
-// uncompress byte-vectors into KVS strings.
-int uncompress_kvs (char *_SRC, char *_TRG) {
-  coll_t *SRC = open_coll(_SRC, "r+");
-  coll_t *TRG = open_coll(_TRG, "w+");
-  uint i, n = nvecs(SRC); size_t sz;
-  for (i=1; i<=n; ++i) {
-    byte *zvec = get_vec_ro (SRC, i);
-    char *text = zvec_to_buf (zvec, &sz);
-    put_chunk (TRG, i, text, sz);
-    free(text);
-    if (!(i%1000)) show_progress(i, n, " chunks decompressed");
-  }
-  free_coll(SRC);
-  free_coll(TRG);
-  return 0;
-}
-
-// compress SRC vectors into byte-vectors.
-int compress_mtx (char *_SRC, char *_TRG, char *prm) {
-  int level = getprm(prm,"level=",5);
-  coll_t *SRC = open_coll(_SRC, "r+");
-  coll_t *TRG = open_coll(_TRG, "w+");
-  uint i, n = nvecs(SRC);
-  for (i=1; i<=n; ++i) {
-    void *vec = get_vec_ro(SRC, i);
-    byte *zvec = vec_to_zvec (vec, level);
-    put_vec_write (TRG, i, zvec);
-    free_vec(zvec);
-    if (!(i%1000)) show_progress(i, n, " vectors compressed");
-  }
-  free_coll(SRC);
-  free_coll(TRG);
-  return 0;
-}
-
-// uncompress byte-vectors into TRG vectors.
-int uncompress_mtx (char *_SRC, char *_TRG) {
-  coll_t *SRC = open_coll(_SRC, "r+");
-  coll_t *TRG = open_coll(_TRG, "w+");
-  uint i, n = nvecs(SRC);
-  for (i=1; i<=n; ++i) {
-    byte *zvec = get_vec_ro(SRC, i);
-    ix_t *vec = zvec_to_vec (zvec, sizeof(ix_t));
-    put_vec_write (TRG, i, vec);
-    free_vec(vec);
-    if (!(i%1000)) show_progress(i, n, " vectors uncompressed");
-  }
-  free_coll(SRC);
-  free_coll(TRG);
-  return 0;
-}
-
 
 // ---------------------------------------- pFORdelta
 
@@ -979,11 +742,107 @@ int do_mtx (char *_M, char *alg) {
   free_coll (M);
   return 0;
 }
+// compress KVS strings into byte-vectors.
+int compress_kvs (char *_SRC, char *_TRG, char *prm) {
+  int level = getprm(prm,"level=",5);
+  coll_t *SRC = open_coll(_SRC, "r+");
+  coll_t *TRG = open_coll(_TRG, "w+");
+  uint i, n = nvecs(SRC);
+  for (i=1; i<=n; ++i) {
+    char *text = get_chunk(SRC, i);
+    byte *zvec = buf_to_zvec(text, strlen(text)+1, level);
+    put_vec_write (TRG, i, zvec);
+    free_vec(zvec);
+    if (!(i%1000)) show_progress(i, n, " chunks compressed");
+  }
+  free_coll(SRC);
+  free_coll(TRG);
+  return 0;
+}
+
+// uncompress byte-vectors into KVS strings.
+int uncompress_kvs (char *_SRC, char *_TRG) {
+  coll_t *SRC = open_coll(_SRC, "r+");
+  coll_t *TRG = open_coll(_TRG, "w+");
+  uint i, n = nvecs(SRC); size_t sz;
+  for (i=1; i<=n; ++i) {
+    byte *zvec = get_vec_ro (SRC, i);
+    char *text = zvec_to_buf (zvec, &sz);
+    put_chunk (TRG, i, text, sz);
+    free(text);
+    if (!(i%1000)) show_progress(i, n, " chunks decompressed");
+  }
+  free_coll(SRC);
+  free_coll(TRG);
+  return 0;
+}
+
+int check_kvs_zip (char *_ZIP, char *_KVS) {
+  coll_t *KVS = open_coll(_KVS, "r+");
+  coll_t *ZIP = open_coll(_ZIP, "r+");
+  uint i, nk = nvecs(KVS), nz = nvecs(ZIP);
+  if (nk != nz) {
+    fprintf(stderr, "ERROR: %s [%d] != [%d] %s\n", _ZIP, nz, nk, _KVS);
+    return 1;
+  }
+  assert (nk == nz);
+  for (i=1; i<=nk; ++i) {
+    char *zs = get_string_zst(ZIP, i);
+    char *ks = get_chunk(KVS, i);
+    if (strcmp(ks,zs)) {
+      fprintf(stderr, "%s[%d]: %.100s\n", _ZIP, i, zs);
+      fprintf(stderr, "%s[%d]: %.100s\n", _KVS, i, ks);
+      fprintf(stderr, "ERROR: %s [%d] != %s [%d]\n", _ZIP, i, _KVS, i);
+      return 1;
+    }
+    free(zs);
+    if (!(i%1000)) show_progress(i, nk, " chunks checked");
+  }
+  free_coll(KVS);
+  free_coll(ZIP);
+  return 0;
+}
+
+// compress SRC vectors into byte-vectors.
+int compress_mtx (char *_SRC, char *_TRG, char *prm) {
+  int level = getprm(prm,"level=",5);
+  coll_t *SRC = open_coll(_SRC, "r+");
+  coll_t *TRG = open_coll(_TRG, "w+");
+  uint i, n = nvecs(SRC);
+  for (i=1; i<=n; ++i) {
+    void *vec = get_vec_ro(SRC, i);
+    byte *zvec = vec_to_zvec (vec, level);
+    put_vec_write (TRG, i, zvec);
+    free_vec(zvec);
+    if (!(i%1000)) show_progress(i, n, " vectors compressed");
+  }
+  free_coll(SRC);
+  free_coll(TRG);
+  return 0;
+}
+
+// uncompress byte-vectors into TRG vectors.
+int uncompress_mtx (char *_SRC, char *_TRG) {
+  coll_t *SRC = open_coll(_SRC, "r+");
+  coll_t *TRG = open_coll(_TRG, "w+");
+  uint i, n = nvecs(SRC);
+  for (i=1; i<=n; ++i) {
+    byte *zvec = get_vec_ro(SRC, i);
+    ix_t *vec = zvec_to_vec (zvec, sizeof(ix_t));
+    put_vec_write (TRG, i, vec);
+    free_vec(vec);
+    if (!(i%1000)) show_progress(i, n, " vectors uncompressed");
+  }
+  free_coll(SRC);
+  free_coll(TRG);
+  return 0;
+}
 
 char *usage =
   "--------\n"
   "compress   zip-kvs KVS ZIP [level=5]  ... KVS strings -> compressed matrix\n"
   "compress unzip-kvs ZIP KVS            ... compressed ZIP -> strings in KVS\n"
+  "compress check-kvs ZIP KVS            ... assert if different\n"
   "compress   zip-mtx MTX ZIP [level=5]  ... matrix -> compressed matrix ZIP\n"
   "compress unzip-mtx ZIP MTX            ... uncompress matrix\n"
   "--------\n"
@@ -1006,6 +865,7 @@ int main (int argc, char *argv[]) {
   //
   if (!strcmp (a(1),  "zip-kvs")) return   compress_kvs(arg(2), arg(3), a(4));
   if (!strcmp (a(1),"unzip-kvs")) return uncompress_kvs(arg(2), arg(3));
+  if (!strcmp (a(1),"check-kvs")) return  check_kvs_zip(arg(2), arg(3));
   if (!strcmp (a(1),  "zip-mtx")) return   compress_mtx(arg(2), arg(3), a(4));
   if (!strcmp (a(1),"unzip-mtx")) return uncompress_mtx(arg(2), arg(3));
   //

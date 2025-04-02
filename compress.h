@@ -39,15 +39,3 @@ uint *gamma_decode (byte *_B) ;
 
 byte *bmask_encode (uint *U) ; // Bit-mask encode
 uint *bmask_decode (byte *B) ;
-
-byte *zstd_encodeU (uint *U) ; // zstdlib
-uint *zstd_decodeU (byte *B) ;
-
-char *str2vec(char *str) ;
-byte *zstd_vec (void *vec, int level) ; // vec <-> byte-vec
-void *unzstd_vec (byte *zst, uint el_size) ;
-
-// compress src[:ssz] into re-allocated trg[:sz]
-void zstd (char **trg, size_t *sz, char *src, size_t ssz, int level) ;
-// uncompress src[:ssz] into re-allocated trg[:sz]
-void unzstd (char **trg, size_t *sz, char *src, size_t ssz) ;

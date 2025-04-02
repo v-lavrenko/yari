@@ -25,8 +25,11 @@
 #include "math.h"
 #include "matrix.h"
 #include "textutil.h"
+#include "zvec.h"
 
 #define Inf 999999999
+
+uint USE_ZSTD = 0; // use compression when possible.
 
 void dump_raw_ret (char *C, char *RH, char *prm) {
   char *tag = getprms(prm,"tag=","",",");
@@ -72,11 +75,12 @@ void dump_ids (char *C, char *RH, char *prm) {
   fprintf(stderr, "%s: %d keys\n", RH, len(ids));
   coll_t *c = open_coll (C, "r+");
   for (id = ids; id < ids + len(ids); ++id) {
-    char *doc = get_chunk(c, *id);
-    if (!doc || !*doc) continue;
+    char *doc = USE_ZSTD ? get_string_zst(c,*id) : get_chunk(c,*id);
+    if (!doc) continue;
     fputs(doc, stdout);
     fputc(EOD, stdout);
     ++chunks;
+    if (USE_ZSTD) free(doc);
   }
   fprintf(stderr, "%s: %d / %d chunks\n", C, chunks, len(ids));
   free_coll(c);
@@ -92,10 +96,11 @@ void dump_raw (char *C, char *RH, char *id, char *prm) {
   uint n = *id ? i : nvecs(c);
   //printf ("%s %s %d %d\n", C, RH, i, n);
   for (; i <= n; ++i) {
-    char *doc = get_chunk(c,i);
-    if (!doc || !*doc) continue;
+    char *doc = USE_ZSTD ? get_string_zst(c,i) : get_chunk(c,i);
+    if (!doc) continue;
     fputs(doc, stdout);
     fputc(EOD, stdout);
+    if (USE_ZSTD) free(doc);
   }
   free_coll(c); free_hash(h);
 }
@@ -189,7 +194,8 @@ void load_xml_or_json (char *C, char *RH, char *prm) {
       else       append_sgml (&buf, &SZ, old);
       sz = strlen(buf);
     }
-    put_chunk (c, id, buf, sz+1);
+    if (USE_ZSTD) put_chunk_zst (c, id, buf, sz+1);
+    else          put_chunk     (c, id, buf, sz+1);
     *buf = '\0';
   }
   free_coll (c); free_hash (rh); free(buf);
@@ -1292,6 +1298,24 @@ void do_size (char *_C) {
 }
 
 ulong sdbm_hash (char *buf, size_t sz, ulong seed) ;
+
+void xsum_chunks (char *C, char *H) {
+  coll_t *c = open_coll (C, "r+");
+  hash_t *h = *H ? open_hash (H, "r") : NULL;
+  uint i, n = nvecs(c);
+  for (i = 1; i <= n; ++i) {
+    char *doc = USE_ZSTD ? get_string_zst(c,i) : get_chunk(c,i);
+    if (!doc) continue;
+    char *id = id2str(h,i);
+    uint sz = strlen(doc);
+    ulong cksum = sdbm_hash (doc, sz, 1);
+    printf("%016lx\t%d\t%s\n", cksum, sz, id);
+    free(id);
+    if (USE_ZSTD) free(doc);
+  }
+  free_coll(c); free_hash(h);
+}
+
 void do_cksum (char *prm, int nC, char *_C[]) {
   uint k = getprm(prm,"k=",1000);
   uint *I = random_ints(k, 0), *i;
@@ -1312,6 +1336,7 @@ void do_cksum (char *prm, int nC, char *_C[]) {
 
 char *usage =
   "kvs                           - optional [parameters] are in brackets\n"
+  "  -z                          - use zstd for dump, load, cksum\n"
   "  -m 256                      - set mmap size to 256MB\n"
   "  -rs 1                       - set random seed to 1\n"
   "  -dump XML [HASH id [prm]]   - dump all [id] from collection XML/JSON\n"
@@ -1327,6 +1352,7 @@ char *usage =
   "   rekey A a += B b [addnew]  - A[j] = B[i] (replace) where key = a[j] = b[i]\n"
   "   merge A a += B b [prm]     - A[j] += B[i] (concat) where key = a[j] = b[i]\n"
   "                                prm: addnew ... add new keys if not in a\n"
+  "  -xsum XML [HASH]            - dump id + checksum for every doc in XML\n"
   //"  -stat XML HASH              - stats (cf,df) from collection XML -> stdout\n"
   "  -dmap XML HASH [prm]        - stdin: qryid docid, stdout: qryid XML[docid]\n"
   "  -qry 'query' DICT stem=L    - parse query\n"
@@ -1359,6 +1385,7 @@ int main (int argc, char *argv[]) {
   ix_t *qry = NULL, *ret = NULL;
   vtime();
   while (++argv && --argc) {
+    if (!strcmp (a(0), "-z")) USE_ZSTD = 1;
     if (!strcmp (a(0), "-m")) MAP_SIZE = ((ulong) atoi (a(1))) << 20;
     if (!strcmp (a(0), "-rs")) srandom (atoi(a(1)));
     if (!strcmp (a(0), "-load")) load_xml_or_json (a(1), a(2), a(3));
@@ -1381,6 +1408,7 @@ int main (int argc, char *argv[]) {
     if (!strcmp (a(0), "-rand")) dump_rnd (a(1), a(2));
     if (!strcmp (a(0), "-dmap")) dump_raw_ret (a(1), a(2), a(3));
     if (!strcmp (a(0), "size")) do_size (a(1));
+    if (!strcmp (a(0), "-xsum")) xsum_chunks (a(1), a(2));
     if (!strncmp (a(0), "cksum", 5)) do_cksum (a(0), argc-1, argv+1);
     //if (!strcmp (a(0), "-stat")) do_stats (a(1), a(2));
     if (!strcmp (a(0), "-qry")) qry = do_qry (QRY=a(1), DICT=a(2), a(3));

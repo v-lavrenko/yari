@@ -26,6 +26,7 @@
 #include "matrix.h"
 #include "textutil.h"
 #include "svm.h"
+#include "zvec.h"
 
 //void mtx_reset_corrupt (char *C) { free_coll (open_coll (C,"a")); } // now in testvec
 
@@ -118,14 +119,16 @@ void put_vec_write (coll_t *c, uint id, void *vec) ;
 
 // write XML documents from KVS into MTX, append COL dict.
 void mtx_from_kvs (char *_MTX, char *_COL, char *_KVS, char *prm) {
+  char *unzip = strstr(prm,"unzip");
   coll_t *KVS = open_coll (_KVS, "r+");
   coll_t *MTX = open_coll (_MTX, "w+");
   hash_t *COL = open_hash (_COL, "a!");
   uint id, nd = nvecs(KVS);
-  fprintf (stderr, "[%.0fs] %s [%d x %s] = load %s\n", vtime(), _MTX, nd, _COL, _KVS);
+  fprintf (stderr, "[%.0fs] %s [%d x %s] = load %s %s\n",
+           vtime(), _MTX, nd, _COL, _KVS, (unzip?"unzip":""));
   for (id = 1; id <= nd; ++id) {
     if (!has_vec(KVS,id)) continue;
-    char *doc = strdup(get_chunk(KVS,id));
+    char *doc = unzip ? get_string_zst(KVS,id) : strdup(get_chunk(KVS,id));
     ix_t *vec = parse_vec_xml (doc, NULL, COL, prm);
     put_vec_write (MTX, id, vec);
     free_vec(vec);
@@ -2272,10 +2275,12 @@ int main (int argc, char *argv[]) {
   if (argc < 3) { printf ("%s", usage); return 1; }
   if (!strcmp (a(1), "-m")) {
     MAP_SIZE = ((ulong) atoi (a(2))) << 20; argv+=2; argc-=2;
-    fprintf (stderr, "MAP_SIZE is %uMB\n", (uint)(MAP_SIZE>>20)); }
+    fprintf (stderr, "MAP_SIZE is %uMB\n", (uint)(MAP_SIZE>>20));
+  }
   if (!strcmp (a(1), "-r")) {
     uint seed = atoi (a(2)); if (!seed) seed = (uint)time(0); srandom (seed);
-    fprintf (stderr, "RNG SEED is %u\n", seed); argv+=2; argc-=2; }
+    fprintf (stderr, "RNG SEED is %u\n", seed); argv+=2; argc-=2;
+  }
   argc = remove_sugar (argc, argv);
   if      (!strncmp(a(1), "size", 4))   mtx_size (arg(2), a(1));
   else if (!strcmp (a(1), "rm"))        rm_dir (arg(2));
