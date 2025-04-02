@@ -4,7 +4,6 @@
 #include <string.h>
 #include "types.h"
 #include "hash.h"
-#include "bitvec.h"
 #include "timeutil.h"
 
 // ---------------------------------------- z-standard
