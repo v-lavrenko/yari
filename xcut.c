@@ -51,7 +51,7 @@ int *col_nums (char **cols, int n, char *hdr) {
   for (i=0; i<n; ++i)
     if (cols[i][0] != '\\') // skip \literal
       for (s=cols[i]; *s; ++s)
-	if (!isdigit(*s)) return col_names (cols, n, hdr);
+	if (!isdigit(*s) && *s != '-') return col_names (cols, n, hdr);
   int *nums = calloc(n,sizeof(int));
   for (i=0; i<n; ++i) nums[i] = atoi(cols[i]);
   return nums;
@@ -70,7 +70,10 @@ void cut_tsv (char *line, int *nums, int n, char **cols) {
   int i, NF = len(F);
   for (i = 0; i < n; ++i) {
     int literal = (cols[i][0] == '\\'), c = nums[i];
-    char *val = literal ? (cols[i]+1) : (c > 0 && c <= NF) ? F[c-1] : "";
+    char *val = (literal ? (cols[i]+1) :
+		 (c > 0 && c <= NF) ? F[c-1] :
+		 (c < 0 && NF+c >= 0) ? F[NF+c] : 
+		 "");
     print_val (val, (i+1==n));
   }
   free_vec(F);
