@@ -25,6 +25,7 @@
 #include "math.h"
 #include "matrix.h"
 #include "textutil.h"
+#include "types.h"
 #include "zvec.h"
 
 #define Inf 999999999
