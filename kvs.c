@@ -225,11 +225,14 @@ void merge_colls (char *_C, char *_A, char *_B) { // C = A + B
   uint nA = nvecs(A), nB = nvecs(B), n = MAX(nA,nB), i;
   fprintf (stderr, "merge: %s[%d] + %s[%d] -> %s\n", _A, nA, _B, nB, _C);
   for (i=1; i<=n; ++i) {
-    char *a = get_chunk(A,i), *b = get_chunk(B,i);
+    char *a = USE_ZSTD ? get_string_zst(A,i) : get_chunk(A,i);
+    char *b = USE_ZSTD ? get_string_zst(B,i) : get_chunk(B,i);
     if (a && b) buf = merge_blobs (buf,a,b);
     char *c = (a && b) ? buf : a ? a : b;
     uint sz = c ? (strlen(c)+1) : 0;
-    if (c) put_chunk (C, i, c, sz);
+    if (!c) continue;
+    if (USE_ZSTD) put_chunk_zst (C, i, c, sz);
+    else          put_chunk     (C, i, c, sz);
     if (!(i%10)) show_progress (i,n," blobs merged");
   }
   fprintf (stderr, "done: %s[%d]\n", _C, nvecs(C));
@@ -264,8 +267,15 @@ void rekey_coll (char *_A, char *_H, char *_B, char *_G, char *prm) { // A[j] = 
     if (!(i%10)) show_progress (i,nB," blobs rekeyed");
     j = map[i-1];
     if (!j) continue; // key not in A[H]
-    char *b = get_chunk(B,i);
-    if (b) put_chunk (A, j, b, strlen(b)+1);
+    if (USE_ZSTD) {
+      byte *zvec = get_vec_ro (B, i);
+      if (!len(zvec)) continue;
+      put_vec_write (A, j, zvec);
+    } else {
+      char *b = get_chunk(B,i);
+      if (!b) continue;
+      put_chunk (A, j, b, strlen(b)+1);
+    }
   }
   fprintf (stderr, "done: %s[%d]\n", _A, nvecs(A));
   free_coll(A); free_coll(B); free_vec(map);
