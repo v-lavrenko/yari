@@ -66,6 +66,7 @@ uint cntchr (char *s, char c) { uint n=0; while (*s) if (*s++ == c) ++n; return 
 
 // in str replace any occurence of chars from what[] with 'with'
 void csub (char *str, char *what, char with) {
+  if (!str || !*str) return;
   if (!what) what = default_ws;
   char *s, *t;
   for (s = str; *s; ++s) if (strchr (what, *s)) *s = with;
