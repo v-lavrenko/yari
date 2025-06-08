@@ -464,7 +464,7 @@ void mtx_weigh (char *TRG, char *prm, char *SRC, char *STATS) { // thread-unsafe
   char *Min = strstr(prm,"min"), *Max = strstr(prm,"max");
   char *Exp = strstr(prm,"exp"), *Log = strstr(prm,"log");
   char *inq = strstr(prm,"inq"), *idf = strstr(prm,"idf");
-  char *std = strstr(prm,"std"), *uni = strstr(prm,"uni");
+  char *std = strstr(prm,"std"), *uni = strstr(prm,"uni"), *var = strstr(prm, "var");
   char *cdf = strstr(prm,"cdf");
   char *L1  = strstr(prm,"L1"),  *L2  = strstr(prm,"L2");
   char *Lap = strstr(prm,"Lap");
@@ -570,6 +570,7 @@ void mtx_weigh (char *TRG, char *prm, char *SRC, char *STATS) { // thread-unsafe
     else if (out)     zstd_outliers (vec, stats, out);
     else if (outside) keep_outliers (vec, median_interval (vec, outside));
     else if (inside)  drop_far_outliers (vec, median_interval (vec, inside));
+    else if (var) weigh_vec_unit_variance (vec, 0);
     else if (std) weigh_vec_std (vec, stats);
     else if (cdf) weigh_vec_cdf (vec);
     else if (Lap) weigh_vec_laplacian (vec, stats);
@@ -2127,6 +2128,7 @@ char *usage =
   "                          full2mtx - convert a collection of float[] to matrix\n"
   "                                L1 - normalize so weights add up to one\n"
   "                                L2 - normalize so that Euclidian length = 1\n"
+  "                               var - values in each row have unit variance from 0\n"
   "                             round - to nearest integer (also: floor/ceiling)\n"
   "                         Laplacian - divide by sqrt (rowsum * colsum)\n"
   "                           range01 - normalize matrix to unit range [0,1]\n"

@@ -1462,6 +1462,15 @@ void weigh_vec_bm25 (ix_t *vec, stats_t *s) {
   }
 }
 
+// make the values have unit variance from the given mean
+void weigh_vec_unit_variance (ix_t *V, float mean) {
+  double SSE = 0; // sum of squared deviations from mean
+  ix_t *v = V-1, *end = V + len(V);
+  for (v = V; v < end; ++v) SSE += (v->x - mean) * (v->x - mean);
+  SSE = sqrt(SSE/(len(V) - 1));
+  for (v = V; v < end; ++v) v->x /= SSE;
+}
+
 void weigh_vec_std (ix_t *vec, stats_t *s) {
   //static uint dump = 1;
   ulong *DF = s->df;
