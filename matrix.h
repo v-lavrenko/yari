@@ -159,6 +159,7 @@ void weigh_vec_rnd (ix_t *vec) ;
 void weigh_vec_ranks (ix_t *vec) ;
 void weigh_vec_cdf (ix_t *vec) ;
 void weigh_vec_unit_variance (ix_t *V, float mean) ;
+void quantize_steps (ix_t *V, uint K, float step) ;
 
 ix_t *histogram(ix_t *V, uint n, float lo, float hi);
 

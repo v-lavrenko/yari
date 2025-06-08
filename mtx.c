@@ -483,11 +483,12 @@ void mtx_weigh (char *TRG, char *prm, char *SRC, char *STATS) { // thread-unsafe
   float   k = getprm(prm,  "k=",0),  b = getprm(prm,"b=",0);
   float rbf = getprm(prm,"rbf=",0),  sig = getprm(prm,"sig=",0);
   char *sorti = strstr(prm,"sort=i"), *sortx = strstr(prm,"sort=x"), *sortX = strstr(prm,"sort=X");
+  uint quantize = getprm(prm,"quantize=",0);
   char *distinct = strstr(prm,"distinct"), *count = strstr(prm,"count");
   char *aggr = getprmp(prm,"aggr:",0);
   float outside = getprm(prm,"outside=",0);
   float inside = getprm(prm,"inside=",0);
-
+  
   //float lmj = getprm(prm,"lm:j=",0), lmd = getprm(prm,"lm:d=",0);
   //fprintf (stderr, "%s -> %f\n", prm, pow);
   if (l2p || lse) Log = 0; // 'logSexp' and 'log2p' contain 'log'
@@ -602,6 +603,7 @@ void mtx_weigh (char *TRG, char *prm, char *SRC, char *STATS) { // thread-unsafe
     else if (flr) vec_x_num (vec, '[', 0);
     else if (cei) vec_x_num (vec, ']', 0);
     else if (rou) vec_x_num (vec, 'i', 0);
+    if (quantize) quantize_steps (vec, quantize, stdev(vec));
     if      (smh) { vec = simhash (tmp=vec, L*k, smd); free_vec (tmp); }
     if      (lsh) { vec = bits2codes (tmp=vec, L);     free_vec (tmp); }
     if (distinct) { vec = distinct_values (tmp=vec,0); free_vec (tmp); }
@@ -2108,6 +2110,7 @@ char *usage =
   "                           lsh:L=0 - binarize (>0), split into L chunks\n"
   "                           simhash - generate L=32 fingerprints of k=16 bits\n"
   "                                     sampling simhash:Uniform,Normal,Logistic,Bernoulli\n"
+  "                        quantize=K - values replaced by 0,±1...±K deviations from zero\n"
   "                          distinct - column numbers -> per-row counts of unique values\n"
   "                             count - sort|uniq each row: collection of lists -> matrix\n"
   "                aggr:{1,l,s,a,m,M} - aggregate duplicated columns in each list\n"

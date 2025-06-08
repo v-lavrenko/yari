@@ -2550,6 +2550,17 @@ ix_t *value_deltas(ix_t *X) {
   return D;
 }
 
+// discretize V into 0, ±1 ... ±K... steps from 0
+void quantize_steps (ix_t *V, uint K, float step) {
+  ix_t *v;
+  for (v = V; v < V+len(V); ++v) {
+    float x = v->x;
+    if (x == 0) continue; // zero is always zero
+    float k = ceilf(ABS(x) / step); // how many steps from 0 to d->x
+    v->x = SGN(x) * MIN(k,K); // never outside ±K
+  }
+}
+
 // histogram of values: n buckets across range [lo,hi]
 ix_t *histogram(ix_t *V, uint n, float lo, float hi) {
   ix_t *H = const_vec(n, 0), *v;
