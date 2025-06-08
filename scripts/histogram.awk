@@ -26,6 +26,6 @@ END {
 	u = (i / n);
 	x = lo + u * (hi - lo);
 	if (L) x = unLog(x);
-	print x, H[i];
+	print x, H[i]/NR;
     }
 }
