@@ -2550,6 +2550,19 @@ ix_t *value_deltas(ix_t *X) {
   return D;
 }
 
+// histogram of values: n buckets across range [lo,hi]
+ix_t *histogram(ix_t *V, uint n, float lo, float hi) {
+  ix_t *H = const_vec(n, 0), *v;
+  for (v = V; v < V+len(V); ++v) {
+    float u = (v->x - lo) / (hi - lo);
+    if (u < 0) u = 0;
+    if (u > 1) u = 1;
+    uint bucket = (uint) roundf ((n-1) * u);
+    H[bucket].x += 1;
+  }
+  return H;
+}
+
 // sort V, collapse duplicates, replace id by count of eps-dups
 ix_t *distinct_values (ix_t *V, float eps) {
   ix_t *a, *b, *C = copy_vec(V), *end = C+len(C);

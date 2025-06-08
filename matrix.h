@@ -160,6 +160,8 @@ void weigh_vec_ranks (ix_t *vec) ;
 void weigh_vec_cdf (ix_t *vec) ;
 void weigh_vec_unit_variance (ix_t *V, float mean) ;
 
+ix_t *histogram(ix_t *V, uint n, float lo, float hi);
+
 void weigh_invl_lmd (ix_t *invl, stats_t *s, float mu) ;
 void zstd_outliers (ix_t *vec, stats_t *s, float Z) ;
 void keep_outliers (ix_t *X, xy_t CI) ;
