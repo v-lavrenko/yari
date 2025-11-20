@@ -2017,7 +2017,7 @@ uint *vec2ids (ix_t *V) {
   return U;
 }
 
-inline ix_t *vec_find (ix_t *vec, uint i) {
+ix_t *vec_find (ix_t *vec, uint i) {
   int lo = -1, hi = len(vec), mid; // both out of range
   while (hi - lo > 1) {
     mid = (lo + hi) / 2;
@@ -2028,12 +2028,12 @@ inline ix_t *vec_find (ix_t *vec, uint i) {
   return (i == vec[hi].i) ? (vec + hi) : NULL;
 }
 
-inline float vec_get (ix_t *vec, uint id) { // return vec[id]
+float vec_get (ix_t *vec, uint id) { // return vec[id]
   ix_t *v = vec_find (vec, id);
   return v ? v->x : 0;
 }
 
-inline ix_t *vec_set (ix_t *vec, uint id, float x) { // vec[id] = x
+ix_t *vec_set (ix_t *vec, uint id, float x) { // vec[id] = x
   ix_t *v = vec_find (vec, id), new = {id, x};
   if (v && x) v->x = x; // replace previous value
   else if (v) { v->x = 0; chop_vec (vec); } // remove value
@@ -2042,6 +2042,11 @@ inline ix_t *vec_set (ix_t *vec, uint id, float x) { // vec[id] = x
     sort_vec (vec, cmp_ix_i);
   }
   return vec;
+}
+
+void vec_del (ix_t *vec, uint id) { // delete id from vec
+  ix_t *v = vec_find (vec, id);
+  if (v) del_vec_el (vec, v - vec);
 }
 
 // multiply every row in the matrix by the vector

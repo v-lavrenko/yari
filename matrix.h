@@ -46,9 +46,9 @@ void chop_jix (jix_t *vec) ;
 
 ix_t *vec_find (ix_t *vec, uint i) ;
 ix_t *vec_set (ix_t *vec, uint id, float x) ;
+void  vec_del (ix_t *vec, uint id) ;
 float vec_get (ix_t *vec, uint id) ;
 uint vec_is_sorted (ix_t *V) ;
-
 
 void dedup_vec (ix_t *vec) ; // skip duplicate ids (keep 1st)
 void aggr_vec (ix_t *vec, char aggr) ; // min, Max, sum, avg, 1st
