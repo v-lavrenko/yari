@@ -203,6 +203,7 @@ void mtx_print (char *prm, char *_M, char *RH, char *CH) {
   char *svm = strstr(prm,"svm"), *csv = strstr(prm,"csv"); // *tsv = strstr(prm,"tsv");
   char *ids = strstr(prm,":ids"), *jsn = strstr(prm,"json"), *Len = strstr(prm,":len");
   char *empty = strstr(prm,"empty"), *nonempty = strstr(prm,"nonempty");
+  char *nodiag = strstr(prm,"nodiag");
   char *rid = getprms (prm,"rid=",NULL,",");
   char *fmt = strstr(prm,"ints") ? "%.0f" : getprms (prm,"fmt=","%.4f",",");
   coll_t *M = open_coll (_M, "r+");
@@ -218,6 +219,7 @@ void mtx_print (char *prm, char *_M, char *RH, char *CH) {
   for (i = beg_i; i <= end_i; ++i) {
     if (ids && has_vec(M,i)) { printf ("%s\n", id2key(rh,i)); continue; }
     ix_t *vec = get_vec (M, i);
+    if (nodiag) vec_del (vec, i); // remove the diagonal
     if (!len(vec) && !empty && !csv) { free_vec(vec); continue; }
     else if (!len(vec) && nonempty)  { free_vec(vec); continue; }
     char *rid = id2str(rh,i);
