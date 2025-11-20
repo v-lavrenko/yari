@@ -117,7 +117,7 @@ int xsv_index_rows (char *_tsv, char *rows) {
     o = eol+1; // next line starts after newline
     if (0 == NR%1000) show_progress (NR>>20, 0, "M rows");
   }
-  printf("%s [%d x %d] %lldMB\n", _tsv, R->rdim, R->cdim, o>>20);
+  printf("%s [%d x %d] %ldMB\n", _tsv, R->rdim, R->cdim, (ulong)(o>>20));
   free_vec (row); free_coll (R); free_mmap (M);
   return 0;
 }
@@ -129,7 +129,7 @@ int xsv_do_get (char *tsv, char *_R, char *row, char *col) {
   off_t *offs = get_vec_ro(R,r);
   off_t beg = offs[c-1], end = offs[c];
   char *val = strndup(M->data+beg, end-beg);
-  printf ("%s [%d,%d] = [%lld..%lld] = '%s'\n", tsv, r, c, beg, end, val);
+  printf ("%s [%d,%d] = [%ld..%ld] = '%s'\n", tsv, r, c, (ulong)beg, (ulong)end, val);
   free_mmap (M); free_coll(R); free(val);
   return 0;
 }
