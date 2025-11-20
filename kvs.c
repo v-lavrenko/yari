@@ -954,6 +954,7 @@ void rnk_show_set (rnk_t *rnk, uint set) {
   if (!set) printf (" %3.3s %3.3s %3.3s %3.3s\n", "TP", "FP", "FN", "F1");
   //else printf (" %.2f\n",  F1);
   else      printf (" %3.0f %3.0f %3.0f %3.0f\n",  TP, FP, FN, F1);
+  (void)TN; // true negatives, if needed
 }
 
 void rnk_show (rnk_t *rnk) {

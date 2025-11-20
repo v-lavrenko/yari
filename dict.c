@@ -49,8 +49,6 @@ int dict_dedup() {
 
 int dict_uniq(char *prm) {
   char *addup = strstr(prm,"addup");
-  unsigned long NN=0;
-  //ix_t *C = new_vec(0,sizeof(ix_t)), *c;
   ulong *C = new_vec(0,sizeof(ulong));
   hash_t *H = open_hash (0,0);
   char *line = NULL;
@@ -63,9 +61,6 @@ int dict_uniq(char *prm) {
     uint id = key2id(H,word);
     if (id > len(C)) C = resize_vec (C, id);
     C[id-1] += freq;
-    //C[id-1].i = id;
-    //C[id-1].x ++;
-    ++NN;
   }
   ulong **P = (ulong **)pointers_to_vec (C), **p;
   sort_vec (P, cmp_Ulong_ptr);

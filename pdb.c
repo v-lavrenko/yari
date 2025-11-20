@@ -455,16 +455,16 @@ void print_alignment (ab_t *AB, atom_t **A, atom_t **B, hash_t *ELS) {
     printf ("AB %.3f %s %+.3f %+.3f %+.3f %+.3f %+.3f %+.3f\n",
 	    dab, el, a->x, a->y, a->z, b->x, b->y, b->z);
   }
-  atom_t **p; uint na=0, nb=0;
+  atom_t **p;
   printf("\n");
   for (p = A; p < A+len(A); ++p) if (*p) {
-      atom_t a = **p; ++na;
+      atom_t a = **p;
       char *el = id2key (ELS,a.el);
       printf ("A %.3f %s %+.3f %+.3f %+.3f\n", sqrt(L2(&a)), el, a.x, a.y, a.z);
     }
   printf("\n");
   for (p = B; p < B+len(B); ++p) if (*p) {
-      atom_t b = **p; ++nb;
+      atom_t b = **p;
       char *el = id2key (ELS,b.el);
       printf ("B %.3f %s %+.3f %+.3f %+.3f\n", sqrt(L2(&b)), el, b.x, b.y, b.z);
     }

@@ -133,7 +133,7 @@ jix_t *min_cols (coll_t *rows) ;
 void m_range (coll_t *m, int top, float *_min, float *_max) ;
 void disjoin_rows (coll_t *rows) ; // make all rows disjoint (column = indicator)
 
-stats_t *blank_stats () ;
+stats_t *blank_stats (int df, int cf, int s2, uint n) ;
 stats_t *coll_stats (coll_t *c) ;
 void update_stats_from_vec (stats_t *s, ix_t *vec) ;
 void update_stats_from_file (stats_t *s, hash_t *dict, char *file) ;
