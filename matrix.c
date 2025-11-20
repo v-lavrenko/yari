@@ -1462,6 +1462,15 @@ void weigh_vec_bm25 (ix_t *vec, stats_t *s) {
   }
 }
 
+// make the values have unit variance from the given mean
+void weigh_vec_unit_variance (ix_t *V, float mean) {
+  double SSE = 0; // sum of squared deviations from mean
+  ix_t *v = V-1, *end = V + len(V);
+  for (v = V; v < end; ++v) SSE += (v->x - mean) * (v->x - mean);
+  SSE = sqrt(SSE/(len(V) - 1));
+  for (v = V; v < end; ++v) v->x /= SSE;
+}
+
 void weigh_vec_std (ix_t *vec, stats_t *s) {
   //static uint dump = 1;
   ulong *DF = s->df;
@@ -2544,6 +2553,30 @@ ix_t *value_deltas(ix_t *X) {
   for (i=0; i<n; ++i) D[i].x = D[i].x - D[i+1].x;
   len(D) = n;
   return D;
+}
+
+// discretize V into 0, ±1 ... ±K... steps from 0
+void quantize_steps (ix_t *V, uint K, float step) {
+  ix_t *v;
+  for (v = V; v < V+len(V); ++v) {
+    float x = v->x;
+    if (x == 0) continue; // zero is always zero
+    float k = ceilf(ABS(x) / step); // how many steps from 0 to d->x
+    v->x = SGN(x) * MIN(k,K); // never outside ±K
+  }
+}
+
+// histogram of values: n buckets across range [lo,hi]
+ix_t *histogram(ix_t *V, uint n, float lo, float hi) {
+  ix_t *H = const_vec(n, 0), *v;
+  for (v = V; v < V+len(V); ++v) {
+    float u = (v->x - lo) / (hi - lo);
+    if (u < 0) u = 0;
+    if (u > 1) u = 1;
+    uint bucket = (uint) roundf ((n-1) * u);
+    H[bucket].x += 1;
+  }
+  return H;
 }
 
 // sort V, collapse duplicates, replace id by count of eps-dups
