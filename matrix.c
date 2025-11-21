@@ -2058,6 +2058,28 @@ void vec_del (ix_t *vec, uint id) { // delete id from vec
   if (v) del_vec_el (vec, v - vec);
 }
 
+// drop any item too similar to preceding items
+void dedup_items (ix_t *set, coll_t *VECS, float thresh, uint limit) {
+  ix_t *s, *sEnd = set + len(set);
+  if (!set || thresh > 1) return;
+  ix_t **U = new_vec (0, sizeof(ix_t*)), **u; // used vectors
+  for (s = set; s < sEnd; ++s) {
+    ix_t *v = get_vec_ro (VECS, s->i);
+    for (u = U; u < U+len(U); ++u) // look at all used vectors
+      if (cosine(*u,v) > thresh) break; // v is a duplicate
+    if (u < U + len(U)) s->i = 0; // skip it
+    else { // not duplicate -> add to used
+      v = copy_vec(v);
+      U = append_vec(U,&v);
+    }
+    if (len(U) >= limit) break;
+  }
+  len(set) = s - set;
+  chop_vec(set);
+  for (u = U; u < U+len(U); ++u) free_vec(*u);
+  free_vec (U);
+}
+
 // multiply every row in the matrix by the vector
 ix_t *rows_x_vec (coll_t *rows, ix_t *vec) {
   //float *VEC = vec2full (vec, 0);

@@ -205,6 +205,8 @@ void rows_x_num (coll_t *rows, char op, double num) ;
 ix_t *cols_x_vec_iseen (coll_t *cols, ix_t *V) ; // SCORE + list of seen ids
 ix_t *cols_x_vec_iskip (coll_t *cols, ix_t *V) ; // SCORE + skip-lists
 
+void dedup_items (ix_t *set, coll_t *VECS, float thresh, uint limit) ;
+
 double dot (ix_t *A, ix_t *B) ;
 double kdot (uint k, ix_t *A, ix_t *B) ;
 double pdot (float p, ix_t *A, ix_t *B) ;
@@ -298,5 +300,6 @@ void scan_mtx_rcv (FILE *in, coll_t *M, hash_t *R, hash_t *C, char how, char ver
 void append_jix (coll_t *c, jix_t *jix) ;
 
 void show_jix (jix_t *J, char *tag, char how);
+void show_vec (ix_t *vec, char what) ;
 
 #endif
