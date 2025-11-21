@@ -179,30 +179,6 @@ int cmp_snip_score (const void *n1, const void *n2) {
 
 // ------------------------- novel / diverse -------------------------
 
-// compare D[i] to D[0:i-1], drop if cosine > dedup
-void dedup_docs (ix_t *D, coll_t *DOCS, char *prm) {
-  sort_vec(D, cmp_ix_X);
-  uint rerank = getprm(prm,"rerank=",50);
-  float dedup = getprm(prm, "dedup=", 1.1);
-  if (dedup > 1 || !D) return; // nothing to do
-  ix_t *d, **U = new_vec (0, sizeof(ix_t*)), **u;
-  for (d = D; d < D+len(D); ++d) {
-    ix_t *doc = get_vec_ro (DOCS, d->i);
-    for (u = U; u < U+len(U); ++u) // look for duplicates
-      if (cosine(doc,*u) > dedup) break; // found d ~ *u
-    if (u < U+len(U)) d->i = 0;
-    else { // d is novel => add it to used set U
-      doc = copy_vec(doc);
-      U = append_vec(U, &doc);
-    }
-    if (len(U) > rerank) break;
-  }
-  for (u = U; u < U+len(U); ++u) free_vec(*u);
-  free_vec (U);
-  len(D) = d-D;
-  chop_vec(D);
-}
-
 
 // ------------------------- keywords -------------------------
 
@@ -467,7 +443,10 @@ snip_t *run_text_qry (index_t *I, char *_qry, char *prm, char *mask) {
     loglag("mask");
   }
   if (strstr(prm,"dedup")) {
-    dedup_docs(D, I->DOCxWORD, prm);
+    uint limit = getprm(prm,"rerank=",50);
+    float thresh = getprm(prm,"dedup=",1.1);
+    sort_vec(D, cmp_ix_X);
+    dedup_items (D, I->DOCxWORD, thresh, limit);
     loglag("dedup");
   }
   if (strstr(prm,"clump")) {
