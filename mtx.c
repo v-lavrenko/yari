@@ -1046,6 +1046,25 @@ void mtx_add (char *_P, char *wA, char *_A, char op, char *wB, char *_B) {
   free_coll (P); free_coll (A); free_coll (B);
 }
 
+// keep diverse elements in each row (based on cosine of their vecs)
+void mtx_diverse (char *_OUTS, char *_ROWS, char *_VECS, char *prm) {
+  uint top = getprm(prm,"top=",50);
+  float thresh = getprm(prm,"thresh=",0.9);
+  coll_t *OUTS = open_coll (_OUTS, "w+");
+  coll_t *ROWS = open_coll (_ROWS, "r+");
+  coll_t *VECS = open_coll (_VECS, "r+");
+  uint nR = num_rows (ROWS), id;
+  for (id = 1; id <= nR; ++id) {
+    ix_t *row = get_vec (ROWS, id);
+    sort_vec (row, cmp_ix_X);
+    dedup_items (row, VECS, thresh, top);
+    sort_vec (row, cmp_ix_i);
+    put_vec (OUTS, id, row);
+    free_vec (row);
+  }
+  free_coll (OUTS); free_coll (ROWS); free_coll (VECS);
+}
+
 void mtx_eval (char *_TRU, char *_SYS, char *prm) { // thread-unsafe: eval_dump_map
   char *noself = strstr(prm,"noself");
   char *map = strstr(prm,"map"), *roc = strstr(prm,"roc"), *evl = strstr(prm,"evl");
@@ -2180,6 +2199,8 @@ char *usage =
   "                          prm:size=100,step=50\n"
   " xval:fold=1 A T E [V]  - cross-validation: split A -> train,test,valid rows\n"
   "                          fold=1/10,seed=1, overwrites T,E,V, rows unchanged\n"
+  " A = diverse:prm B V    - drop redundant items in rows of B (based on vecs V)\n"
+  "                          prm:thresh=0.9,top=50\n"
   " T = mst A              - max spanning tree of affinity matrix A (symmetric)\n"
   " R = reachable S G      - R[i,:] = nodes in graph G reachable from S[i,:]\n"
   " C = seg:[type] A       - segment a sequence of observations (A)\n"
@@ -2346,6 +2367,7 @@ int main (int argc, char *argv[]) {
     else if (!strncmp (a(3), "clump",5))   mtx_clump (tmp, arg(4), arg(5), a(3));
     else if (!strcmp  (a(3), "mst"))       mtx_mst (tmp, arg(4));
     else if (!strcmp  (a(3), "reachable")) mtx_reachable (tmp, arg(4), arg(5));
+    else if (!strncmp (a(3), "diverse",7)) mtx_diverse (tmp, arg(4), arg(5), a(3));
     else if (!strncmp (a(4), "dist",4))    mtx_distance (tmp, arg(3), arg(5), arg(4));
     else if (!strcmp  (a(4), "#"))         mtx_distance (tmp, arg(3), arg(5), arg(6));
     else if (!strcmp  (a(4), "x"))         mtx_product (tmp, arg(3), arg(5), arg(6));
