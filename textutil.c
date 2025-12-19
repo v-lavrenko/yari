@@ -993,8 +993,8 @@ jix_t broaden_span (char *text, jix_t span, int sz) {
   if (pad < sz/10) return span; // close enough
   if (N <= sz) return (jix_t) {0, N, span.x};
   R = MIN(N,R+pad);
-  L = MAX(0,R-sz);  L = nearest_ws(text,L,20);
-  R = MIN(N,L+sz);  R = nearest_ws(text,R-1,20);
+  L = MAX(0,R-sz);  //L = nearest_ws(text,L,20);
+  R = MIN(N,L+sz);  //R = nearest_ws(text,R-1,20);
   return (jix_t) {L, R, span.x};
 }
 
