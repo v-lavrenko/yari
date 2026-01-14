@@ -84,6 +84,7 @@ hash_t *open_hash (char *_path, char *_access) {
 
 void write_hash (hash_t *h, char *path) {
   char _[9999];
+  mkdir_parent(fmt(_,"%s/",path));
   write_vec (h->code, fmt(_,"%s/hash.code",path));
   write_vec (h->indx, fmt(_,"%s/hash.indx",path));
   write_kvs (h->keys, path);
