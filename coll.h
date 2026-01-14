@@ -52,7 +52,12 @@ time_t coll_modified (char *path) ;
 coll_t *open_coll_if_exists (char *path, char *access) ;
 coll_t *open_coll_inmem () ;
 
-coll_t *copy_coll (coll_t *src) ;
+void copy_mtx_vectors (coll_t *src, coll_t *trg) ;
+void copy_kvs_strings (coll_t *src, coll_t *trg) ;
+void write_mtx (coll_t *src, char *path) ;
+void write_kvs (coll_t *src, char *path) ;
+coll_t *read_mtx (char *path) ;
+coll_t *read_kvs (char *path) ;
 
 void *get_chunk (coll_t *c, uint id) ;
 void del_chunk (coll_t *c, uint id) ;

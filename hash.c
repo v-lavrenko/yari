@@ -32,18 +32,14 @@ hash_t *copy_hash (hash_t *src) {
   trg->code = copy_vec (src->code);
   trg->indx = copy_vec (src->indx);
   trg->access = strdup ("w");
-  trg->keys = open_coll (NULL, NULL);
-  uint i = 0, n = nvecs (src->keys);
-  while (++i <= n) {
-    char *key = get_chunk (src->keys, i);
-    put_chunk (trg->keys, i, key, strlen(key) + 1);
-  }
+  trg->keys = open_coll_inmem ();
+  copy_kvs_strings (src->keys, trg->keys);
   return trg;
 }
 
 hash_t *open_hash_inmem () {
   hash_t *h = safe_calloc (sizeof (hash_t));
-  h->keys = open_coll (NULL, NULL);
+  h->keys = open_coll_inmem ();
   h->indx = new_vec (1024, sizeof(uint));
   h->code = new_vec (0, sizeof(uint));
   h->access = strdup ("w");
@@ -83,6 +79,23 @@ hash_t *open_hash (char *_path, char *_access) {
   if (0 == len(h->indx)) h->indx = resize_vec (h->indx, 1023);
   //h->data = open_mmap (path, access, 0); grow_mmap (h->data, 0);
   //MAP_MODE = MAP_OLD; // default MMAP flags
+  return h;
+}
+
+void write_hash (hash_t *h, char *path) {
+  char _[9999];
+  write_vec (h->code, fmt(_,"%s/hash.code",path));
+  write_vec (h->indx, fmt(_,"%s/hash.indx",path));
+  write_kvs (h->keys, path);
+}
+
+hash_t *read_hash (char *path) {
+  char _[9999];
+  hash_t *h = safe_calloc (sizeof (hash_t));
+  h->code = read_vec (fmt(_,"%s/hash.code",path));
+  h->indx = read_vec (fmt(_,"%s/hash.indx",path));
+  h->keys = read_kvs (path);
+  h->access = strdup ("w");
   return h;
 }
 

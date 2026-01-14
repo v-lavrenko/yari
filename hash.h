@@ -47,6 +47,9 @@ hash_t *reopen_hash (hash_t *h, char *access);
 hash_t *open_hash_if_exists (char *path, char *access) ;
 hash_t *open_hash_inmem () ;
 
+void write_hash (hash_t *h, char *path) ;
+hash_t *read_hash (char *path) ;
+
 char *id2str (hash_t *h, uint id) ; // strdup (key2id | itoa(id))
 char *id2key (hash_t *h, uint i) ;
 uint  key2id (hash_t *h, char *key) ;

@@ -34,13 +34,6 @@ coll_t *open_coll_inmem () {
   return c;
 }
 
-coll_t *copy_coll (coll_t *src) {
-  coll_t *trg = open_coll_inmem ();
-  uint i = 0, n = len (src->offs) - 1;
-  while (++i <= n) put_vec (trg, i, get_vec_ro (src,i));
-  return trg;
-}
-
 coll_t *open_coll_if_exists (char *path, char *access) {
   return coll_exists (path) ? open_coll (path, access) : NULL;
 }
@@ -74,6 +67,57 @@ coll_t *open_coll (char *path, char *access) {
     c->offs[0] = MIN_OFFS;
   }
   return c;
+}
+
+// copy all vectors from src to trg. inmem or ondisk.
+void copy_mtx_vectors (coll_t *src, coll_t *trg) { 
+  uint i = 0, n = nvecs(src);
+  while (++i <= n) {
+    void *vec = get_vec_ro(src, i);
+    put_vec(trg, i, vec);
+  }
+}
+
+// copy all strings from src to trg. inmem or ondisk.
+void copy_kvs_strings (coll_t *src, coll_t *trg) {
+  uint id = 0, ns = nvecs(src);
+  while (++id <= ns) {
+    char *str = get_chunk(src, id);
+    off_t sz = strlen(str) + 1; // chunk_sz if src->path
+    put_chunk (trg, id, str, sz);
+  }
+}
+
+// save a collection of vectors to path
+void write_mtx (coll_t *src, char *path) {
+  coll_t *trg = open_coll(path, "w+");
+  copy_mtx_vectors(src, trg);
+  free_coll(trg);
+}
+
+// save a collection of strings to path
+void write_kvs (coll_t *src, char *path) {
+  coll_t *trg = open_coll(path, "w");
+  copy_kvs_strings(src, trg);
+  free_coll(trg);
+}
+
+// load a collection of vectors from path to inmem
+coll_t *read_mtx (char *path) {
+  coll_t *trg = open_coll_inmem();
+  coll_t *src = open_coll(path, "r+");
+  copy_mtx_vectors(src, trg);
+  free_coll(src);
+  return trg;
+}
+
+// load a collection of strings from path to inmem
+coll_t *read_kvs (char *path) {
+  coll_t *trg = open_coll_inmem();
+  coll_t *src = open_coll(path, "r");
+  copy_kvs_strings(src, trg);
+  free_coll(src);
+  return trg;
 }
 
 static inline void free_coll_inmem (coll_t *c) {
