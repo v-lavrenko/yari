@@ -1,0 +1,210 @@
+#!/bin/bash
+
+tmp=/tmp/gg
+
+if [[ -z "$1" ]]; then
+  echo 'Usage: gg init    ... run this first: clears history, checks dependencies'
+  echo '       gg ls [@N] ... show full history or a specific item'
+  echo '       gg [-g] [-pro] LLM prompt with /files, https, and @N history items.'
+  exit
+fi
+
+if [[ "$1" == "init" ]]; then
+  MISSING_DEPS=""
+  for cmd in curl lynx jq glow; do
+    if ! command -v $cmd &> /dev/null; then
+      MISSING_DEPS=$MISSING_DEPS" "$cmd
+    fi
+  done
+  if [[ -n "$MISSING_DEPS" ]]; then
+    echo -e '\033[32mRun:\033[0m' apt install"$MISSING_DEPS"
+    exit
+  fi
+  if [[ -z "$GEMINI_API_KEY" ]]; then
+    echo -e '\033[32mRun:\033[0m' export GEMINI_API_KEY=YOUR_API_KEY
+    exit
+  fi
+  mkdir -p $tmp
+  echo 0 > $tmp/N
+  rm -f $tmp/{a,i,o,t}.*
+  exit
+fi
+
+# latest cell number 1,2,3,...
+N=$(< $tmp/N)
+
+# if output is a terminal: use ANSI colors, otherwise plain text
+if [[ -t 1 ]]; then
+  show='glow -w 0'
+else
+  show='cat'
+fi
+
+if [[ "$1" == "ls" ]]; then
+  if [[ -z "$2" ]]; then
+    for i in `seq $N` ; do \
+      args=$(cat $tmp/a.$i)
+      echo -e '\033[1m\033[32m'@$i'\033[0m\033[2m '"$args"'\033[0m'
+    done
+  else
+    $show < $tmp/o.${2:1}
+  fi
+  exit
+fi
+
+(( ++N ))
+echo $N > $tmp/N
+__OUTPUT__=$tmp/o.$N
+__INPUT__=$tmp/i.$N
+
+GOOGLE_SEARCH=''
+OUTPUT_FILES=()
+GEMINI_MODEL='gemini-2.5-flash-lite'
+WATCH_MODE=false
+
+# consume all recognized arguments
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    -g|--google)
+      GOOGLE_SEARCH=', "tools": [ { "google_search": {} } ]'
+      shift
+      ;;
+    -w|--watch)
+      WATCH_MODE=true
+      shift
+      ;;
+    -o|--output)
+      OUTPUT_FILES+=($2)
+      shift
+      shift
+      ;;
+    -0|--lite)
+      GEMINI_MODEL="gemini-2.5-flash-lite"
+      shift
+      ;;
+    -1|--flash)
+      GEMINI_MODEL="gemini-3-flash-preview"
+      shift
+      ;;
+    -9|--pro)
+      GEMINI_MODEL="gemini-3-pro-preview"
+      shift
+      ;;
+    -m|--model)
+      GEMINI_MODEL="$2"
+      shift
+      shift
+      ;;
+    *) # unrecognized argument
+      break
+      ;;
+  esac
+done
+
+while true; do
+
+__COMMAND__=""
+__CONTEXT__=""
+
+for w in $* ; do
+  # w is a history item: use the output
+  if [[ "$w" =~ ^@[1-9] ]] ; then
+    __CONTEXT__+=$'\n'$'\n'"[[$w]]"
+    __CONTEXT__+=$'\n'$'\n'
+    __CONTEXT__+=$(<$tmp/o.${w:1})
+    __CONTEXT__+=$'\n'$'\n'
+    __COMMAND__+="$w "
+  # w is a URL: use lynx to fetch and render
+  elif [[ "$w" =~ ^http ]] ; then
+    __CONTEXT__+=$'\n'$'\n'"[[$w]]"
+    __CONTEXT__+=$'\n'$'\n'
+    __CONTEXT__+=$(lynx -dump $w)
+    __CONTEXT__+=$'\n'$'\n'
+    __COMMAND__+="$w "
+  # w is a file: do not use lesspipe to render it
+  elif [[ "$w" =~ "/" && -f "$w" ]] ; then
+    __CONTEXT__+=$'\n'$'\n'"[[$w]]"
+    __CONTEXT__+=$'\n''```'$'\n'
+    __CONTEXT__+=$(<$w)
+    __CONTEXT__+=$'\n''```'$'\n'
+    __COMMAND__+="$w "
+  # w is a pipe: read it directly
+  elif [[ "$w" =~ "/" && -p "$w" ]] ; then
+    __CONTEXT__+=$'\n'$'\n'"[[$w]]"
+    __CONTEXT__+=$'\n''```'$'\n'
+    __CONTEXT__+=$(<$w)
+    __CONTEXT__+=$'\n''```'$'\n'
+    __COMMAND__+="$w "
+  # w has no associated context
+  else
+    __COMMAND__+="$w "
+  fi
+done
+  
+# if there's something on stdin: append it at the end
+if [[ ! -t 0 ]]; then
+  __CONTEXT__+=$'\n'$'\n'"[[stdin]]"
+  __CONTEXT__+=$'\n''```'$'\n'
+  __CONTEXT__+=$(cat)
+  __CONTEXT__+=$'\n''```'$'\n'
+fi
+
+echo "$*" > $tmp/a.$N
+echo "${__COMMAND__}${__CONTEXT__}" > $tmp/t.$N
+
+__TEXT__=$(jq -Rs < $tmp/t.$N)
+
+cat > $__INPUT__ <<EOF
+{
+"contents": [
+    {"role": "user", "parts": [{"text": $__TEXT__}]}
+],
+"generationConfig": {
+    "maxOutputTokens": 65536,
+    "temperature": 0.5,
+    "topK": 0,
+    "topP": 0.95,
+    "candidateCount": 1,
+    "stopSequences": []
+},
+"safetySettings": [
+    {"category": "HARM_CATEGORY_HATE_SPEECH",       "threshold": "BLOCK_NONE"},
+    {"category": "HARM_CATEGORY_HARASSMENT",        "threshold": "BLOCK_NONE"},
+    {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+    {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"}
+]
+$GOOGLE_SEARCH
+}
+EOF
+
+curl https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent \
+  -s \
+  -H "Content-Type: application/json" \
+  -H "X-goog-api-key: ${GEMINI_API_KEY}" \
+  -X POST \
+  -d @$__INPUT__ \
+| jq -r '[.candidates[0].content.parts[].text] | join("")' \
+> $__OUTPUT__
+
+# always write to output files
+for f in ${OUTPUT_FILES[@]}; do
+  echo $f
+  cat $__OUTPUT__ > $f
+done
+
+if $WATCH_MODE ; then
+  # clear the screen, use colored output, sleep between cycles
+  echo -n -e '\033c'
+  glow -w 0 < $__OUTPUT__
+  sleep 1
+elif [[ $(ps -o stat= -p $$) == *"+"* ]]; then
+  # running in the foreground: write entire answer to stdout
+  $show < $__OUTPUT__
+  break
+else
+  # running in the background: write only the history heading
+  echo -e $'\n''\033[1m\033[32m'@$N'\033[0m\033[2m '"$*"'\033[0m'
+  break
+fi
+
+done # while true loop
