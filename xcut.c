@@ -149,6 +149,47 @@ int map_refs (char *MAP) {
   return 0;
 }
 
+// output $1 followed by all prefixes of $1
+int all_prefixes (char *range) {
+  int lo = 1, hi = 99;
+  sscanf(range, "%d:%d", &lo, &hi);
+  int nb = 0, fd = fileno(stdout);
+  size_t sz = 999999;
+  char *line = malloc(sz);
+  while (0 < (nb = getline(&line,&sz,stdin))) {
+    int Len, end = strcspn(line, " \t\r\n");
+    write(fd, line, end);
+    write(fd, "\t", 1);
+    for (Len = lo; Len <= hi && Len <= end; ++Len) {
+      write(fd, line, Len);
+      write(fd, " ", 1);
+    }
+    write(fd, "\n", 1);
+  }
+  return 0;
+}
+
+// output $1 followed by all suffixes of $1
+int all_suffixes (char *range) {
+  int lo = 3, hi = 9;
+  sscanf(range, "%d:%d", &lo, &hi);
+  int nb = 0, fd = fileno(stdout);
+  size_t sz = 999999;
+  char *line = malloc(sz);
+  while (0 < (nb = getline(&line,&sz,stdin))) {
+    int Len, end = strcspn(line, " \t\r\n");
+    write(fd, line, end);
+    write(fd, "\t", 1);
+    for (Len = lo; Len <= hi && Len <= end; ++Len) {
+      write(fd, line + end - Len, Len);
+      write(fd, " ", 1);
+    }
+    write(fd, "\n", 1);
+  }
+  return 0;
+}
+
+
 int wc_stdin () {
   size_t sz = 999999;
   unsigned long NB = 0, NW = 0, NL = 0;
@@ -233,6 +274,8 @@ char *usage =
   "xcut -para         ... suppress '\\n' convert '\\n\\n' -> '\\n'\n"
   "xcut -noxml        ... strip CR, <tags>, MAP: '&copy;' -> '(C)'\n"
   "xcut -refs [MAP]   ... MAP: '&amp;' -> '&' (see dict -inmap)\n"
+  "xcut -prefix       ... 1st col -> all prefixes (space-separated)\n"
+  "xcut -suffix 3:9   ... 1st col -> all suffixes 3-9 chars long\n"
   //  "xcut -lf 'trg'     ... add LF immediately after trigger 'trg'\n"
   ;
 
@@ -240,6 +283,8 @@ int main (int argc, char *argv[]) {
   if (argc < 2) return fprintf (stderr, "\n%s\n", usage);
   if (!strcmp(a(1),"-noxml")) return strip_xml();
   if (!strcmp(a(1),"-refs")) return map_refs(arg(2));
+  if (!strcmp(a(1),"-prefix")) return all_prefixes(a(2));
+  if (!strcmp(a(1),"-suffix")) return all_suffixes(a(2));
   if (!strcmp(a(1),"-wc")) return wc_stdin();
   if (!strcmp(a(1),"-nf")) return nf_stdin();
   if (!strcmp(a(1),"-para")) return do_paragraphs();
