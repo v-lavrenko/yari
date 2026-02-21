@@ -1351,6 +1351,42 @@ sjk_t *good_tokens (char *text) {
   return T;
 }
 
+sjk_t *alphanumeric_tokens(char *text) {
+  sjk_t *spans = new_vec(0, sizeof(sjk_t)), new;
+  if (!text || !*text) return spans;
+  char *p = text;
+  while (*p) {
+    while (*p && !isalnum(*p)) p++; // skip leading junk
+    if (!*p) break;
+    new.j = (p - text);
+    while (*p && isalnum(*p)) p++; // find trailing junk
+    new.k = (p - text);
+    new.s = strndup(text + new.j, new.k - new.j);
+    spans = append_vec(spans, &new);
+  }
+  return spans;
+}
+
+int punctuated(char c) {
+  return isspace(c) || ispunct(c) || iscntrl(c);
+}
+
+sjk_t *punctuated_tokens(char *text) {
+  sjk_t *spans = new_vec(0, sizeof(sjk_t)), new;
+  if (!text || !*text) return spans;
+  char *p = text;
+  while (*p) {
+    while (*p && punctuated(*p)) p++; // skip leading junk
+    if (!*p) break;
+    new.j = (p - text);
+    while (*p && !punctuated(*p)) p++; // find trailing junk
+    new.k = (p - text);
+    new.s = strndup(text + new.j, new.k - new.j);
+    spans = append_vec(spans, &new);
+  }
+  return spans;
+}
+
 // lemmatize token string, keep original offsets.
 void stem_tokens (sjk_t *T, char *how) {
   char buf[1000];
@@ -1370,6 +1406,19 @@ void stop_tokens (sjk_t *T) {
     free(t->s);
     t->s = NULL; // don't squeeze out these elements
   }
+}
+
+sjk_t *merge_tokens(sjk_t *A, sjk_t *B) {
+  A = append_many(A, B, len(B));
+  free_vec(B); // keeping the string pointers
+  sort_vec(A, cmp_sjk_j);
+  sjk_t *a, *b, *end = A + len(A);
+  for (a = b = A; b < end; ++b) {
+    if (a->j == b->j && a->k == b->k) free(b->s);
+    else if (++a < b) *a = *b;
+  }
+  len(A) = a - A;
+  return A;
 }
 
 int skip_token(sjk_t *t) {
