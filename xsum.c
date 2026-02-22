@@ -19,6 +19,7 @@
 
 */
 
+#include "hl.h"
 #include "mmap.h"
 
 size_t fsize (char *path) {
@@ -68,7 +69,7 @@ void xsum_check(char *file) {
   char *path = NULL;
   while (2 == fscanf(in, "%lx %ms", &ref, &path)) {
     ulong sys = xsum_file(path);
-    char *msg = (ref == sys) ? "OK" : "ERROR";
+    char *msg = (ref == sys) ? (fg_GREEN"OK"RESET) : (fg_RED"ERROR"RESET);
     if (ref == sys) ++good;
     else ++bad;
     printf("%s\t%s\n", msg, path);
