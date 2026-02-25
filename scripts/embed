@@ -1,0 +1,60 @@
+#!/bin/bash
+
+B='\033[1m'
+E='\033[0m'
+
+VERBOSE=0
+if [[ "$1" == "-v" ]]; then
+    VERBOSE=1
+    shift
+fi
+
+fmt='lines'
+if [[ "$1" == "-f" ]]; then
+    fmt=$2
+    shift
+    shift
+fi
+
+if [[ "$1" == "-id" ]]; then
+    id=$2
+    shift
+    shift
+fi
+
+__JSON__=/tmp/embed.$$
+if [[ ! -t 0 ]]; then
+    # text on stdin
+    echo '{ "content": { "parts": [ { "text": ' > $__JSON__
+    cat    | jq -Rs >> $__JSON__
+    echo ' } ] } }' >> $__JSON__
+elif [[ -n "$1" ]]; then
+    # text in ARGV[1]
+    echo '{ "content": { "parts": [ { "text": ' > $__JSON__
+    cat $1 | jq -Rs >> $__JSON__
+    echo ' } ] } }' >> $__JSON__
+    id=$1
+else
+    echo -e ${B}"Usage"${E}": embed [-v] [-f rcv|csv|lines] [-id ID] file.txt"
+    exit
+fi
+# data='{ "content": { "parts": [ { "text": '$__TEXT__' } ] } }'
+
+if [[ $VERBOSE == 1 ]]; then
+    echo -n -e ${B}"payload: "${E}
+    cat $__JSON__ | jq .
+fi
+
+curl https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=${GEMINI_API_KEY} \
+     -H "Content-Type: application/json" \
+     -X POST \
+     -d @$__JSON__ \
+     -s \
+| jq '.embedding.values[]' \
+| gawk -vid=$id -vfmt=$fmt '\
+       fmt == "lines" {print $1} \
+       fmt == "rcv" {printf "%s\t%d\t%f\n", id, ++n, $1} \
+       fmt == "csv" {printf "%f,", $1}' \
+| sed 's/,$/\n/'
+
+rm $__JSON__
