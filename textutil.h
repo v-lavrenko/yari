@@ -145,6 +145,9 @@ void show_tokens (sjk_t *T, char *tag) ;
 void free_tokens (sjk_t *T) ;
 void stop_tokens (sjk_t *T) ;
 void stem_tokens (sjk_t *T, char *how) ;
+sjk_t *merge_tokens(sjk_t *A, sjk_t *B) ; // merges A+B, frees the originals
+sjk_t *alphanumeric_tokens(char *text) ;
+sjk_t *punctuated_tokens(char *text) ;
 sjk_t *good_tokens (char *text) ;
 sjk_t *good_ngrams (sjk_t *T, uint n) ;
 int skip_token(sjk_t *t) ;

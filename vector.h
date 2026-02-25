@@ -112,6 +112,8 @@ int cmp_ijk_i (const void *n1, const void *n2) ; // by increasing i
 int cmp_ijk_j (const void *n1, const void *n2) ; // by increasing j
 int cmp_ijk_k (const void *n1, const void *n2) ; // by increasing k
 int cmp_sjk_s (const void *n1, const void *n2) ; // lexically
+int cmp_sjk_j (const void *n1, const void *n2) ; // increasing start
+int cmp_sjk_k (const void *n1, const void *n2) ; // increasing stop
 
 int cmp_ulong_ptr (const void *_a, const void *_b) ; // by increasing *ulong
 int cmp_Ulong_ptr (const void *_a, const void *_b) ; // decreasing

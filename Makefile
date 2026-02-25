@@ -19,7 +19,7 @@
 
 
 f64=-D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE
-LIB=-lm -lpthread
+LIB=-lm -lpthread -lzstd
 
 opt ?= -g # make opt=-O3 (optimised) or opt=-pg (profile)
 warn=-W -Wall -Wno-unused-result -Wno-implicit-fallthrough -Wno-null-pointer-arithmetic -Wno-null-pointer-subtraction
@@ -59,14 +59,14 @@ dict: dict.c mmap.c vector.c coll.c hash.c timeutil.c textutil.c stemmer_krovetz
 
 mtx: mtx.c mmap.c vector.c coll.c hash.c matrix.c svm.c \
 	textutil.c stemmer_krovetz.c maxent.c synq.c \
-	timeutil.c zvec.c libzstd.a
+	timeutil.c zvec.c
 
 cumtx: cumtx.cu dense.o
 	nvcc -o $@ cumtx.cu dense.o libyari.a
 
 stem: stem.c stemmer_krovetz.c synq.c mmap.c
 
-kvs: kvs.c libyari.a libzstd.a
+kvs: kvs.c libyari.a
 
 hl: hl.c
 
@@ -95,7 +95,7 @@ query: query.c libyari.a
 nutil: netutil.c libyari.a
 	$(CC) -DMAIN $^ $(LIB)
 
-compress: compress.c libyari.a libzstd.a
+compress: compress.c libyari.a
 	$(CC) -DMAIN $^ $(LIB)
 
 hash2: hash2.c hashf.c libyari.a
@@ -110,3 +110,6 @@ xsv: xsv.c libyari.a
 
 re: regexp.c libyari.a
 	$(CC) -DMAIN $^ $(LIB)
+
+libzstd.a:
+	sudo apt install libzstd-dev

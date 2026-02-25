@@ -383,6 +383,16 @@ int cmp_sjk_s (const void *n1, const void *n2) {
   return strcmp(s1, s2);
 }
 
+int cmp_sjk_j (const void *n1, const void *n2) {
+  uint j1 = ((sjk_t*)n1)->j, j2 = ((sjk_t*)n2)->j;
+  return j1 - j2;
+}
+
+int cmp_sjk_k (const void *n1, const void *n2) {
+  uint k1 = ((sjk_t*)n1)->k, k2 = ((sjk_t*)n2)->k;
+  return k1 - k2;
+}
+
 
 // qsort: The comparison function must return an integer less than,
 // equal to, or greater than zero if the first argument is considered
