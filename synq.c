@@ -25,6 +25,7 @@
 #include "types.h"
 #include <pthread.h>
 #include <unistd.h>
+#include <sched.h>
 
 extern ulong next_pow2 (ulong x);
 
@@ -79,22 +80,22 @@ void *detach (void *(*handle) (void *), void *arg) {
   return NULL;
 }
 
-int busy (int *x) { // 1: item is busy, 0: we locked it
+int busy (volatile int *x) { // 1: item is busy, 0: we locked it
   return !__sync_bool_compare_and_swap (x, 0, 1); // !true if swapped 0 -> 1
 }
 
-void lock (int *x) { while (busy (x)) usleep (10); }
+void lock (volatile int *x) { while (busy (x)) sched_yield(); }
 
-void unlock (int *x) { *x = 0; }
+void unlock (volatile int *x) { __sync_lock_release (x); }
 
 // -------------------------- thread-related --------------------------
 
 #ifdef MAIN
-/*
+
 int main (int argc, char *argv[]) {
-(void) argc;
-(void) argv;
-return 0;
+  (void) argc;
+  (void) argv;
+  return 0;
 }
-*/
+
 #endif

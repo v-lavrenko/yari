@@ -51,6 +51,8 @@ libyari.a: mmap.o vector.o coll.o hash.o matrix.o netutil.o timeutil.o stemmer_k
 
 testmmap: testmmap.c mmap.c
 
+test_synq: test_synq.c mmap.o
+
 testvec: testvec.c mmap.c vector.c
 
 testcoll: testcoll.c mmap.c vector.c coll.c
