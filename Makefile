@@ -43,7 +43,7 @@ publish:
 %.o: %.c
 	$(CC) -c $<
 
-libyari.a: mmap.o vector.o coll.o hash.o matrix.o netutil.o timeutil.o stemmer_krovetz.o textutil.o synq.o svm.o spell.o query.o dense.o bpe.o cluster.o regexp.o zvec.o gemini.o
+libyari.a: mmap.o vector.o coll.o hash.o matrix.o netutil.o timeutil.o stemmer_krovetz.o textutil.o synq.o svm.o spell.o query.o dense.o bpe.o cluster.o regexp.o zvec.o
 	ar -r libyari.a $^
 
 %::
@@ -113,7 +113,7 @@ xsv: xsv.c libyari.a
 re: regexp.c libyari.a
 	$(CC) -DMAIN $^ $(LIB)
 
-gemini: gemini.c libyari.a
+gemini: gemini.c curl.o libyari.a
 	$(CC) -DMAIN $^ $(LIB) -lcurl
 
 libzstd.a:

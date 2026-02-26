@@ -22,7 +22,9 @@
 #ifndef GEMINI
 #define GEMINI
 
-char  **multi_post (char *url, char **headers, char **payloads) ;
-float  *embed_text (char *text) ;
+char   *text_from_response      (char *response) ;
+float  *embedding_from_response (char *response) ;
+char   *generate_text (char *prompt, char *model) ;
+float  *embed_text    (char *text) ;
 
 #endif
