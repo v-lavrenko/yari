@@ -26,49 +26,92 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <sched.h>
+#include <stdatomic.h>
 
 extern ulong next_pow2 (ulong x);
 
-// ---------- non-blocking multi-reader / multi-writer FIFO queue ----------
+// ---------- lock-free multi-reader / multi-writer FIFO queue ----------
+//
+// example:
+//   synq_t *Q = synq_new (1024);
+//   ok = synq_push (Q, item); 
+//   item = synq_pop (Q);
+//   synq_free (Q);
 
 typedef struct {
-  void **items; // circular fifo
-  uint size; // #elements in the queue
-  uint head; // index of current head
-  uint tail; // index of current tail
+  _Atomic uint seq;     // what phase this slot is in
+  _Atomic(void *) data; // item stored in this slot
+} slot_t;
+
+typedef struct {
+  slot_t *items; // circular buffer of slots
+  uint size;     // capacity (power of 2)
+  _Atomic uint head; // next index to dequeue from
+  _Atomic uint tail; // next index to enqueue at
 } synq_t;
 
 synq_t *synq_new (uint n) {
   synq_t *q = calloc (1, sizeof (synq_t));
-  q->head = q->tail = 0;
   q->size = next_pow2 (n);
-  q->items = calloc (q->size, sizeof (void*));
+  q->items = calloc (q->size, sizeof (slot_t));
+  for (uint i = 0; i < q->size; ++i)
+    atomic_init (&q->items[i].seq, i); // slot i ready for write #i
+  atomic_init (&q->head, 0);
+  atomic_init (&q->tail, 0);
   return q;
 }
 
 void synq_free (synq_t *q) {
-  memset (q->items, 0, q->size * sizeof(void*));
   free (q->items);
-  memset (q, 0, sizeof(synq_t));
   free (q);
 }
 
+// adds item to the tail of the queue, returns NULL if full
 void *synq_push (synq_t *q, void *item) {
   assert (q && item);
-  uint i = __sync_fetch_and_add (&(q->head), 1); // q->head++
-  void **slot = q->items + i % q->size;
-  if (!*slot) return (*slot = item);
-  __sync_fetch_and_sub (&(q->head), 1); // q->head--
-  return 0;
+  uint tail = atomic_load (&q->tail);
+  for (;;) {
+    slot_t *s = &q->items[tail % q->size];
+    uint seq = atomic_load_explicit (&s->seq, memory_order_acquire);
+    int diff = (int)seq - (int)tail;
+    if (diff == 0) { // slot is ready for this write
+      if (atomic_compare_exchange_weak (&q->tail, &tail, tail + 1)) {
+        atomic_store_explicit (&s->data, item, memory_order_relaxed);
+        atomic_store_explicit (&s->seq, tail + 1, memory_order_release);
+        return item;
+      }
+    } else if (diff < 0) {
+      return NULL; // full
+    } else {
+      tail = atomic_load (&q->tail); // another thread advanced tail
+    }
+  }
 }
 
+// removes item from the head of the queue, returns NULL if empty
 void *synq_pop (synq_t *q) {
   assert (q);
-  uint i = __sync_fetch_and_add (&(q->tail), 1); // q->tail++
-  void *item = q->items [i % q->size];
-  if (item) q->items [i % q->size] = NULL;
-  else __sync_fetch_and_sub (&(q->tail), 1); // q->tail--
-  return item;
+  uint head = atomic_load (&q->head);
+  for (;;) {
+    slot_t *s = &q->items[head % q->size];
+    uint seq = atomic_load_explicit (&s->seq, memory_order_acquire);
+    int diff = (int)seq - (int)(head + 1);
+    if (diff == 0) { // slot has data for this read
+      if (atomic_compare_exchange_weak (&q->head, &head, head + 1)) {
+        void *item = atomic_load_explicit (&s->data, memory_order_relaxed);
+        atomic_store_explicit (&s->seq, head + q->size, memory_order_release);
+        return item;
+      }
+    } else if (diff < 0) {
+      return NULL; // empty
+    } else {
+      head = atomic_load (&q->head); // another thread advanced head
+    }
+  }
+}
+
+uint synq_len (synq_t *q) {
+  return atomic_load (&q->tail) - atomic_load (&q->head);
 }
 
 // -------------------------- thread-related --------------------------
