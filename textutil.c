@@ -409,6 +409,64 @@ void json_safe (char *s) {
   csub (s, "\"\\\t\r\n", ' '); // chars that mess up JSON
 }
 
+// Return a new malloc'd string with proper JSON escaping.
+// Caller must free() the result.
+char *json_escape (char *s) {
+  if (!s) return NULL;
+  uint n = strlen(s);
+  char *out = malloc (n * 6 + 1), *o = out; // worst case: all \u00XX
+  for (; *s; ++s) {
+    switch (*s) {
+    case '"':  *o++ = '\\'; *o++ = '"';  break;
+    case '\\': *o++ = '\\'; *o++ = '\\'; break;
+    case '\n': *o++ = '\\'; *o++ = 'n';  break;
+    case '\r': *o++ = '\\'; *o++ = 'r';  break;
+    case '\t': *o++ = '\\'; *o++ = 't';  break;
+    default:
+      if ((unsigned char)*s < 0x20) // control characters
+	o += sprintf (o, "\\u%04x", (unsigned char)*s);
+      else
+	*o++ = *s;
+    }
+  }
+  *o = '\0';
+  return out;
+}
+
+// In-place JSON unescape: \", \\, \n, \r, \t, \uXXXX (ASCII range).
+// Result is always <= input length.
+void json_unescape (char *s) {
+  if (!s) return;
+  char *r = s, *w = s;
+  while (*r) {
+    if (*r == '\\' && r[1]) {
+      ++r;
+      switch (*r) {
+      case '"':  *w++ = '"';  break;
+      case '\\': *w++ = '\\'; break;
+      case 'n':  *w++ = '\n'; break;
+      case 'r':  *w++ = '\r'; break;
+      case 't':  *w++ = '\t'; break;
+      case '/':  *w++ = '/';  break;
+      case 'b':  *w++ = '\b'; break;
+      case 'f':  *w++ = '\f'; break;
+      case 'u': { // \uXXXX: decode ASCII range, pass others as '?'
+	char hex[5] = {r[1],r[2],r[3],r[4],0};
+	unsigned cp = (uint)strtoul(hex, NULL, 16);
+	*w++ = (cp < 128) ? (char)cp : '?';
+	r += 4;
+	break;
+      }
+      default: *w++ = *r; // unknown escape: keep as-is
+      }
+    } else {
+      *w++ = *r;
+    }
+    ++r;
+  }
+  *w = '\0';
+}
+
 char *json_docid (char *json) {
   char *id = json_value (json, "docid");
   if (!id) id = json_value (json, "id");
@@ -436,6 +494,21 @@ double json_numval (char *json, char *_key) {
   double num = (!val || !*val) ? 0 : strstr(neg,val) ? 0 : strstr(pos,val) ? 1 : atof(val);
   free (val);
   return num;
+}
+
+// parse "[0.1, -0.2, ...]" into a new_vec of floats
+float *json_list_of_floats (char *list) {
+  if (!list || *list != '[') return NULL;
+  // count floats (number of commas + 1)
+  uint n = 1, i;
+  for (i = 0; list[i]; ++i) if (list[i] == ',') ++n;
+  float *vec = new_vec (n, sizeof(float));
+  char *p = list + 1; // skip '['
+  for (i = 0; i < n; ++i) {
+    vec[i] = strtof (p, &p);
+    if (*p == ',') ++p;
+  }
+  return vec;
 }
 
 char *json_pair (char *json, char *_str) {

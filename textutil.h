@@ -63,8 +63,11 @@ void erase_between (char *buf, char *A, char *B, int C) ;
 
 // modifies s to be safe to include in JSON.
 void json_safe (char *s) ;
+char *json_escape (char *s) ; // new malloc'd string with proper JSON escaping
+void json_unescape (char *s) ; // in-place JSON unescaping
 char *json_value (char *json, char *key) ;
 double json_numval (char *json, char *key) ;
+float *json_list_of_floats (char *list) ; // "[0.1,-0.2,...]" -> new_vec of floats
 char *json_pair (char *json, char *_str) ;
 char *json_docid (char *json) ;
 
