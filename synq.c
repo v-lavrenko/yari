@@ -161,18 +161,17 @@ void tqdm (uint done, uint total, char *msg) { // thread-unsafe: static
   if (!t0 || !done) t0 = time(0);
   double elapsed = difftime (time(0), t0);
   if (elapsed < 0.2 && done < total) return; // throttle to 5 Hz
-  double rate = elapsed > 0 ? (done / elapsed / 1000) : 0;
-  double eta  = rate > 0 ? (total - done) / (rate * 1000) : 0;
+  double rate = elapsed > 0 ? (done / elapsed) : 0;
+  double eta  = rate > 0 ? (total - done) / (rate) : 0;
   int pct = total ? (100 * (ulong)done) / total : 0;
   char *blocks[] = { " ", "▏", "▎", "▍", "▌", "▋", "▊", "▉", "█" };
-  int width = 50;
+  int width = 20;
   int filled = total ? (width * 8 * (ulong)done) / total : 0;
   int full = filled / 8, frac = filled % 8;
   fprintf (stderr, "\r%3d%% |", pct);
   for (int k = 0; k < width; ++k)
     fputs (k < full ? blocks[8] : k == full ? blocks[frac] : " ", stderr);
-  // fprintf (stderr, "| %u/%u%s [%.0fs<%.0fs, %.1f/s]", done, total, msg, elapsed, eta, rate);
-  fprintf (stderr, "| %s [%.0fs<%.0fs, %.1fk/s]", msg, elapsed, eta, rate);
+  fprintf (stderr, "| %u/%u%s [%.0fs<%.0fs, %.1f/s]", done, total, msg, elapsed, eta, rate);
   if (done >= total) { fprintf (stderr, "\n"); t0 = 0; }
 }
 
