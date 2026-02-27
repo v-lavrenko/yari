@@ -22,11 +22,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
-#include "types.h"
 #include <pthread.h>
 #include <unistd.h>
 #include <sched.h>
-#include <stdatomic.h>
+#include "synq.h"
 
 extern ulong next_pow2 (ulong x);
 
@@ -38,17 +37,7 @@ extern ulong next_pow2 (ulong x);
 //   item = synq_pop (Q);
 //   synq_free (Q);
 
-typedef struct {
-  _Atomic uint seq;     // what phase this slot is in
-  _Atomic(void *) data; // item stored in this slot
-} slot_t;
 
-typedef struct {
-  slot_t *items; // circular buffer of slots
-  uint size;     // capacity (power of 2)
-  _Atomic uint head; // next index to dequeue from
-  _Atomic uint tail; // next index to enqueue at
-} synq_t;
 
 synq_t *synq_new (uint n) {
   synq_t *q = calloc (1, sizeof (synq_t));
@@ -146,13 +135,13 @@ void *pmap_worker (void *arg) {
   for (;;) {
     uint i = atomic_fetch_add (&p->next, 1);
     if (i >= p->n) break;
+    if (!p->in[i] || p->out[i]) continue; // skip
     p->out[i] = p->fn (p->in[i]);
   }
   return NULL;
 }
 
-void **parallel (uint nt, void *(*fn)(void *), void **in, uint n) {
-  void **out = calloc (n, sizeof (void*));
+void parallel (uint nt, void *(*fn)(void *), void **in, void **out, uint n) {
   pmap_t ctx = { in, out, fn, 0, n };
   atomic_init (&ctx.next, 0);
   pthread_t *threads = calloc (nt, sizeof (pthread_t));
@@ -161,7 +150,38 @@ void **parallel (uint nt, void *(*fn)(void *), void **in, uint n) {
   for (uint i = 0; i < nt; ++i)
     pthread_join (threads[i], NULL);
   free (threads);
-  return out;
+}
+
+// -------------------------- worker pool --------------------------
+
+
+
+void *pool_worker (void *arg) {
+  pool_t *p = (pool_t *)arg;
+  while (!atomic_load (&p->stop)) {
+    void *item = synq_pop (p->in);
+    if (!item) { sched_yield(); continue; }
+    void *result = p->fn (item);
+    while (!synq_push (p->out, result))
+      sched_yield();
+  }
+  return NULL;
+}
+
+pool_t *new_pool (uint nt, synq_t *in, synq_t *out, void *(*fn)(void *)) {
+  pool_t *p = calloc (1, sizeof (pool_t));
+  p->in  = in;
+  p->out = out;
+  p->fn  = fn;
+  atomic_init (&p->stop, 0);
+  for (uint i = 0; i < nt; ++i)
+    detach (pool_worker, p);
+  return p;
+}
+
+void stop_pool (pool_t *p) {
+  atomic_store (&p->stop, 1);
+  free (p);
 }
 
 #ifdef MAIN

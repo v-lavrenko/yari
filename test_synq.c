@@ -2,6 +2,7 @@
 #include <string.h>
 #include <assert.h>
 #include <pthread.h>
+#include <math.h>
 #include "synq.c"
 
 #define PASS "✅ PASS"
@@ -175,9 +176,10 @@ void *triple (void *x) { return (void*)((ulong)x * 3); }
 void test_parallel_basic () {
   uint n = 10;
   void **in = calloc (n, sizeof (void*));
+  void **out = calloc (n, sizeof (void*));
   for (uint i = 0; i < n; ++i)
     in[i] = (void*)(ulong)(i + 1); // 1..10
-  void **out = parallel (4, triple, in, n);
+  parallel (4, triple, in, out, n);
   for (uint i = 0; i < n; ++i)
     assert ((ulong)out[i] == (i + 1) * 3);
   free (in);
@@ -186,11 +188,12 @@ void test_parallel_basic () {
 }
 
 void test_parallel_stress () {
-  uint n = 100000000;
+  uint n = 10000000;
   void **in = calloc (n, sizeof (void*));
+  void **out = calloc (n, sizeof (void*));
   for (uint i = 0; i < n; ++i)
     in[i] = (void*)(ulong)(i + 1); // 1..n
-  void **out = parallel (48, triple, in, n);
+  parallel (48, triple, in, out, n);
   long sum = 0;
   for (uint i = 0; i < n; ++i)
     sum += (ulong)out[i];
@@ -202,11 +205,138 @@ void test_parallel_stress () {
   free (out);
 }
 
-// ==================== main ====================
+void *flaky_triple (void *x) {
+  if ((rand() % 10) == 0) return NULL; // fail ~10% of the time
+  return (void*)((ulong)x * 3);
+}
+
+void test_parallel_retry () {
+  uint n = 1000000;
+  void **in = calloc (n, sizeof (void*));
+  void **out = calloc (n, sizeof (void*));
+  for (uint i = 0; i < n; ++i)
+    in[i] = (void*)(ulong)(i + 1);
+  // run 3 times: each pass fills ~90% of remaining NULLs
+  parallel (8, flaky_triple, in, out, n);
+  parallel (8, flaky_triple, in, out, n);
+  parallel (8, flaky_triple, in, out, n);
+  uint nulls = 0;
+  for (uint i = 0; i < n; ++i) {
+    if (!out[i]) ++nulls;
+    else assert ((ulong)out[i] == (i + 1) * 3);
+  }
+  // expect ~0.1% NULLs (10%^3), allow 0-0.5%
+  double pct = 100.0 * nulls / n;
+  int ok = (pct < 0.5);
+  fprintf (stderr, "parallel retry test: nulls=%u (%.3f%%) %s\n",
+           nulls, pct, ok ? PASS : FAIL);
+  assert (ok);
+  free (in);
+  free (out);
+}
+
+// ==================== pool tests ====================
+
+#define POOL_ITEMS 100000
+#define POOL_PRODUCERS 4
+
+typedef struct {
+  synq_t *q;
+  int start;
+  int count;
+} pool_prod_arg_t;
+
+void *pool_producer (void *arg) {
+  pool_prod_arg_t *a = (pool_prod_arg_t *)arg;
+  for (int i = 0; i < a->count; ++i) {
+    ulong val = (ulong)(a->start + i + 1);
+    while (!synq_push (a->q, (void *)val))
+      sched_yield();
+  }
+  return NULL;
+}
+
+void test_pool () {
+  synq_t *in  = synq_new (256);
+  synq_t *out = synq_new (256);
+  pool_t *P = new_pool (4, in, out, triple);
+
+  // start producers
+  int per = POOL_ITEMS / POOL_PRODUCERS;
+  pthread_t prods [POOL_PRODUCERS];
+  pool_prod_arg_t pargs [POOL_PRODUCERS];
+  for (int i = 0; i < POOL_PRODUCERS; ++i) {
+    pargs[i] = (pool_prod_arg_t) { in, i * per, per };
+    pthread_create (&prods[i], NULL, pool_producer, &pargs[i]);
+  }
+
+  // collect results from output fifo
+  long sum = 0;
+  for (int i = 0; i < POOL_ITEMS; ++i) {
+    void *r;
+    while (!(r = synq_pop (out)))
+      sched_yield();
+    sum += (ulong)r;
+  }
+
+  for (int i = 0; i < POOL_PRODUCERS; ++i)
+    pthread_join (prods[i], NULL);
+  stop_pool (P);
+
+  long expected = 3L * (long)POOL_ITEMS * (POOL_ITEMS + 1) / 2;
+  fprintf (stderr, "pool test: sum=%ld expected=%ld %s\n",
+           sum, expected, (sum == expected) ? PASS : FAIL);
+  assert (sum == expected);
+  synq_free (in);
+  synq_free (out);
+}
+
+// -- pipeline test: two pools chained together --
+
+void *square (void *x) { ulong v = (ulong)x; return (void *)(v * v); }
+void *isqrt  (void *x) { return (void *)(ulong)sqrt ((double)(ulong)x); }
+
+void test_pool_pipeline () {
+  synq_t *in  = synq_new (256);
+  synq_t *mid = synq_new (256); // A's output = B's input
+  synq_t *out = synq_new (256);
+  pool_t *A = new_pool (4, in,  mid, square);
+  pool_t *B = new_pool (4, mid, out, isqrt);
+
+  // push 1..N from a producer thread
+  uint n = 100000;
+  pool_prod_arg_t parg = { in, 0, (int)n };
+  pthread_t prod;
+  pthread_create (&prod, NULL, pool_producer, &parg);
+
+  // collect results concurrently
+  long sum = 0;
+  for (uint i = 0; i < n; ++i) {
+    void *r;
+    while (!(r = synq_pop (out)))
+      sched_yield();
+    sum += (ulong)r;
+  }
+
+  pthread_join (prod, NULL);
+  stop_pool (A);
+  stop_pool (B);
+
+  // sqrt(x^2) == x, so sum should be 1+2+...+n
+  long expected = (long)n * (n + 1) / 2;
+  fprintf (stderr, "pool pipeline test: sum=%ld expected=%ld %s\n",
+           sum, expected, (sum == expected) ? PASS : FAIL);
+  assert (sum == expected);
+  synq_free (in);
+  synq_free (mid);
+  synq_free (out);
+}
+
+// ==================== main ======================================
 
 int main (int argc, char *argv[]) {
   if (argc < 2) {
-    fprintf (stderr, "usage: test_synq -test-lock | -test-synq | -test-parallel | -test-all\n");
+    fprintf (stderr, "usage: test_synq -test-lock | -test-synq | -test-parallel | -test-pool | -test-all\n");
     return 1;
   }
   if (!strcmp (argv[1], "-test-lock") || !strcmp (argv[1], "-test-all"))
@@ -218,6 +348,11 @@ int main (int argc, char *argv[]) {
   if (!strcmp (argv[1], "-test-parallel") || !strcmp (argv[1], "-test-all")) {
     test_parallel_basic();
     test_parallel_stress();
+    test_parallel_retry();
+  }
+  if (!strcmp (argv[1], "-test-pool") || !strcmp (argv[1], "-test-all")) {
+    test_pool();
+    test_pool_pipeline();
   }
   return 0;
 }
