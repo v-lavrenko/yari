@@ -28,5 +28,6 @@ char   *generate_text  (char *prompt, char *model) ;
 char  **generate_texts (uint nt, char **prompts) ;
 float  *embed_text     (char *text) ;
 float **embed_texts    (uint nt, char **texts) ;
+void    embed_coll     (char *texts, char *vecs, char *prm) ;
 
 #endif

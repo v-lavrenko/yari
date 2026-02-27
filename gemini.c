@@ -27,6 +27,8 @@
 #include "hash.h"
 #include "textutil.h"
 #include "synq.h"
+#include "coll.h"
+#include "matrix.h"
 
 // -------------------- text_from_response --------------------
 
@@ -200,6 +202,40 @@ float **embed_texts (uint nt, char **texts) {
   return vecs;
 }
 
+// -------------------- embed_coll --------------------
+
+void embed_coll (char *_texts, char *_vecs, char *prm) {
+  uint batch = getprm(prm, "batch=", 10);
+  uint threads = getprm(prm, "threads=", 1);
+  coll_t *TEXTS = open_coll (_texts, "r+");
+  coll_t *VECS  = open_coll (_vecs, "w+");
+  uint N = nvecs(TEXTS);
+  void **texts = calloc (batch, sizeof (void*));
+  void **vecs  = calloc (batch, sizeof (void*));
+  fprintf (stderr, "embed_coll: %s[%d] -> %s\n", _texts, N, _vecs);
+  for (uint i = 0; i < N; i += batch) {
+    uint n = (i + batch < N) ? batch : (N - i); // number of texts in this batch  
+    for (uint j = 0; j < n; ++j) {
+      char *txt = get_chunk (TEXTS, i+j+1);
+      texts[j] = txt ? strdup(txt) : NULL;
+    }
+    parallel (threads, _embed, texts, vecs, n);
+    for (uint j = 0; j < n; ++j) {
+      ix_t *vec = full2vec(vecs[j]);
+      if (vec) put_vec (VECS, i+j+1, vec);
+      free_vec(vecs[j]);
+      free_vec(vec);
+      free(texts[j]);
+    }
+    show_progress (N, i+n, " texts embedded");
+  }
+  fprintf (stderr, "done: %s[%d]\n", _vecs, nvecs(VECS));
+  free (texts);
+  free (vecs);
+  free_coll (TEXTS);
+  free_coll (VECS);
+}
+
 // -------------------- main (test) --------------------
 
 #ifdef MAIN
@@ -209,8 +245,9 @@ float **embed_texts (uint nt, char **texts) {
 
 char *usage =
   "gemini -embed \"text\"                 ... print embedding vector\n"
-  "gemini -embed-file file.txt           ... embed contents of file\n"
-  "gemini -gen [-0|-1|-9] \"prompt\"       ... generate text\n"
+  "gemini -embed-file file.txt            ... embed contents of file\n"
+  "gemini -gen [-0|-1|-9] \"prompt\"      ... generate text\n"
+  "gemini VECS = embed:prm KVS            ... embed a collection\n"
   ;
 
 void do_embed (char *text) {
@@ -244,6 +281,8 @@ int main (int argc, char *argv[]) {
     char *text = read_file (a(2));
     do_embed (text);
     free (text);
+  } else if (!strncmp(a(3), "embed", 5)) {
+    embed_coll (argv[4], argv[1], a(3));
   } else {
     return fprintf (stderr, "%s", usage);
   }
