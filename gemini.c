@@ -207,7 +207,7 @@ float **embed_texts (uint nt, char **texts) {
 
 // -------------------- embed_coll --------------------
 
-void embed_coll (char *_texts, char *_vecs, char *prm) {
+void embed_coll0 (char *_texts, char *_vecs, char *prm) {
   uint batch = getprm(prm, "batch=", 100);
   uint threads = getprm(prm, "threads=", 5);
   coll_t *TEXTS = open_coll (_texts, "r+");
@@ -239,10 +239,55 @@ void embed_coll (char *_texts, char *_vecs, char *prm) {
   free_coll (VECS);
 }
 
+typedef struct {
+  coll_t *TEXTS;       // input collection
+  coll_t *VECS;        // output collection
+  volatile int lk;     // spinlock for put_vec_write
+} embed_coll_t;
+
+ix_t *emb2vec (float *emb) {
+  ix_t *vec = new_vec(len(emb), sizeof(ix_t));
+  for (uint j = 0; j < len(emb); ++j)
+    vec[j] = (ix_t) {j+1, emb[j]};
+  return vec;
+}
+
+static int _embed_task (uint i, void *arg) {
+  embed_coll_t *c = (embed_coll_t *)arg;
+  if (!c->TEXTS || !c->VECS) return -1; // sanity check
+  if (!has_vec(c->TEXTS, i+1)) return 0; // skip missing texts
+  if (has_vec(c->VECS, i+1)) return 0; // skip existing vecs
+  char *txt = get_chunk_pread (c->TEXTS, i+1);
+  float *emb = embed_text (txt);
+  ix_t *vec = emb2vec(emb);
+  if (vec && len(vec)) {
+    lock (&c->lk);
+    put_vec_write (c->VECS, i+1, vec);
+    unlock (&c->lk);
+  }
+  free (txt);
+  free_vec (emb);
+  free_vec (vec);
+  return 0;
+}
+
+void embed_coll (char *_texts, char *_vecs, char *prm) {
+  uint threads = getprm(prm, "threads=", 5);
+  uint limit = getprm(prm, "limit=", MAX_UINT);
+  coll_t *TEXTS = open_coll (_texts, "r+");
+  coll_t *VECS  = open_coll (_vecs, "w+");
+  embed_coll_t ctx = { TEXTS, VECS, 0 };
+  uint N = MIN(limit,nvecs(TEXTS));
+  fprintf (stderr, "embed_coll: %s[%d] -> %s\n", _texts, N, _vecs);
+  parallel (threads, N, _embed_task, &ctx, " texts embedded");
+  free_coll (TEXTS);
+  free_coll (VECS);
+}
+
 void embed_coll1 (char *_texts, char *_vecs) {
   coll_t *TEXTS = open_coll (_texts, "r+");
   coll_t *VECS  = open_coll (_vecs, "w+");
-  uint N = MIN(1000,nvecs(TEXTS));
+  uint N = MIN(100, nvecs(TEXTS));
   fprintf (stderr, "embed_coll: %s[%d] -> %s\n", _texts, N, _vecs);
   for (uint i = 0; i < N; i += 1) {
     char *txt = get_chunk (TEXTS, i+1);
