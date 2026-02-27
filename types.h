@@ -31,6 +31,7 @@
 #define SWAP(a,b) (tmp=(a), (a)=(b), (b)=tmp)
 #endif
 
+#define MAX_UINT 4294967295
 #define Infinity   9999999999999
 #define	EXP	   2.7182818284590
 #define PI	   3.1415926535898
