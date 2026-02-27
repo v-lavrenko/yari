@@ -28,6 +28,7 @@
 #include <math.h>
 #include "hash.h"
 #include "textutil.h"
+#include "mmap.h"
 #include "hl.h"
 #include "matrix.h"
 #include "timeutil.h"
@@ -409,12 +410,25 @@ void json_safe (char *s) {
   csub (s, "\"\\\t\r\n", ' '); // chars that mess up JSON
 }
 
-// Return a new malloc'd string with proper JSON escaping.
+// Number of bytes needed for json_escape(s), including '\0'.
+uint json_escaped_size (char *s) {
+  uint sz = 1; // for '\0'
+  for (char *p = s; *p; ++p) {
+    switch (*p) {
+    case '"': case '\\': case '\n': case '\r':
+    case '\t': case '\b': case '\f': sz += 2; break;
+    default:
+      sz += ((unsigned char)*p < 0x20) ? 6 : 1;
+    }
+  }
+  return sz;
+}
+
+// Return a new safe_malloc'd string with proper JSON escaping.
 // Caller must free() the result.
 char *json_escape (char *s) {
   if (!s) return NULL;
-  uint n = strlen(s);
-  char *out = malloc (n * 6 + 1), *o = out; // worst case: all \u00XX
+  char *out = safe_malloc (json_escaped_size(s)), *o = out;
   for (; *s; ++s) {
     switch (*s) {
     case '"':  *o++ = '\\'; *o++ = '"';  break;
@@ -422,9 +436,11 @@ char *json_escape (char *s) {
     case '\n': *o++ = '\\'; *o++ = 'n';  break;
     case '\r': *o++ = '\\'; *o++ = 'r';  break;
     case '\t': *o++ = '\\'; *o++ = 't';  break;
+    case '\b': *o++ = '\\'; *o++ = 'b';  break;
+    case '\f': *o++ = '\\'; *o++ = 'f';  break;
     default:
       if ((unsigned char)*s < 0x20) // control characters
-	o += sprintf (o, "\\u%04x", (unsigned char)*s);
+	      o += sprintf (o, "\\u%04x", (unsigned char)*s);
       else
 	*o++ = *s;
     }
