@@ -127,7 +127,7 @@ static void *_generate (void *prompt) {
 char **generate_texts (uint nt, char **prompts) {
   uint n = len(prompts);
   char **texts = new_vec (n, sizeof (char*));
-  parallel (nt, _generate, (void **)prompts, (void **)texts, n);
+  pmap (nt, _generate, (void **)prompts, (void **)texts, n);
   return texts;
 }
 
@@ -198,28 +198,31 @@ static void *_embed (void *text) {
 float **embed_texts (uint nt, char **texts) {
   uint n = len(texts);
   float **vecs = new_vec (n, sizeof (float*));
-  parallel (nt, _embed, (void **)texts, (void **)vecs, n);
+  pmap (nt, _embed, (void **)texts, (void **)vecs, n);
   return vecs;
 }
+
+// Note: batchEmbedContents exists, but we hit TPM not RPM limits.
+// 50 calls/sec (3K RPM) vs 16K tok/sec (1M TPM)
 
 // -------------------- embed_coll --------------------
 
 void embed_coll (char *_texts, char *_vecs, char *prm) {
-  uint batch = getprm(prm, "batch=", 10);
-  uint threads = getprm(prm, "threads=", 1);
+  uint batch = getprm(prm, "batch=", 100);
+  uint threads = getprm(prm, "threads=", 5);
   coll_t *TEXTS = open_coll (_texts, "r+");
   coll_t *VECS  = open_coll (_vecs, "w+");
-  uint N = nvecs(TEXTS);
-  void **texts = calloc (batch, sizeof (void*));
-  void **vecs  = calloc (batch, sizeof (void*));
+  uint N = MIN(1000,nvecs(TEXTS));
   fprintf (stderr, "embed_coll: %s[%d] -> %s\n", _texts, N, _vecs);
   for (uint i = 0; i < N; i += batch) {
     uint n = (i + batch < N) ? batch : (N - i); // number of texts in this batch  
+    void **texts = calloc (n, sizeof (void*));
+    void **vecs  = calloc (n, sizeof (void*));
     for (uint j = 0; j < n; ++j) {
       char *txt = get_chunk (TEXTS, i+j+1);
       texts[j] = txt ? strdup(txt) : NULL;
     }
-    parallel (threads, _embed, texts, vecs, n);
+    pmap (threads, _embed, texts, vecs, n);
     for (uint j = 0; j < n; ++j) {
       ix_t *vec = full2vec(vecs[j]);
       if (vec) put_vec (VECS, i+j+1, vec);
@@ -227,14 +230,34 @@ void embed_coll (char *_texts, char *_vecs, char *prm) {
       free_vec(vec);
       free(texts[j]);
     }
-    show_progress (N, i+n, " texts embedded");
+    free(texts);
+    free(vecs);
+    show_progress (i+n, N, " texts embedded");
   }
   fprintf (stderr, "done: %s[%d]\n", _vecs, nvecs(VECS));
-  free (texts);
-  free (vecs);
   free_coll (TEXTS);
   free_coll (VECS);
 }
+
+void embed_coll1 (char *_texts, char *_vecs) {
+  coll_t *TEXTS = open_coll (_texts, "r+");
+  coll_t *VECS  = open_coll (_vecs, "w+");
+  uint N = MIN(1000,nvecs(TEXTS));
+  fprintf (stderr, "embed_coll: %s[%d] -> %s\n", _texts, N, _vecs);
+  for (uint i = 0; i < N; i += 1) {
+    char *txt = get_chunk (TEXTS, i+1);
+    float *full = embed_text (txt);
+    ix_t *vec = full2vec(full);
+    if (vec) put_vec (VECS, i+1, vec);
+    free_vec(full);
+    free_vec(vec);
+    show_progress (i, N, " texts embedded");
+  }
+  fprintf (stderr, "done: %s[%d]\n", _vecs, nvecs(VECS));
+  free_coll (TEXTS);
+  free_coll (VECS);
+}
+
 
 // -------------------- main (test) --------------------
 
@@ -248,6 +271,7 @@ char *usage =
   "gemini -embed-file file.txt            ... embed contents of file\n"
   "gemini -gen [-0|-1|-9] \"prompt\"      ... generate text\n"
   "gemini VECS = embed:prm KVS            ... embed a collection\n"
+  "gemini VECS = embed1 KVS               ... embed a collection\n"
   ;
 
 void do_embed (char *text) {
@@ -283,6 +307,8 @@ int main (int argc, char *argv[]) {
     free (text);
   } else if (!strncmp(a(3), "embed", 5)) {
     embed_coll (argv[4], argv[1], a(3));
+  } else if (!strncmp(a(3), "embed1", 6)) { 
+    embed_coll1 (argv[4], argv[1]);
   } else {
     return fprintf (stderr, "%s", usage);
   }
