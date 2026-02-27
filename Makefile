@@ -37,6 +37,9 @@ all: libyari.a $(exe)
 clean:
 	rm -rf $(exe) *.o *.dSYM libyari.a TAGS
 
+tests: test_synq
+	./test_synq -test-all
+
 publish:
 	scp mtx www@ir:/data/www/yari/$(OSTYPE)/
 
