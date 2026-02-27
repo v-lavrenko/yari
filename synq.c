@@ -25,6 +25,8 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <sched.h>
+#include <stdarg.h>
+#include <stdio.h>
 #include "synq.h"
 
 extern ulong next_pow2 (ulong x);
@@ -141,7 +143,7 @@ void *pmap_worker (void *arg) {
   return NULL;
 }
 
-void parallel (uint nt, void *(*fn)(void *), void **in, void **out, uint n) {
+void pmap (uint nt, void *(*fn)(void *), void **in, void **out, uint n) {
   pmap_t ctx = { in, out, fn, 0, n };
   atomic_init (&ctx.next, 0);
   pthread_t *threads = calloc (nt, sizeof (pthread_t));
@@ -150,6 +152,71 @@ void parallel (uint nt, void *(*fn)(void *), void **in, void **out, uint n) {
   for (uint i = 0; i < nt; ++i)
     pthread_join (threads[i], NULL);
   free (threads);
+}
+
+// ---------- tqdm-style progress bar ----------
+
+void tqdm (uint done, uint total, char *msg) { // thread-unsafe: static
+  static time_t t0 = 0;
+  if (!t0 || !done) t0 = time(0);
+  double elapsed = difftime (time(0), t0);
+  if (elapsed < 0.2 && done < total) return; // throttle to 5 Hz
+  double rate = elapsed > 0 ? (done / elapsed / 1000) : 0;
+  double eta  = rate > 0 ? (total - done) / (rate * 1000) : 0;
+  int pct = total ? (100 * (ulong)done) / total : 0;
+  char *blocks[] = { " ", "▏", "▎", "▍", "▌", "▋", "▊", "▉", "█" };
+  int width = 50;
+  int filled = total ? (width * 8 * (ulong)done) / total : 0;
+  int full = filled / 8, frac = filled % 8;
+  fprintf (stderr, "\r%3d%% |", pct);
+  for (int k = 0; k < width; ++k)
+    fputs (k < full ? blocks[8] : k == full ? blocks[frac] : " ", stderr);
+  // fprintf (stderr, "| %u/%u%s [%.0fs<%.0fs, %.1f/s]", done, total, msg, elapsed, eta, rate);
+  fprintf (stderr, "| %s [%.0fs<%.0fs, %.1fk/s]", msg, elapsed, eta, rate);
+  if (done >= total) { fprintf (stderr, "\n"); t0 = 0; }
+}
+
+// ---------- parallel: task-based parallelism ----------
+//
+// int handler (uint task, void *arg);
+// int err = parallel (nt, n, handler, arg, "msg");
+
+typedef struct {
+  int (*fn)(uint task, void *arg);   // handler
+  void *arg;                         // shared arg (from caller)
+  _Atomic uint next;                 // next task index
+  uint n;                            // total number of tasks
+  _Atomic int err;                   // first non-zero error
+} par_t;
+
+static void *parallel_worker (void *arg) {
+  par_t *p = (par_t *)arg;
+  for (;;) {
+    uint i = atomic_fetch_add (&p->next, 1);
+    if (i >= p->n) break;
+    int e = p->fn (i, p->arg);
+    if (e) atomic_compare_exchange_strong (&p->err, &(int){0}, e);
+  }
+  return NULL;
+}
+
+int parallel (uint nt, uint n, int (*fn)(uint, void*), void *arg, char *msg) {
+  par_t ctx = { fn, arg, 0, n, 0 };
+  atomic_init (&ctx.next, 0);
+  atomic_init (&ctx.err, 0);
+  pthread_t *threads = calloc (nt, sizeof (pthread_t));
+  for (uint i = 0; i < nt; ++i)
+    pthread_create (&threads[i], NULL, parallel_worker, &ctx);
+  if (msg)
+    while (atomic_load (&ctx.next) < n) {
+      tqdm (atomic_load (&ctx.next), n, msg);
+      usleep (200000);
+    }
+  for (uint i = 0; i < nt; ++i)
+    pthread_join (threads[i], NULL);
+  if (msg) tqdm (n, n, msg); // final 100%
+  free (threads);
+  return atomic_load (&ctx.err);
 }
 
 // -------------------------- worker pool --------------------------
