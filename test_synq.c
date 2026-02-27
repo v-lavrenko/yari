@@ -2,8 +2,10 @@
 #include <string.h>
 #include <assert.h>
 #include <pthread.h>
-#include "hl.h"
 #include "synq.c"
+
+#define PASS "✅ PASS"
+#define FAIL "❌ FAIL"
 
 // ==================== lock/unlock tests ====================
 
@@ -41,7 +43,7 @@ void test_lock () {
     pthread_join (threads[i], NULL);
   int expected = LOCK_THREADS * LOCK_ITERS;
   fprintf (stderr, "lock test: counter=%d expected=%d %s\n",
-           counter, expected, (counter == expected) ? fg_GREEN"PASS"RESET : fg_RED"FAIL"RESET);
+           counter, expected, (counter == expected) ? PASS : FAIL);
   assert (counter == expected);
 }
 
@@ -72,7 +74,7 @@ void test_synq_basic () {
   assert (synq_pop (q) == &e);
 
   synq_free (q);
-  fprintf (stderr, "synq basic test: "fg_GREEN"PASS"RESET"\n");
+  fprintf (stderr, "synq basic test: "PASS"\n");
 }
 
 // -- multi-threaded producer/consumer test --
@@ -161,16 +163,50 @@ void test_synq_concurrent () {
     pthread_join (cons[i], NULL);
 
   fprintf (stderr, "synq concurrent test: sum=%ld expected=%ld %s\n",
-           sum, expected, (sum == expected) ? fg_GREEN"PASS"RESET : fg_RED"FAIL"RESET);
+           sum, expected, (sum == expected) ? PASS : FAIL);
   assert (sum == expected);
   synq_free (q);
+}
+
+// ==================== parallel tests ====================
+
+void *triple (void *x) { return (void*)((ulong)x * 3); }
+
+void test_parallel_basic () {
+  uint n = 10;
+  void **in = calloc (n, sizeof (void*));
+  for (uint i = 0; i < n; ++i)
+    in[i] = (void*)(ulong)(i + 1); // 1..10
+  void **out = parallel (4, triple, in, n);
+  for (uint i = 0; i < n; ++i)
+    assert ((ulong)out[i] == (i + 1) * 3);
+  free (in);
+  free (out);
+  fprintf (stderr, "parallel basic test: "PASS"\n");
+}
+
+void test_parallel_stress () {
+  uint n = 100000000;
+  void **in = calloc (n, sizeof (void*));
+  for (uint i = 0; i < n; ++i)
+    in[i] = (void*)(ulong)(i + 1); // 1..n
+  void **out = parallel (48, triple, in, n);
+  long sum = 0;
+  for (uint i = 0; i < n; ++i)
+    sum += (ulong)out[i];
+  long expected = 3L * (long)n * (n + 1) / 2;
+  fprintf (stderr, "parallel stress test: sum=%ld expected=%ld %s\n",
+           sum, expected, (sum == expected) ? PASS : FAIL);
+  assert (sum == expected);
+  free (in);
+  free (out);
 }
 
 // ==================== main ====================
 
 int main (int argc, char *argv[]) {
   if (argc < 2) {
-    fprintf (stderr, "usage: test_synq -test-lock | -test-synq | -test-all\n");
+    fprintf (stderr, "usage: test_synq -test-lock | -test-synq | -test-parallel | -test-all\n");
     return 1;
   }
   if (!strcmp (argv[1], "-test-lock") || !strcmp (argv[1], "-test-all"))
@@ -178,6 +214,10 @@ int main (int argc, char *argv[]) {
   if (!strcmp (argv[1], "-test-synq") || !strcmp (argv[1], "-test-all")) {
     test_synq_basic();
     test_synq_concurrent();
+  }
+  if (!strcmp (argv[1], "-test-parallel") || !strcmp (argv[1], "-test-all")) {
+    test_parallel_basic();
+    test_parallel_stress();
   }
   return 0;
 }

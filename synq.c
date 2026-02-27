@@ -131,7 +131,38 @@ void lock (volatile int *x) { while (busy (x)) sched_yield(); }
 
 void unlock (volatile int *x) { __sync_lock_release (x); }
 
-// -------------------------- thread-related --------------------------
+// -------------------------- parallel map --------------------------
+
+typedef struct {
+  void **in;           // input array
+  void **out;          // output array
+  void *(*fn)(void *); // handler
+  _Atomic uint next;   // next index to process
+  uint n;              // total number of inputs
+} pmap_t;
+
+void *pmap_worker (void *arg) {
+  pmap_t *p = (pmap_t *)arg;
+  for (;;) {
+    uint i = atomic_fetch_add (&p->next, 1);
+    if (i >= p->n) break;
+    p->out[i] = p->fn (p->in[i]);
+  }
+  return NULL;
+}
+
+void **parallel (uint nt, void *(*fn)(void *), void **in, uint n) {
+  void **out = calloc (n, sizeof (void*));
+  pmap_t ctx = { in, out, fn, 0, n };
+  atomic_init (&ctx.next, 0);
+  pthread_t *threads = calloc (nt, sizeof (pthread_t));
+  for (uint i = 0; i < nt; ++i)
+    pthread_create (&threads[i], NULL, pmap_worker, &ctx);
+  for (uint i = 0; i < nt; ++i)
+    pthread_join (threads[i], NULL);
+  free (threads);
+  return out;
+}
 
 #ifdef MAIN
 
