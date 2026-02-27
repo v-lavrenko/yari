@@ -169,36 +169,36 @@ void test_synq_concurrent () {
   synq_free (q);
 }
 
-// ==================== parallel tests ====================
+// ==================== pmap tests ====================
 
 void *triple (void *x) { return (void*)((ulong)x * 3); }
 
-void test_parallel_basic () {
+void test_pmap_basic () {
   uint n = 10;
   void **in = calloc (n, sizeof (void*));
   void **out = calloc (n, sizeof (void*));
   for (uint i = 0; i < n; ++i)
     in[i] = (void*)(ulong)(i + 1); // 1..10
-  parallel (4, triple, in, out, n);
+  pmap (4, triple, in, out, n);
   for (uint i = 0; i < n; ++i)
     assert ((ulong)out[i] == (i + 1) * 3);
   free (in);
   free (out);
-  fprintf (stderr, "parallel basic test: "PASS"\n");
+  fprintf (stderr, "pmap basic test: "PASS"\n");
 }
 
-void test_parallel_stress () {
+void test_pmap_stress () {
   uint n = 10000000;
   void **in = calloc (n, sizeof (void*));
   void **out = calloc (n, sizeof (void*));
   for (uint i = 0; i < n; ++i)
     in[i] = (void*)(ulong)(i + 1); // 1..n
-  parallel (48, triple, in, out, n);
+  pmap (48, triple, in, out, n);
   long sum = 0;
   for (uint i = 0; i < n; ++i)
     sum += (ulong)out[i];
   long expected = 3L * (long)n * (n + 1) / 2;
-  fprintf (stderr, "parallel stress test: sum=%ld expected=%ld %s\n",
+  fprintf (stderr, "pmap stress test: sum=%ld expected=%ld %s\n",
            sum, expected, (sum == expected) ? PASS : FAIL);
   assert (sum == expected);
   free (in);
@@ -210,16 +210,16 @@ void *flaky_triple (void *x) {
   return (void*)((ulong)x * 3);
 }
 
-void test_parallel_retry () {
+void test_pmap_retry () {
   uint n = 1000000;
   void **in = calloc (n, sizeof (void*));
   void **out = calloc (n, sizeof (void*));
   for (uint i = 0; i < n; ++i)
     in[i] = (void*)(ulong)(i + 1);
   // run 3 times: each pass fills ~90% of remaining NULLs
-  parallel (8, flaky_triple, in, out, n);
-  parallel (8, flaky_triple, in, out, n);
-  parallel (8, flaky_triple, in, out, n);
+  pmap (8, flaky_triple, in, out, n);
+  pmap (8, flaky_triple, in, out, n);
+  pmap (8, flaky_triple, in, out, n);
   uint nulls = 0;
   for (uint i = 0; i < n; ++i) {
     if (!out[i]) ++nulls;
@@ -228,11 +228,67 @@ void test_parallel_retry () {
   // expect ~0.1% NULLs (10%^3), allow 0-0.5%
   double pct = 100.0 * nulls / n;
   int ok = (pct < 0.5);
-  fprintf (stderr, "parallel retry test: nulls=%u (%.3f%%) %s\n",
+  fprintf (stderr, "pmap retry test: nulls=%u (%.3f%%) %s\n",
            nulls, pct, ok ? PASS : FAIL);
   assert (ok);
   free (in);
   free (out);
+}
+
+// ==================== parallel tests ====================
+
+typedef struct {
+  _Atomic long sum;
+  int *vals;
+} par_test_t;
+
+int par_add (uint task, void *arg) {
+  par_test_t *t = (par_test_t *)arg;
+  atomic_fetch_add (&t->sum, t->vals[task]);
+  return 0;
+}
+
+void test_parallel_basic () {
+  uint n = 1000;
+  int *vals = calloc (n, sizeof (int));
+  for (uint i = 0; i < n; ++i) vals[i] = i + 1;
+  par_test_t ctx = { 0, vals };
+  atomic_init (&ctx.sum, 0);
+  int err = parallel (8, n, par_add, &ctx, NULL);
+  long expected = (long)n * (n + 1) / 2;
+  fprintf (stderr, "parallel basic test: sum=%ld expected=%ld err=%d %s\n",
+           atomic_load (&ctx.sum), expected,
+           err, (atomic_load (&ctx.sum) == expected && !err) ? PASS : FAIL);
+  assert (atomic_load (&ctx.sum) == expected && !err);
+  free (vals);
+}
+
+int par_fail (uint task, void *arg) {
+  (void)arg;
+  if (task == 42) return -1;
+  return 0;
+}
+
+void test_parallel_error () {
+  int err = parallel (4, 100, par_fail, NULL, NULL);
+  fprintf (stderr, "parallel error test: err=%d %s\n",
+           err, (err == -1) ? PASS : FAIL);
+  assert (err == -1);
+}
+
+void test_parallel_stress () {
+  uint n = 100000000;
+  int *vals = calloc (n, sizeof (int));
+  for (uint i = 0; i < n; ++i) vals[i] = 1;
+  par_test_t ctx = { 0, vals };
+  atomic_init (&ctx.sum, 0);
+  int err = parallel (48, n, par_add, &ctx, " parallel adds");
+  long expected = (long)n;
+  fprintf (stderr, "parallel stress test: sum=%ld expected=%ld err=%d %s\n",
+           atomic_load (&ctx.sum), expected,
+           err, (atomic_load (&ctx.sum) == expected && !err) ? PASS : FAIL);
+  assert (atomic_load (&ctx.sum) == expected && !err);
+  free (vals);
 }
 
 // ==================== pool tests ====================
@@ -336,7 +392,7 @@ void test_pool_pipeline () {
 
 int main (int argc, char *argv[]) {
   if (argc < 2) {
-    fprintf (stderr, "usage: test_synq -test-lock | -test-synq | -test-parallel | -test-pool | -test-all\n");
+    fprintf (stderr, "usage: test_synq -test-lock | -test-synq | -test-pmap | -test-parallel | -test-pool | -test-all\n");
     return 1;
   }
   if (!strcmp (argv[1], "-test-lock") || !strcmp (argv[1], "-test-all"))
@@ -345,10 +401,15 @@ int main (int argc, char *argv[]) {
     test_synq_basic();
     test_synq_concurrent();
   }
+  if (!strcmp (argv[1], "-test-pmap") || !strcmp (argv[1], "-test-all")) {
+    test_pmap_basic();
+    test_pmap_stress();
+    test_pmap_retry();
+  }
   if (!strcmp (argv[1], "-test-parallel") || !strcmp (argv[1], "-test-all")) {
     test_parallel_basic();
+    test_parallel_error();
     test_parallel_stress();
-    test_parallel_retry();
   }
   if (!strcmp (argv[1], "-test-pool") || !strcmp (argv[1], "-test-all")) {
     test_pool();
