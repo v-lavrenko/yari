@@ -26,6 +26,7 @@
 #include "gemini.h"
 #include "hash.h"
 #include "textutil.h"
+#include "synq.h"
 
 // -------------------- text_from_response --------------------
 
@@ -111,6 +112,23 @@ char *generate_text (char *prompt, char *model) {
   return result; // caller frees
 }
 
+// -------------------- generate_texts --------------------
+
+
+
+static void *_generate (void *prompt) {
+  return generate_text ((char *)prompt, "gemini-2.5-flash-lite");
+}
+
+// Call generate_text on each prompt in parallel using nt threads.
+// Returns a vector, like prompts. NULLs indicate failures.
+char **generate_texts (uint nt, char **prompts) {
+  uint n = len(prompts);
+  char **texts = new_vec (n, sizeof (char*));
+  parallel (nt, _generate, (void **)prompts, (void **)texts, n);
+  return texts;
+}
+
 // -------------------- embedding_from_response --------------------
 
 // Extract embedding vector from a Gemini API response.
@@ -166,6 +184,20 @@ float *embed_text (char *text) {
   float *vec = embedding_from_response (response);
   free (response);
   return vec; // caller uses len(vec) and free_vec(vec)
+}
+
+// Embed each text in parallel using nt threads.
+// Returns a vector of float* vectors. NULLs indicate failures.
+
+static void *_embed (void *text) {
+  return embed_text ((char *)text);
+}
+
+float **embed_texts (uint nt, char **texts) {
+  uint n = len(texts);
+  float **vecs = new_vec (n, sizeof (float*));
+  parallel (nt, _embed, (void **)texts, (void **)vecs, n);
+  return vecs;
 }
 
 // -------------------- main (test) --------------------
