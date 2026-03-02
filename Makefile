@@ -25,7 +25,7 @@ opt ?= -g # make opt=-O3 (optimised) or opt=-pg (profile)
 warn=-W -Wall -Wno-unused-result -Wno-implicit-fallthrough -Wno-null-pointer-arithmetic -Wno-null-pointer-subtraction
 
 #CC=gcc -m64 $(opt) $(warn) -I . -o $@ $(f64) -fopenmp
-CC=gcc -m64 $(opt) $(warn) -I . -o $@ $(f64)
+CC=gcc -m64 -mavx $(opt) $(warn) -I . -o $@ $(f64)
 
 exe = testmmap testvec testcoll dict mtx stem kvs hl bio pdb \
 shard pval ts ptail xcut xtime spell query nutil xsum xsv \
