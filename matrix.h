@@ -227,7 +227,9 @@ double mean(ix_t *X) ;
 double stdev(ix_t *X) ;
 double covariance (ix_t *X, ix_t *Y, uint N) ;
 double MSE (ix_t *X, ix_t *Y, uint N) ; // N=1 gives SSE
-double sumf (float *V) ;
+double sumf (float *V, float p) ;
+double dotf (float *A, float *B) ;
+double dotf_avx (float *A, float *B) ;
 float *maxf (float *V) ;
 float *minf (float *V) ;
 ulong  sumi (uint *V) ;
@@ -241,6 +243,7 @@ ix_t *value_deltas(ix_t *X) ;
 double H (ix_t *X, ix_t *Y, double mu, float *CF, ulong CL) ;
 double KL (ix_t *X, ix_t *Y, double mu, float *CF, ulong CL) ;
 double cosine (ix_t *X, ix_t *Y) ;
+double cosinef (float *A, float *B) ;
 double dice (ix_t *X, ix_t *Y) ;
 double jaccard (ix_t *X, ix_t *Y) ;
 double hellinger (ix_t *X, ix_t *Y) ;

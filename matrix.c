@@ -20,6 +20,7 @@
 */
 
 #include <math.h>
+#include <immintrin.h>
 #include "bitvec.h"
 #include "matrix.h"
 #include "hash.h"
@@ -2540,11 +2541,34 @@ uint *maxi (uint *V) {
   while (++v < end) if (*v > *m) m = v;
   return m; }
 
-double sumf (float *V) {
+double sumf (float *V, float p) {
   float *end = V + len(V), *v = V-1;
   double s = 0;
-  while (++v < end) s += *v;
+  if      (p == 1) while (++v < end) s += *v;
+  else if (p == 2) while (++v < end) s += *v * *v;
+  else if (p == 0) while (++v < end) s += (*v != 0);
+  else if (p ==.5) while (++v < end) s += sqrt (*v);
+  else             while (++v < end) s += powf (*v,p);
   return s; }
+
+double dotf (float *A, float *B) {
+  double result = 0;
+  uint n = len(A), m = len(B), k = MIN(m,n), i;
+  for (i=0; i<k; ++i) result += A[i] * B[i];
+  return result; }
+
+double dotf_avx (float *A, float *B) {
+  uint n = len(A), m = len(B), k = MIN(m,n), i = 0;
+  __m256 sum = _mm256_setzero_ps();
+  for (; i + 8 <= k; i += 8) {
+    __m256 a = _mm256_loadu_ps(A + i);
+    __m256 b = _mm256_loadu_ps(B + i);
+    sum = _mm256_add_ps(sum, _mm256_mul_ps(a, b));
+  }
+  float tmp[8]; _mm256_storeu_ps(tmp, sum);
+  double result = tmp[0]+tmp[1]+tmp[2]+tmp[3]+tmp[4]+tmp[5]+tmp[6]+tmp[7];
+  for (; i < k; ++i) result += A[i] * B[i];
+  return result; }
 
 float *maxf (float *V) {
   float *end = V + len(V), *v = V-1, *m = V;
@@ -2678,6 +2702,11 @@ double LR (ix_t *X, ix_t *Y, double mu, float *CF, ulong CL) {
 double cosine (ix_t *X, ix_t *Y) {
   double norm = sqrt (sum2(X) * sum2(Y));
   return dot(X,Y) / (norm ? norm : 1);
+}
+
+double cosinef (float *A, float *B) {
+  double norm = sqrt (dotf_avx(A,A) * dotf_avx(B,B));
+  return dotf_avx(A,B) / (norm ? norm : 1);
 }
 
 double dice (ix_t *X, ix_t *Y) {

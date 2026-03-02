@@ -759,7 +759,7 @@ void dot2lm (coll_t *P, coll_t *Q, char *prm) { // products => LM scores
   coll_t *D = open_coll (docs, "r+");
   float *DL = sum_rows (D, 1); // document length
   float *CF = sum_cols (D, 1); // collection frequency
-  double nposts = sumf (DL); // collection length
+  double nposts = sumf (DL, 1); // collection length
   free_coll (D);
   if (docs) free (docs);
 

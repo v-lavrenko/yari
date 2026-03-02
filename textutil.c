@@ -1605,7 +1605,7 @@ hash_t *ngrams_dict (char *qry, int n) {
 
 float fCE(float *Q, float *D, float eps) {
   uint i, nQ = len(Q), nD = len(D), n = MIN(nQ,nD);
-  double SQ = sumf(Q), SD = sumf(D), CE = 0;
+  double SQ = sumf(Q,1), SD = sumf(D,1), CE = 0;
   for (i=0; i<n; ++i)
     CE += (Q[i]/SQ) * log (D[i]/SD + eps);
   return CE;
@@ -1613,7 +1613,7 @@ float fCE(float *Q, float *D, float eps) {
 
 float fCE2(float *Q, float *D, float *BG) {
   uint i, nQ = len(Q), nD = len(D), n = MIN(nQ,nD);
-  double SQ = sumf(Q), SD = sumf(D), CE = 0;
+  double SQ = sumf(Q,1), SD = sumf(D,1), CE = 0;
   for (i=0; i<n; ++i)
     CE += (Q[i]/SQ) * log (D[i]/SD + BG[i]);
   return CE;
