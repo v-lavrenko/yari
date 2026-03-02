@@ -258,15 +258,13 @@ static int _embed_task (uint i, void *arg) {
   if (!has_vec(c->TEXTS, i+1)) return 0; // skip missing texts
   if (has_vec(c->VECS, i+1)) return 0; // skip existing vecs
   char *txt = get_chunk_pread (c->TEXTS, i+1);
-  float *emb = embed_text (txt);
-  ix_t *vec = emb2vec(emb);
+  float *vec = embed_text (txt);
   if (vec && len(vec)) {
     lock (&c->lk);
     put_vec_write (c->VECS, i+1, vec);
     unlock (&c->lk);
   }
   free (txt);
-  free_vec (emb);
   free_vec (vec);
   return 0;
 }
