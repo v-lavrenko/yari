@@ -615,6 +615,24 @@ void permute_vec (ix_t *V, uint nc) {
   free_vec(P);
 }
 
+// returns 0..n-1 in order.
+uint *arange (uint n) {
+  uint *P = new_vec (n, sizeof(uint)), i;
+  for (i = 0; i < n; ++i) P[i] = i;
+  return P;
+}
+
+// returns 0..n-1 in random order (Fisher-Yates shuffle).
+uint *permutation (uint n) {
+  uint *P = new_vec (n, sizeof(uint)), i;
+  for (i = 0; i < n; ++i) P[i] = i;
+  for (i = 0; i < n-1; ++i) {
+    uint j = i + random() % (n - i);
+    uint tmp = P[i]; P[i] = P[j]; P[j] = tmp;
+  }
+  return P;
+}
+
 inline float powa (float x, float p) {
   if (p == 2) return x*x;
   if (p == 1) return ABS(x);
