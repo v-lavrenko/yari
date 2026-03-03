@@ -25,7 +25,7 @@
 char   *text_from_response      (char *response) ;
 float  *embedding_from_response (char *response) ;
 char   *generate_text  (char *prompt, char *model) ;
-char  **generate_texts (uint nt, char **prompts) ;
+char  **generate_texts (uint nt, char **prompts, char *model) ;
 float  *embed_text     (char *text) ;
 float **embed_texts    (uint nt, char **texts) ;
 float **embed_texts_batch (char **texts, uint n) ;

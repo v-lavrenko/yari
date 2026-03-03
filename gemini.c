@@ -116,18 +116,22 @@ char *generate_text (char *prompt, char *model) {
 
 // -------------------- generate_texts --------------------
 
+typedef struct { char **prompts, **texts, *model; } _gen_arg_t;
 
-
-static void *_generate (void *prompt) {
-  return generate_text ((char *)prompt, "gemini-2.5-flash-lite");
+static int _generate (uint i, void *arg) {
+  _gen_arg_t *a = arg;
+  char *model = a->model ? a->model : "gemini-2.5-flash-lite";
+  a->texts[i] = generate_text (a->prompts[i], model);
+  return a->texts[i] ? 0 : -1;
 }
 
 // Call generate_text on each prompt in parallel using nt threads.
 // Returns a vector, like prompts. NULLs indicate failures.
-char **generate_texts (uint nt, char **prompts) {
+char **generate_texts (uint nt, char **prompts, char *model) {
   uint n = len(prompts);
   char **texts = new_vec (n, sizeof (char*));
-  pmap (nt, _generate, (void **)prompts, (void **)texts, n);
+  _gen_arg_t arg = { prompts, texts, model };
+  parallel (nt, n, _generate, &arg, "texts generated");
   return texts;
 }
 
