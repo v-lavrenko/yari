@@ -23,6 +23,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 #include "gemini.h"
 #include "hash.h"
 #include "textutil.h"
@@ -305,6 +306,26 @@ void embed_coll1 (char *_texts, char *_vecs) {
   free_coll (VECS);
 }
 
+// -------------------- l2_norm_coll --------------------
+
+void l2_norm_coll (char *_trg, char *_src) {
+  char tmp[9999]; sprintf (tmp, "%s.%d", _trg, getpid());
+  coll_t *src = open_coll (_src, "r+");
+  coll_t *trg = open_coll (tmp, "w+");
+  uint N = nvecs(src);
+  for (uint i = 1; i <= N; ++i) {
+    if (!has_vec(src, i)) continue;
+    float *vec = get_vec (src, i);
+    double norm = sqrt (dotf_avx (vec, vec));
+    if (norm > 0)
+      for (uint j = 0; j < len(vec); ++j) vec[j] /= norm;
+    put_vec (trg, i, vec);
+    free_vec (vec);
+  }
+  free_coll (src);
+  free_coll (trg);
+  mv_dir (tmp, _trg);
+}
 
 // -------------------- main (test) --------------------
 
@@ -319,6 +340,7 @@ char *usage =
   "gemini -gen [-0|-1|-9] \"prompt\"      ... generate text\n"
   "gemini VECS = embed:prm KVS            ... embed a collection\n"
   "gemini VECS = embed1 KVS               ... embed a collection\n"
+  "gemini UNIT = l2norm VECS              ... L2-normalize embedding vectors\n"
   ;
 
 void do_embed (char *text) {
@@ -356,6 +378,8 @@ int main (int argc, char *argv[]) {
     embed_coll (argv[4], argv[1], a(3));
   } else if (!strncmp(a(3), "embed1", 6)) { 
     embed_coll1 (argv[4], argv[1]);
+  } else if (!strcmp(a(3), "l2norm")) {
+    l2_norm_coll (argv[1], argv[4]);
   } else {
     return fprintf (stderr, "%s", usage);
   }

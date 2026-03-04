@@ -30,5 +30,6 @@ float  *embed_text     (char *text) ;
 float **embed_texts    (uint nt, char **texts) ;
 float **embed_texts_batch (char **texts, uint n) ;
 void    embed_coll     (char *texts, char *vecs, char *prm) ;
+void    l2_norm_coll   (char *trg, char *src) ;
 
 #endif
