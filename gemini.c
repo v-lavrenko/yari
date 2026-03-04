@@ -330,14 +330,14 @@ void l2_norm_coll (char *_trg, char *_src) {
 // -------------------- print_coll --------------------
 
 void print_coll (char *_vecs, char *prm) {
-  char *empty = strstr(prm, "empty");
+  char *nonempty = strstr(prm, "nonempty");
+  char *number = strstr(prm, "number");
   coll_t *C = open_coll (_vecs, "r+");
   uint N = nvecs(C);
   for (uint i = 1; i <= N; ++i) {
-    if (!has_vec(C, i)) {
-      if (empty) printf("\n");
-      continue;
-    }
+    if (!has_vec(C, i) && nonempty) continue;
+    if (number) printf("%d\t", i);
+    if (!has_vec(C, i)) {printf("\n"); continue;}
     float *vec = get_vec (C, i);
     for (uint j = 0; j < len(vec); ++j)
       printf ("%s%.6f", j ? "\t" : "", vec[j]);
@@ -362,7 +362,7 @@ char *usage =
   "gemini VECS = embed1 KVS               ... embed a collection\n"
   "gemini UNIT = l2norm VECS              ... L2-normalize embedding vectors\n"
   "gemini print[:prm] VECS                ... print vectors as TSV\n"
-  "                                           prm:empty - include empty rows\n"
+  "                                           prm:nonempty,number\n"
   ;
 
 void do_embed (char *text) {
