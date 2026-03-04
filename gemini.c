@@ -402,7 +402,7 @@ int main (int argc, char *argv[]) {
     embed_coll1 (argv[4], argv[1]);
   } else if (!strcmp(a(3), "l2norm")) {
     l2_norm_coll (argv[1], argv[4]);
-  } else if (!strcmp(a(1), "print")) {
+  } else if (!strncmp(a(1), "print", 5)) {
     print_coll (a(2), a(1));
   } else {
     return fprintf (stderr, "%s", usage);
