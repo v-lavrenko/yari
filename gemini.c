@@ -327,6 +327,26 @@ void l2_norm_coll (char *_trg, char *_src) {
   mv_dir (tmp, _trg);
 }
 
+// -------------------- print_coll --------------------
+
+void print_coll (char *_vecs, char *prm) {
+  char *empty = strstr(prm, "empty");
+  coll_t *C = open_coll (_vecs, "r+");
+  uint N = nvecs(C);
+  for (uint i = 1; i <= N; ++i) {
+    if (!has_vec(C, i)) {
+      if (empty) printf("\n");
+      continue;
+    }
+    float *vec = get_vec (C, i);
+    for (uint j = 0; j < len(vec); ++j)
+      printf ("%s%.6f", j ? "\t" : "", vec[j]);
+    printf ("\n");
+    free_vec (vec);
+  }
+  free_coll (C);
+}
+
 // -------------------- main (test) --------------------
 
 #ifdef MAIN
@@ -341,6 +361,8 @@ char *usage =
   "gemini VECS = embed:prm KVS            ... embed a collection\n"
   "gemini VECS = embed1 KVS               ... embed a collection\n"
   "gemini UNIT = l2norm VECS              ... L2-normalize embedding vectors\n"
+  "gemini print[:prm] VECS                ... print vectors as TSV\n"
+  "                                           prm:empty - include empty rows\n"
   ;
 
 void do_embed (char *text) {
@@ -380,6 +402,8 @@ int main (int argc, char *argv[]) {
     embed_coll1 (argv[4], argv[1]);
   } else if (!strcmp(a(3), "l2norm")) {
     l2_norm_coll (argv[1], argv[4]);
+  } else if (!strcmp(a(1), "print")) {
+    print_coll (a(2), a(1));
   } else {
     return fprintf (stderr, "%s", usage);
   }
