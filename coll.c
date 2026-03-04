@@ -343,6 +343,7 @@ void del_vec (coll_t *c, uint id) { del_chunk (c, id); }
 static inline void update_dims (coll_t *c, uint id, ix_t *V, uint n, uint sz) {
   if (id > c->rdim) c->rdim = id;
   if (sz == sizeof(ix_t) && n && V[n-1].i > c->cdim) c->cdim = V[n-1].i;
+  else if (sz == sizeof(float) && n > c->cdim) c->cdim = n;
 }
 
 /**/
