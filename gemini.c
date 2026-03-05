@@ -278,7 +278,7 @@ void embed_coll (char *_texts, char *_vecs, char *prm) {
   uint threads = getprm(prm, "threads=", 5);
   uint limit = getprm(prm, "limit=", MAX_UINT);
   coll_t *TEXTS = open_coll (_texts, "r+");
-  coll_t *VECS  = open_coll (_vecs, "w+");
+  coll_t *VECS  = open_coll (_vecs, "a+");
   embed_coll_t ctx = { TEXTS, VECS, 0 };
   uint N = MIN(limit,nvecs(TEXTS));
   fprintf (stderr, "embed_coll: %s[%d] -> %s\n", _texts, N, _vecs);
