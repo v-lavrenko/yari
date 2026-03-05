@@ -282,6 +282,31 @@ void rekey_coll (char *_A, char *_H, char *_B, char *_G, char *prm) { // A[j] = 
   free_coll(A); free_coll(B); free_vec(map);
 }
 
+void mask_coll (char *_A, char *_B, char *_H) { // A[i] = B[i] for ids read from stdin
+  coll_t *A = open_coll (_A, "w+");
+  coll_t *B = open_coll (_B, "r+");
+  hash_t *H = _H ? open_hash (_H, "r") : NULL;
+  char *key = NULL; size_t ksz = 0; ssize_t kn;
+  uint done = 0;
+  while ((kn = getline (&key, &ksz, stdin)) > 0) {
+    if (key[kn-1] == '\n') key[--kn] = '\0';
+    uint id = H ? has_key(H, key) : (uint)atoi(key);
+    if (!has_vec(B, id)) continue;
+    if (USE_ZSTD) {
+      byte *zvec = get_vec_ro (B, id);
+      if (!len(zvec)) continue;
+      put_vec_write (A, id, zvec);
+    } else {
+      char *b = get_chunk(B,id);
+      if (!b) continue;
+      put_chunk (A, id, b, strlen(b)+1);
+    }
+    if (!(++done%100)) show_progress (done, 0, " blobs masked");
+  }
+  fprintf (stderr, "done: %s[%d] from %d ids\n", _A, nvecs(A), done);
+  free(key); free_coll(A); free_coll(B); free_hash(H);
+}
+
 void do_merge (char *A, char *H, char *B, char *G, char *prm) { // A[j] += B[i] where key = H[j] = G[i]
   char *A1 = fmtn(999,"%s.1.%d",A,getpid());
   char *A2 = fmtn(999,"%s.2.%d",A,getpid());
@@ -1364,6 +1389,7 @@ char *usage =
   "   rekey A a += B b [addnew]  - A[j] = B[i] (replace) where key = a[j] = b[i]\n"
   "   merge A a += B b [prm]     - A[j] += B[i] (concat) where key = a[j] = b[i]\n"
   "                                prm: addnew ... add new keys if not in a\n"
+  "  -mask A = B [H] < ids       - read keys or ids from stdin, set A[i] = B[i]\n"
   "  -xsum XML [HASH]            - dump id + checksum for every doc in XML\n"
   //"  -stat XML HASH              - stats (cf,df) from collection XML -> stdout\n"
   "  -dmap XML HASH [prm]        - stdin: qryid docid, stdout: qryid XML[docid]\n"
@@ -1390,6 +1416,7 @@ char *usage =
   ;
 
 #define a(i) ((i < argc) ? argv[i] : "")
+#define arg(i) ((i < argc) ? argv[i] : NULL)
 
 int main (int argc, char *argv[]) {
   char *QRY, *DICT, *INVL, *DOCS, *XML, *RNDR, *RELS, *RETS, *SIMS, *OUT, *ORDER, *PAIRS, *RANKS;
@@ -1407,12 +1434,10 @@ int main (int argc, char *argv[]) {
     //!strcmp (a(2), "="))     merge_colls (a(1), a(3), a(5));
     //if (!strcmp (a(0), "-rekey") &&
     //!strcmp (a(3), "="))     rekey_coll (a(1), a(2), a(4), a(5), a(6));
-    if (!strcmp (a(0), "rekey") &&
-	!strcmp (a(3), "+="))    do_rekey (a(1), a(2), a(4), a(5), a(6));
-    if (!strcmp (a(0), "merge") &&
-	!strcmp (a(3), "+="))    do_merge (a(1), a(2), a(4), a(5), a(6));
-    if (!strcmp (a(0), "merge2") &&
-	!strcmp (a(3), "+="))    do_merge2 (a(1), a(2), a(4), a(5), a(6));
+    if (!strcmp (a(0), "rekey") && !strcmp (a(3), "+="))  do_rekey (a(1), a(2), a(4), a(5), a(6));
+    if (!strcmp (a(0), "merge") && !strcmp (a(3), "+="))  do_merge (a(1), a(2), a(4), a(5), a(6));
+    if (!strcmp (a(0), "merge2") &&	!strcmp (a(3), "+=")) do_merge2 (a(1), a(2), a(4), a(5), a(6));
+    if (!strcmp (a(0), "-mask") &&	!strcmp (a(2), "="))  mask_coll (a(1), a(3), arg(4));
     //if (!strcmp (a(0), "merge") &&
     //!strcmp (a(2), "+="))    do_merge (a(1), NULL, a(3), NULL, a(4));
     if (!strcmp (a(0), "-dump")) dump_raw (a(1), a(2), a(3), a(4));
