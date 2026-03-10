@@ -307,6 +307,53 @@ void embed_coll1 (char *_texts, char *_vecs) {
   free_coll (VECS);
 }
 
+// -------------------- generate_coll --------------------
+
+typedef struct {
+  coll_t *TEXTS;       // input collection
+  coll_t *OUT;         // output collection
+  volatile int lk;     // spinlock for put_chunk_pwrite
+  char *prompt;        // prompt to prepend to each text
+  char *model;         // Gemini model name
+} generate_coll_t;
+
+static int _generate_task (uint i, void *arg) {
+  generate_coll_t *c = (generate_coll_t *)arg;
+  if (!c->TEXTS || !c->OUT) return -1;
+  if (!has_vec(c->TEXTS, i+1)) return 0; // skip missing texts
+  if (has_vec(c->OUT, i+1)) return 0;    // skip existing results
+  char *txt = get_chunk_pread (c->TEXTS, i+1);
+  char *full = acat2 (c->prompt, txt);
+  char *result = generate_text (full, c->model);
+  if (result) {
+    lock (&c->lk);
+    put_chunk_pwrite (c->OUT, i+1, result, strlen(result)+1);
+    unlock (&c->lk);
+  }
+  free (result);
+  free (full);
+  free (txt);
+  return 0;
+}
+
+void generate_coll (char *_out, char *promptFile, char *_texts, char *prm) {
+  char *model = getprms(prm, "model=", "gemini-2.5-flash-lite", ",");
+  uint threads = getprm(prm, "threads=", 5);
+  uint limit = getprm(prm, "limit=", MAX_UINT);
+  char *prompt = read_file (promptFile);
+  if (!prompt) { fprintf (stderr, "cannot read: %s\n", promptFile); return; }
+  coll_t *TEXTS = open_coll (_texts, "r+");
+  coll_t *OUT   = open_coll (_out, "a+");
+  generate_coll_t ctx = { TEXTS, OUT, 0, prompt, model };
+  uint N = MIN(limit, nvecs(TEXTS));
+  fprintf (stderr, "generate_coll: %s[%d] -> %s\n", _texts, N, _out);
+  parallel (threads, N, _generate_task, &ctx, " texts generated");
+  free_coll (TEXTS);
+  free_coll (OUT);
+  free (prompt);
+  free (model);
+}
+
 // -------------------- l2_norm_coll --------------------
 
 void l2_norm_coll (char *_trg, char *_src) {
@@ -361,6 +408,8 @@ char *usage =
   "gemini -gen [-0|-1|-9] \"prompt\"      ... generate text\n"
   "gemini VECS = embed:prm KVS            ... embed a collection\n"
   "gemini VECS = embed1 KVS               ... embed a collection\n"
+  "gemini OUT  = generate:prm PROMPT KVS  ... generate text for each chunk\n"
+  "                                           prm:threads=5,limit=N,model=...\n"
   "gemini UNIT = l2norm VECS              ... L2-normalize embedding vectors\n"
   "gemini print[:prm] VECS                ... print vectors as TSV\n"
   "                                           prm:nonempty,number\n"
@@ -401,6 +450,8 @@ int main (int argc, char *argv[]) {
     embed_coll (argv[4], argv[1], a(3));
   } else if (!strncmp(a(3), "embed1", 6)) { 
     embed_coll1 (argv[4], argv[1]);
+  } else if (!strncmp(a(3), "generate", 8)) {
+    generate_coll (argv[1], argv[4], argv[5], a(3));
   } else if (!strcmp(a(3), "l2norm")) {
     l2_norm_coll (argv[1], argv[4]);
   } else if (!strncmp(a(1), "print", 5)) {
