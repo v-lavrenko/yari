@@ -271,6 +271,7 @@ static int _embed_task (uint i, void *arg) {
   }
   free (txt);
   free_vec (vec);
+  usleep(500000);
   return 0;
 }
 
