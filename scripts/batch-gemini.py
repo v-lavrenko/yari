@@ -69,10 +69,13 @@ def process_batch(batch, prompt_template, api_key, model):
     for filename, text in batch:
         body += f"\n==> {filename} <==\n{text}"
     prompt = prompt_template + body
-    response = call_gemini(prompt, api_key, model)
-    sys.stdout.write(response)
-    if not response.endswith("\n"):
-        sys.stdout.write("\n")
+    try:
+        response = call_gemini(prompt, api_key, model)
+        sys.stdout.write(response)
+        if not response.endswith("\n"):
+            sys.stdout.write("\n")
+    except urllib.error.URLError as e:
+        time.sleep(5)
 
 def process_stream_of_texts(prompt_template, api_key, batch_size, wait, model="gemini-2.5-flash-lite"):
     """Read docs from stdin, batch them, and call Gemini for each batch."""
