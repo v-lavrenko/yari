@@ -782,8 +782,8 @@ int read_doc (FILE *in, char *buf, int n, char *beg, char *end) {
 char *get_xml_docid (char *str) {
   char *id = NULL;
   if (!id) id = extract_between (str, "<DOC id=\"", "\""); // LDC
-  if (!id) id = extract_between (str, "<DOCNO>", "</DOCNO>"); // TREC: DOCNO is primary!
-  if (!id) id = extract_between (str, "<DOCID>", "</DOCID>"); // TREC: DOCID secondary
+  if (!id) id = extract_between (str, "<DOCID>", "</DOCID>"); // DOCID is primary
+  if (!id) id = extract_between (str, "<DOCNO>", "</DOCNO>"); // TREC-specific
   if (!id) {
     fprintf(stderr,"----------ERROR: cannot find docid in:\n%s\n----------\n",str);
     assert (id); }
