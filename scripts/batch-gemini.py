@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
-"""batch-gemini.py -p prompt-file [-nf N] [-w seconds] [-m model] < stdin > stdout
+"""batch-gemini.py (-f prompt-file | -c prompt) [-H|-L|-X|-0] [-n N] [-w seconds] [-m model] < stdin > stdout
 
-Read texts delimited by '==> FILENAME <==' from stdin.
-Take N texts at a time (default: 100), append them to the prompt-file contents,
-call Gemini flash-lite, and print the concatenated response text.
+Read texts from stdin, take N at a time (default: 100), append them to the
+prompt-file contents, call Gemini flash-lite, and print the response text.
+  -H  heads mode (default): docs separated by ==> FILENAME <==
+  -L  lines mode: each line is a separate doc
+  -X  xml mode: docs separated by </DOC>
+  -0  null mode: docs separated by \0
 """
 
 import sys, os, re, json, time, argparse, urllib.request
@@ -46,42 +49,61 @@ def call_gemini(prompt, api_key, model="gemini-2.5-flash-lite"):
     parts = result.get("candidates", [{}])[0].get("content", {}).get("parts", [])
     return "".join(p.get("text", "") for p in parts)
 
-def read_docs():
-    """Yield (filename, text) tuples from stdin, one at a time."""
-    filename = None
+def read_heads():
+    """Yield docs from stdin, each including its ==> FILENAME <== header."""
     lines = []
-    header_re = re.compile(r'^==> (.+?) <==$')
     for line in sys.stdin:
-        m = header_re.match(line)
-        if m:
-            if filename is not None:
-                yield (filename, "".join(lines))
-            filename = m.group(1).strip()
+        if re.match(r'^==> .+? <==$', line):
+            if lines:
+                yield "".join(lines)
+            lines = [line]
+        else:
+            lines.append(line)
+    if lines:
+        yield "".join(lines)
+
+def read_lines():
+    """Yield lines from stdin, one at a time."""
+    for line in sys.stdin:
+        yield line
+
+def read_xml():
+    """Yield docs from stdin, split by </DOC>."""
+    lines = []
+    for line in sys.stdin:
+        if line.strip() == '</DOC>':
+            yield "".join(lines)
             lines = []
         else:
             lines.append(line)
-    if filename is not None:
-        yield (filename, "".join(lines))
+    if lines:
+        yield "".join(lines)
+
+def read_null():
+    """Yield docs from stdin, split by null bytes."""
+    data = sys.stdin.buffer.read()
+    for part in data.split(b'\0'):
+        text = part.decode('utf-8', errors='replace')
+        if text:
+            yield text
 
 def process_batch(batch, prompt_template, api_key, model):
-    """Build prompt from batch of docs, call Gemini, write response."""
-    body = ""
-    for filename, text in batch:
-        body += f"\n==> {filename} <==\n{text}"
-    prompt = prompt_template + body
+    """Build prompt from batch of texts, call Gemini, write response."""
+    prompt = prompt_template + "".join(batch)
     try:
         response = call_gemini(prompt, api_key, model)
         sys.stdout.write(response)
         if not response.endswith("\n"):
             sys.stdout.write("\n")
+        sys.stdout.flush()
     except urllib.error.URLError as e:
         time.sleep(5)
 
-def process_stream_of_texts(prompt_template, api_key, batch_size, wait, model="gemini-2.5-flash-lite"):
-    """Read docs from stdin, batch them, and call Gemini for each batch."""
+def process_stream_of_texts(docs, prompt_template, api_key, batch_size, wait, model="gemini-2.5-flash-lite"):
+    """Consume doc generator in batches, call Gemini for each batch."""
     batch = []
     total = 0
-    for doc in read_docs():
+    for doc in docs:
         batch.append(doc)
         if len(batch) >= batch_size:
             t0 = time.time()
@@ -95,23 +117,32 @@ def process_stream_of_texts(prompt_template, api_key, batch_size, wait, model="g
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Batch-call Gemini flash-lite on ==> FILENAME <== delimited texts from stdin.")
-    parser.add_argument('-p', required=True, metavar='FILE', help='prompt file')
-    parser.add_argument('-nf', type=int, default=100, metavar='N', help='texts per batch (100)')
+        description="Batch-call Gemini flash-lite on texts from stdin.")
+    prompt = parser.add_mutually_exclusive_group(required=True)
+    prompt.add_argument('-f', metavar='FILE', help='read prompt from file')
+    prompt.add_argument('-c', metavar='PROMPT', help='prompt string')
+    parser.add_argument('-n', type=int, default=100, metavar='N', help='texts per batch (100)')
     parser.add_argument('-w', type=float, default=0, metavar='SEC', help='sleep after calls (0)')
+    parser.add_argument('-H', action='store_true', default=True, help='heads mode: ==> FILE <== (default)')
+    parser.add_argument('-L', action='store_true', help='lines mode: one doc per line')
+    parser.add_argument('-X', action='store_true', help='xml mode: docs separated by </DOC>')
+    parser.add_argument('-0', action='store_true', dest='null', help='null mode: docs separated by \\0')
     parser.add_argument('-m', default='gemini-2.5-flash-lite', metavar='MODEL', help='model (gemini-2.5-flash-lite)')
     opts = parser.parse_args()
-    prompt_file = opts.p
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
         print("Error: GEMINI_API_KEY not set", file=sys.stderr)
         sys.exit(1)
-    if not os.path.isfile(prompt_file):
-        print(f"Error: prompt file not found: {prompt_file}", file=sys.stderr)
-        sys.exit(1)
-    with open(prompt_file) as f:
-        prompt_template = f.read()
+    if opts.f:
+        if not os.path.isfile(opts.f):
+            print(f"Error: prompt file not found: {opts.f}", file=sys.stderr)
+            sys.exit(1)
+        with open(opts.f) as fh:
+            prompt_template = fh.read()
+    else:
+        prompt_template = opts.c + "\n"
     print(f"Applying prompt to ==> texts <==:\n{prompt_template}", file=sys.stderr)
-    process_stream_of_texts(prompt_template, api_key, opts.nf, opts.w, opts.m)
+    docs = read_lines() if opts.L else read_xml() if opts.X else read_null() if opts.null else read_heads()
+    process_stream_of_texts(docs, prompt_template, api_key, opts.n, opts.w, opts.m)
 if __name__ == "__main__":
     main()
