@@ -21,6 +21,7 @@
 
 #include "hash.h"
 #include "textutil.h"
+#include "hl.h"
 
 uint multiadd_hashcode (char *s) ;
 uint murmur3 (const char *key, uint len) ;
@@ -91,6 +92,7 @@ char *usage =
   "               -merge DICT += DICT2\n"
   "               -batch DICT += DICT2\n"
   "           -diff,tail DICT - DICT2\n"
+  "                -diff DICT DICT2\n"
   "                 -k2i DICT key\n"
   "                 -i2k DICT id\n"
   "                 size DICT\n"
@@ -242,7 +244,7 @@ int main (int argc, char *argv[]) {
     return 0;
   }
 
-  if (!strcmp(argv[1], "-diff") && !strcmp(argv[3],"-")) {
+  if (!strcmp(argv[1], "-diff") && argc > 3 && !strcmp(argv[3],"-")) {
     char *tail = strstr (argv[1], "tail");
     hash_t *A = open_hash (argv[2], "r");
     hash_t *B = open_hash (argv[4], "r!");
@@ -256,6 +258,45 @@ int main (int argc, char *argv[]) {
       else if (tail) break; // stop on 1st key in B
     }
     fprintf (stderr, "diff: %d in %s - %s\n", nD, A->path, B->path);
+    free_hash (A); free_hash (B);
+    return 0;
+  }
+
+  if (!strncmp(argv[1], "-diff", 5)) {
+    uint vv = (argv[1][5] == 'v');
+    hash_t *A = open_hash (argv[2], "r");
+    hash_t *B = open_hash (argv[3], "r");
+    uint i, nA = nkeys(A), nB = nkeys(B);
+    uint nIns = 0, nDel = 0, nNeq = 0;
+    printf ("diff: %s [%d] vs %s [%d]\n", A->path, nA, B->path, nB);
+    for (i = 1; i <= nB; ++i) {
+      char *key = id2key(B,i);
+      if (!has_key(A, key)) { 
+        ++nIns; 
+        if (vv) printf(BOLD"ins:"RESET"\t%s\n",key); 
+      }
+    }
+    for (i = 1; i <= nA; ++i) {
+      char *key = id2key(A,i);
+      if (!has_key(B, key)) { 
+        ++nDel; 
+        if (vv) printf(BOLD"del:"RESET"\t%s\n",key); 
+      }
+    }
+    for (i = 1; i <= nA; ++i) {
+      char *key = id2key(A,i);
+      uint idB = has_key(B, key);
+      if (idB && idB != i) { 
+        ++nNeq; 
+        if (vv) printf (BOLD"neq:"RESET"\t%d\t%d\t%s\n", i, idB, key); 
+      }
+    }
+    uint nSame = nA - nDel - nNeq;
+    if (nIns + nDel + nNeq == 0) {
+      printf(BOLD""fg_GREEN"%s == %s"RESET"\n", A->path, B->path);
+    } else {
+      printf ("same:%d, ins:"fg_GREEN"%d"RESET", del:"fg_RED"%d"RESET", neq:"fg_YELLOW"%d"RESET"\n", nSame, nIns, nDel, nNeq);
+    }
     free_hash (A); free_hash (B);
     return 0;
   }
