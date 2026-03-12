@@ -797,6 +797,29 @@ char *get_xml_docid (char *str) {
   return id;
 }
 
+// return pointer to text between <DOC id="..."> and </DOC>
+// also handles <DOC><DOCID>...</DOCID> opening
+// terminates </DOC> in s; no allocation
+// if no opening found: return s, do not terminate </DOC>
+// if opening but no closing: skip opening, do not terminate
+char *trim_doc_tags (char *s) {
+  char *beg = s, *end;
+  char *open = strstr(s, "<DOC id=\"");
+  if (open) { // <DOC id="...">body</DOC>
+    char *q = strchr(open + 9, '"'); // find closing "
+    if (!q || q[1] != '>') return s; // malformed
+    beg = q + 2;
+  } else if ((open = strstr(s, "<DOCID>"))) { // <DOC><DOCID>...</DOCID>body</DOC>
+    char *docid_end = strstr(open, "</DOCID>");
+    if (!docid_end) return s;
+    beg = docid_end + 8; // skip past </DOCID> (8 chars)
+  } else return s; // no opening: return as-is
+  end = strstr(beg, "</DOC>");
+  if (!end) return beg; // opening but no closing: skip opening only
+  *end = '\0';
+  return beg;
+}
+
 char *get_xml_title (char *xml) {
   char   *s = extract_between (xml, "<title>", "</title>");
   if (!s) s = extract_between (xml, "<head>", "</head>");

@@ -116,6 +116,7 @@ void free_toks (char **toks) ;
 void show_toks (char **toks, char *fmt) ;
 
 char *get_xml_docid (char *xml) ;
+char *trim_doc_tags (char *s) ;
 char *get_xml_title (char *str) ;
 char *get_xml_author (char *xml) ;
 char *get_xml_open (char *xml, char *tag); // pointer to next opening <tag>
