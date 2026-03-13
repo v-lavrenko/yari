@@ -377,14 +377,16 @@ void l2_norm_coll (char *_trg, char *_src) {
 
 // -------------------- print_coll --------------------
 
-void print_coll (char *_vecs, char *prm) {
+void print_coll (char *prm, char *_vecs, char *_ids) {
   char *nonempty = strstr(prm, "nonempty");
   char *number = strstr(prm, "number");
   coll_t *C = open_coll (_vecs, "r+");
+  hash_t *IDS = _ids ? open_hash (_ids, "r") : NULL;
   uint N = nvecs(C);
   for (uint i = 1; i <= N; ++i) {
     if (!has_vec(C, i) && nonempty) continue;
-    if (number) printf("%d\t", i);
+    if (IDS)         printf("%s\t", id2key(IDS, i));
+    else if (number) printf("%d\t", i);
     if (!has_vec(C, i)) {printf("\n"); continue;}
     float *vec = get_vec (C, i);
     for (uint j = 0; j < len(vec); ++j)
@@ -392,7 +394,43 @@ void print_coll (char *_vecs, char *prm) {
     printf ("\n");
     free_vec (vec);
   }
+  if (IDS) free_hash (IDS);
   free_coll (C);
+}
+
+// -------------------- load_coll --------------------
+
+void load_coll (char *prm, char *_vecs, char *_ids) {
+  char *p = getprms(prm, "p=", "wr", ",");
+  char *pV = (p[0] == 'w') ? "w+" : (p[0] == 'a') ? "a+" : "r+";
+  char *pH = (p[1] == 'w') ? "w"  : (p[1] == 'a') ? "a" : "r";
+  coll_t *VECS = open_coll (_vecs, pV);
+  hash_t *IDS  = open_hash (_ids, pH);
+  char *line = NULL;
+  size_t lsz = 0; uint done = 0;
+  while (getline (&line, &lsz, stdin) > 0) {
+    char *p = line;
+    char *key = p;
+    char *tab = strchr (p, '\t');
+    if (!tab) continue; // skip lines with no tabs
+    *tab = '\0';
+    p = tab + 1;
+    uint id = key2id (IDS, key);
+    float *vec = new_vec (0, sizeof(float));
+    while (*p && *p != '\n') {
+      float v = strtof (p, &p);
+      vec = append_vec (vec, &v);
+      if (*p == '\t') ++p;
+    }
+    put_vec (VECS, id, vec);
+    free_vec (vec);
+    ++done;
+  }
+  free (line);
+  printf ("added %d vecs -> %s [%d x %d]\n", done, _vecs, num_rows(VECS), num_cols(VECS));
+  free_hash (IDS);
+  free_coll (VECS);
+  free (p);
 }
 
 // -------------------- main (test) --------------------
@@ -411,8 +449,9 @@ char *usage =
   "gemini OUT  = generate:prm PROMPT KVS  ... generate text for each chunk\n"
   "                                           prm:threads=5,limit=N,model=...\n"
   "gemini UNIT = l2norm VECS              ... L2-normalize embedding vectors\n"
-  "gemini print[:prm] VECS                ... print vectors as TSV\n"
+  "gemini print[:prm] VECS [IDS]          ... print vectors as TSV\n"
   "                                           prm:nonempty,number\n"
+  "gemini load[:p=wr] VECS IDS            ... read TSV from stdin into VECS+IDS\n"
   ;
 
 void do_embed (char *text) {
@@ -455,7 +494,10 @@ int main (int argc, char *argv[]) {
   } else if (!strcmp(a(3), "l2norm")) {
     l2_norm_coll (argv[1], argv[4]);
   } else if (!strncmp(a(1), "print", 5)) {
-    print_coll (a(2), a(1));
+    print_coll (a(1), a(2), arg(3));
+  } else if (!strncmp(a(1), "load", 4)) {
+    if (!arg(2) || !arg(3)) return fprintf (stderr, "usage: gemini load VECS IDS\n"), 1;
+    load_coll (a(1), a(2), a(3));
   } else {
     return fprintf (stderr, "%s", usage);
   }
