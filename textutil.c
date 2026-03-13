@@ -1474,6 +1474,7 @@ sjk_t *alphanumeric_tokens(char *text) {
     while (*p && isalnum(*p)) p++; // find trailing junk
     new.k = (p - text);
     new.s = strndup(text + new.j, new.k - new.j);
+    lowercase (new.s);
     spans = append_vec(spans, &new);
   }
   return spans;
@@ -1494,6 +1495,7 @@ sjk_t *punctuated_tokens(char *text) {
     while (*p && !punctuated(*p)) p++; // find trailing junk
     new.k = (p - text);
     new.s = strndup(text + new.j, new.k - new.j);
+    lowercase (new.s);
     spans = append_vec(spans, &new);
   }
   return spans;
